@@ -63,9 +63,27 @@ namespace CapaDatos
         public static SqlParameter Tabla(string nombre, string tipo, DataTable tabla) =>
             new(nombre, SqlDbType.Structured) { TypeName = tipo, Value = tabla };
 
+        /// <summary>Ejecuta un SP que devuelve varios resultados; <paramref name="leer"/> recorre el lector.</summary>
+        public static void Leer(string sp, Action<SqlDataReader> leer, params SqlParameter[] parametros)
+        {
+            using var cn = Abrir();
+            using var cmd = new SqlCommand(sp, cn) { CommandType = CommandType.StoredProcedure };
+            cmd.Parameters.AddRange(parametros);
+            using var dr = cmd.ExecuteReader();
+            leer(dr);
+        }
+
+        public static DataTable Ids(IEnumerable<int> ids)
+        {
+            var t = new DataTable();
+            t.Columns.Add("Id", typeof(int));
+            foreach (var id in ids.Distinct()) t.Rows.Add(id);
+            return t;
+        }
+
         public static string Texto(this SqlDataReader dr, string col) => dr[col] == DBNull.Value ? "" : dr[col].ToString()!;
         public static int Entero(this SqlDataReader dr, string col) => Convert.ToInt32(dr[col]);
-        public static decimal Decimal(this SqlDataReader dr, string col) => Convert.ToDecimal(dr[col]);
+        public static decimal Decimal(this SqlDataReader dr, string col) => dr[col] == DBNull.Value ? 0 : Convert.ToDecimal(dr[col]);
         public static bool Bool(this SqlDataReader dr, string col) => Convert.ToBoolean(dr[col]);
     }
 }

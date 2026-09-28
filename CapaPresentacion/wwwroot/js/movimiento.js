@@ -3,7 +3,7 @@
     const cboTipo = document.getElementById('cboTipo');
     const cboInsumo = document.getElementById('cboInsumo');
     const lblStock = document.getElementById('lblStock');
-    const colores = { ENTRADA: 'success', SALIDA: 'primary', MERMA: 'warning', VENTA: 'danger' };
+    const colores = { ENTRADA: 'success', SALIDA: 'primary', MERMA: 'warning', VENTA: 'danger', 'AJUSTE+': 'info', 'AJUSTE-': 'secondary' };
     let insumos = [];
 
     document.getElementById('txtInicio').value = hoy();
@@ -38,20 +38,27 @@
             <td><span class="badge text-bg-${colores[m.tipo]}">${m.tipo}</span></td>
             <td class="text-end">${num(m.cantidad)} ${esc(m.unidadMedida)}</td>
             <td class="text-end">${num(m.stockAnterior)}</td><td class="text-end">${num(m.stockNuevo)}</td>
-            <td>${esc(m.proveedor || m.observacion)}</td><td>${esc(m.usuario)}</td></tr>`, 8);
+            <td>${esc(m.proveedor || m.observacion)}${m.fechaVencimiento ? `<br><small class="text-muted">Vence ${esc(m.fechaVencimiento.substring(0, 10))}</small>` : ''}</td><td>${esc(m.usuario)}</td></tr>`, 8);
     }
 
     cboTipo.addEventListener('change', ajustarTipo);
     cboInsumo.addEventListener('change', mostrarStock);
     document.getElementById('btnBuscar').addEventListener('click', () => cargarKardex().catch(errorAlerta));
+    document.getElementById('btnExcel').addEventListener('click', () => {
+        const q = new URLSearchParams({ inicio: document.getElementById('txtInicio').value, fin: document.getElementById('txtFin').value,
+            idInsumo: document.getElementById('cboFiltroInsumo').value || 0 });
+        location.href = `/Movimiento/Exportar?${q}`;
+    });
 
     document.getElementById('btnRegistrar').addEventListener('click', async () => {
         if (!form.reportValidity()) return;
         try {
-            const r = await api.post('/Movimiento/Registrar', leerForm(form));
+            const datos = leerForm(form);
+            datos.fechaVencimiento = datos.fechaVencimiento || null;
+            const r = await api.post('/Movimiento/Registrar', datos);
             if (!r.resultado) return alerta(r.mensaje, 'warning');
             alerta('Movimiento registrado');
-            form.cantidad.value = ''; form.observacion.value = '';
+            form.cantidad.value = ''; form.observacion.value = ''; form.fechaVencimiento.value = '';
             await cargarInsumos();
             await cargarKardex();
         } catch (e) { errorAlerta(e); }

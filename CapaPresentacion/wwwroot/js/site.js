@@ -25,7 +25,7 @@ function esc(texto) {
     return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-const moneda = n => Number(n ?? 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 });
+const moneda = n => (window.APP?.moneda ?? '$') + ' ' + Number(n ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 0 });
 const num = n => Number(n ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 3 });
 const hoy = () => new Date().toLocaleDateString('en-CA'); // yyyy-mm-dd
 
@@ -108,7 +108,7 @@ function Mantenimiento(op) {
             renderTabla(tbody, datos, obj => `<tr>${op.fila(obj)}
                 <td class="text-end text-nowrap">
                     <button class="btn btn-sm btn-outline-primary" data-editar="${obj[op.id]}" title="Editar"><i class="bi bi-pencil"></i></button>
-                    <button class="btn btn-sm btn-outline-danger" data-eliminar="${obj[op.id]}" title="Eliminar"><i class="bi bi-trash"></i></button>
+                    ${op.sinEliminar ? '' : `<button class="btn btn-sm btn-outline-danger" data-eliminar="${obj[op.id]}" title="Eliminar"><i class="bi bi-trash"></i></button>`}
                 </td></tr>`, op.columnas);
         } catch (e) { errorAlerta(e); }
     }
@@ -116,6 +116,7 @@ function Mantenimiento(op) {
     function abrir(obj) {
         llenarForm(form, obj ?? op.nuevo());
         titulo.textContent = obj ? 'Editar' : 'Nuevo';
+        op.alAbrir?.(obj, form);
         modal.show();
     }
 
@@ -135,7 +136,8 @@ function Mantenimiento(op) {
     document.getElementById('btnGuardar').addEventListener('click', async () => {
         if (!form.reportValidity()) return;
         try {
-            const r = await api.post(`${op.base}/Guardar`, leerForm(form));
+            const datos = leerForm(form);
+            const r = await api.post(`${op.base}/Guardar`, op.preparar ? op.preparar(datos) : datos);
             if (r.resultado) { modal.hide(); alerta('Guardado correctamente'); cargar(); }
             else alerta(r.mensaje, 'warning');
         } catch (e) { errorAlerta(e); }
@@ -145,3 +147,21 @@ function Mantenimiento(op) {
     cargar();
     return { cargar };
 }
+
+/* Selector de sede del administrador en la barra superior */
+(async function () {
+    const cbo = document.getElementById('cboSedeNav');
+    if (!cbo) return;
+    try {
+        const sedes = await api.get('/Acceso/Sedes');
+        if (sedes.length < 2) { cbo.closest('form').hidden = true; return; }
+        cbo.innerHTML = sedes.map(s => `<option value="${s.idSede}">${esc(s.nombre)}</option>`).join('');
+        cbo.value = cbo.dataset.actual;
+        cbo.addEventListener('change', () => cbo.form.submit());
+    } catch (e) { /* sin selector */ }
+})();
+
+const fechaHace = dias => { const d = new Date(); d.setDate(d.getDate() - dias); return d.toLocaleDateString('en-CA'); };
+const etiquetaPago = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA: 'Transferencia' };
+const etiquetaPedido = { MESA: 'En mesa', LLEVAR: 'Para llevar', DOMICILIO: 'Domicilio' };
+const etiquetaEstado = { PENDIENTE: 'Pendiente', EN_CAMINO: 'En camino', ENTREGADO: 'Entregado' };

@@ -1,0 +1,37 @@
+@{
+    ViewData["Title"] = "Sedes";
+}
+<p class="text-muted">Cada sede maneja su propio stock, caja y ventas. El administrador cambia de sede desde la barra superior.</p>
+<partial name="_Barra" />
+<div class="card"><div class="card-body p-0 table-responsive">
+    <table class="table table-hover mb-0" id="tabla">
+        <thead class="table-light"><tr><th>Sede</th><th>Dirección</th><th>Teléfono</th><th>Estado</th><th></th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div></div>
+
+<div class="modal fade" id="modal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <form id="formulario" class="row g-3">
+                <input type="hidden" name="idSede" data-tipo="numero" />
+                <div class="col-12"><label class="form-label">Nombre</label><input name="nombre" class="form-control" maxlength="100" required /></div>
+                <div class="col-md-7"><label class="form-label">Dirección</label><input name="direccion" class="form-control" maxlength="150" /></div>
+                <div class="col-md-5"><label class="form-label">Teléfono</label><input name="telefono" class="form-control" maxlength="30" /></div>
+                <div class="col-12 form-check ms-2"><input type="checkbox" name="activo" class="form-check-input" id="chkActivo" /><label class="form-check-label" for="chkActivo">Activa</label></div>
+            </form>
+        </div>
+        <partial name="_ModalPie" />
+    </div></div>
+</div>
+
+@section Scripts {
+<script>
+    Mantenimiento({
+        base: '/Sede', id: 'idSede', columnas: 5,
+        nuevo: () => ({ idSede: 0, activo: true }),
+        fila: s => `<td class="fw-semibold">${esc(s.nombre)}</td><td>${esc(s.direccion)}</td><td>${esc(s.telefono)}</td><td>${badgeActivo(s.activo)}</td>`
+    });
+</script>
+}

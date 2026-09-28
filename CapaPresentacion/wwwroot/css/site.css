@@ -1,8 +1,76 @@
+:root {
+    --fondo: #f5f5f7;
+    --borde: #e5e3e1;
+    --texto-suave: #6b6461;
+}
 html { font-size: 15px; }
-body { background: #f5f6f8; min-height: 100vh; }
-.tarjeta { border-radius: .6rem; }
+body { background: var(--fondo); min-height: 100vh; }
+[hidden] { display: none !important; } /* gana sobre utilidades como .d-flex */
 .table td, .table th { vertical-align: middle; }
-.login-fondo { background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%); min-height: 100vh; }
-.login-card { width: 100%; max-width: 380px; border-radius: 1rem; }
-.producto-btn { min-height: 90px; white-space: normal; }
+.titulo-pagina { font-weight: 700; }
+
+/* ---- Colores de marca (se configuran en Mantenimiento > Configuración) ---- */
+.barra-marca { background: var(--marca-2); }
+.barra-marca .nav-link.active { color: var(--marca-2-texto) !important; border-bottom: 3px solid var(--marca); }
+.logo-nav { height: 34px; width: auto; border-radius: 6px; background: #fff; padding: 2px; }
+.btn-marca { background: var(--marca); color: var(--marca-texto); border-color: var(--marca); }
+.btn-marca:hover, .btn-marca:focus { background: var(--marca); color: var(--marca-texto); filter: brightness(.92); }
+.btn-outline-marca { color: var(--marca); border-color: var(--marca); background: transparent; }
+.btn-outline-marca:hover, .btn-outline-marca.active { background: var(--marca); color: var(--marca-texto); }
+.text-marca { color: var(--marca) !important; }
+.bg-marca { background: var(--marca) !important; color: var(--marca-texto) !important; }
+.borde-marca { border-color: var(--marca) !important; }
+.form-check-input:checked { background-color: var(--marca); border-color: var(--marca); }
+
+/* ---- Tarjetas del panel ---- */
+.kpi { border: 0; border-left: 4px solid var(--marca); border-radius: .6rem; }
+.kpi .valor { font-size: 1.5rem; font-weight: 700; }
+.kpi.alerta { border-left-color: #f0ad00; }
+.kpi.ok { border-left-color: #198754; }
 .stock-bajo { color: #dc3545; font-weight: 600; }
+
+/* ---- Login ---- */
+.login-fondo { background: linear-gradient(135deg, var(--marca-2) 0%, var(--marca) 100%); min-height: 100vh; }
+.login-card { width: 100%; max-width: 380px; border-radius: 1rem; }
+.login-logo { max-height: 90px; max-width: 200px; }
+
+/* ---- Punto de venta ---- */
+.pos { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 1rem; align-items: start; }
+.pos-categorias { display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .25rem; }
+.pos-categorias .btn { white-space: nowrap; border-radius: 999px; }
+.pos-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: .9rem; }
+.producto-card {
+    border: 1px solid var(--borde); border-radius: 14px; overflow: hidden; background: #fff;
+    text-align: left; padding: 0; cursor: pointer; transition: transform .12s, box-shadow .12s;
+    display: flex; flex-direction: column;
+}
+.producto-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgb(0 0 0 / .08); }
+.producto-card:focus-visible { outline: 3px solid var(--marca); outline-offset: 2px; }
+.producto-foto { aspect-ratio: 4 / 3; width: 100%; object-fit: cover; background: #f0ece9; display: block; }
+.producto-foto.sin-foto { display: grid; place-items: center; font-size: 3rem; background: linear-gradient(135deg, #fff4ee, #f6e3da); }
+.producto-info { padding: .6rem .75rem .75rem; display: grid; gap: .15rem; }
+.producto-nombre { font-weight: 600; line-height: 1.2; }
+.producto-precio { color: var(--marca); font-weight: 700; }
+.pedido { position: sticky; top: 1rem; }
+.pedido .lineas { max-height: 38vh; overflow-y: auto; }
+.pedido .linea small { color: var(--texto-suave); }
+.segmentado .btn { flex: 1; }
+@media (max-width: 991px) { .pos { grid-template-columns: 1fr; } .pedido { position: static; } }
+
+/* ---- Domicilios ---- */
+.domicilio { border-left: 4px solid #adb5bd; }
+.domicilio.PENDIENTE { border-left-color: #f0ad00; }
+.domicilio.EN_CAMINO { border-left-color: #0d6efd; }
+.domicilio.ENTREGADO { border-left-color: #198754; opacity: .75; }
+
+/* ---- Configuración ---- */
+.vista-previa { border-radius: .6rem; overflow: hidden; border: 1px solid var(--borde); }
+.color-input { width: 3.2rem; height: 2.4rem; padding: .2rem; }
+
+/* ---- Impresión (Exportar a PDF desde el navegador) ---- */
+@media print {
+    .no-imprimir, nav, .toast-container, .btn { display: none !important; }
+    body { background: #fff; }
+    main { padding: 0 !important; }
+    .card { border: 0 !important; box-shadow: none !important; }
+}

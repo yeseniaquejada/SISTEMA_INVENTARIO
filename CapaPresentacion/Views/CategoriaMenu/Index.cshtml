@@ -1,0 +1,45 @@
+@{
+    ViewData["Title"] = "Categorías del menú";
+}
+<p class="text-muted">Agrupan los productos en la pantalla de venta (Hamburguesas, Perros, Bebidas...). El orden define cómo aparecen.</p>
+<partial name="_Barra" />
+<div class="card"><div class="card-body p-0 table-responsive">
+    <table class="table table-hover mb-0" id="tabla">
+        <thead class="table-light"><tr><th>Icono</th><th>Categoría</th><th class="text-center">Orden</th><th>Estado</th><th></th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div></div>
+
+<div class="modal fade" id="modal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <form id="formulario" class="row g-3">
+                <input type="hidden" name="idCategoriaMenu" data-tipo="numero" />
+                <div class="col-md-8"><label class="form-label">Nombre</label><input name="nombre" class="form-control" maxlength="60" required /></div>
+                <div class="col-md-4"><label class="form-label">Orden</label><input name="orden" type="number" class="form-control" data-tipo="numero" /></div>
+                <div class="col-12"><label class="form-label">Icono (emoji)</label>
+                    <input name="icono" id="txtIcono" class="form-control" maxlength="4" />
+                    <div class="d-flex flex-wrap gap-1 mt-2" id="sugeridos"></div>
+                    <div class="form-text">Se muestra en los productos que aún no tienen foto.</div></div>
+                <div class="col-12 form-check ms-2"><input type="checkbox" name="activo" class="form-check-input" id="chkActivo" /><label class="form-check-label" for="chkActivo">Activa</label></div>
+            </form>
+        </div>
+        <partial name="_ModalPie" />
+    </div></div>
+</div>
+
+@section Scripts {
+<script>
+    document.getElementById('sugeridos').innerHTML = ['🍔','🌭','🍟','🍕','🌯','🌮','🍗','🥩','🍽️','🥤','🧃','🍦','🍰','🥗','🍳']
+        .map(e => `<button type="button" class="btn btn-light btn-sm fs-5" data-e="${e}">${e}</button>`).join('');
+    document.getElementById('sugeridos').addEventListener('click', ev => {
+        const b = ev.target.closest('[data-e]'); if (b) document.getElementById('txtIcono').value = b.dataset.e;
+    });
+    Mantenimiento({
+        base: '/CategoriaMenu', id: 'idCategoriaMenu', columnas: 5,
+        nuevo: () => ({ idCategoriaMenu: 0, icono: '🍽️', orden: 0, activo: true }),
+        fila: c => `<td class="fs-4">${esc(c.icono)}</td><td class="fw-semibold">${esc(c.nombre)}</td><td class="text-center">${c.orden}</td><td>${badgeActivo(c.activo)}</td>`
+    });
+</script>
+}

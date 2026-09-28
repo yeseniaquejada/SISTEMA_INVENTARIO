@@ -1,0 +1,96 @@
+@{
+    ViewData["Title"] = "Conteo físico de inventario";
+}
+<div class="row g-3">
+    <div class="col-xl-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white">
+                <p class="small text-muted mb-2">Escriba lo que contó en el local. Solo se ajustan los insumos donde escriba una cantidad; la diferencia queda registrada en el kardex.</p>
+                <div class="d-flex gap-2 flex-wrap">
+                    <select id="cboCategoria" class="form-select form-select-sm" style="max-width:220px"></select>
+                    <input type="search" id="txtBuscar" class="form-control form-control-sm" style="max-width:240px" placeholder="Buscar insumo..." />
+                    <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir hoja de conteo</button>
+                </div>
+            </div>
+            <div class="card-body p-0 table-responsive" style="max-height:60vh">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light sticky-top"><tr><th>Código</th><th>Insumo</th><th>Categoría</th><th class="text-end">En sistema</th><th style="width:140px">Contado</th><th class="text-end">Diferencia</th></tr></thead>
+                    <tbody id="tablaConteo"></tbody>
+                </table>
+            </div>
+            <div class="card-footer bg-white d-flex gap-2 no-imprimir">
+                <input id="txtObservacion" class="form-control" maxlength="250" placeholder="Observación (opcional)" />
+                <button class="btn btn-marca text-nowrap" id="btnGuardar"><i class="bi bi-check2-square"></i> Guardar conteo</button>
+            </div>
+        </div>
+    </div>
+    <div class="col-xl-4 no-imprimir">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white"><strong>Conteos anteriores</strong></div>
+            <div class="card-body p-0 table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light"><tr><th>Fecha</th><th class="text-end">Insumos</th><th class="text-end">Con diferencia</th><th class="text-end">Valor</th></tr></thead>
+                    <tbody id="tablaHistorial"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const $ = id => document.getElementById(id);
+    let insumos = [];
+
+    async function cargar() {
+        try {
+            const [lista, historial] = await Promise.all([api.get('/Insumo/Listar'), api.get('/Conteo/Listar')]);
+            insumos = lista.filter(i => i.activo);
+            const cats = [...new Set(insumos.map(i => i.categoria))];
+            $('cboCategoria').innerHTML = '<option value="">Todas las categorías</option>' + cats.map(c => `<option>${esc(c)}</option>`).join('');
+            renderTabla($('tablaConteo'), insumos, i => `<tr data-cat="${esc(i.categoria)}">
+                <td>${esc(i.codigo)}</td><td>${esc(i.nombre)}</td><td>${esc(i.categoria)}</td>
+                <td class="text-end">${num(i.stock)} ${esc(i.unidadMedida)}</td>
+                <td><input type="number" min="0" step="0.001" class="form-control form-control-sm" data-id="${i.idInsumo}" data-stock="${i.stock}" /></td>
+                <td class="text-end diferencia"></td></tr>`, 6);
+            renderTabla($('tablaHistorial'), historial, h => `<tr>
+                <td class="text-nowrap">${esc(h.fecha)}<br><small class="text-muted">${esc(h.usuario)}</small></td>
+                <td class="text-end">${h.insumos}</td><td class="text-end">${h.conDiferencia}</td>
+                <td class="text-end ${h.valorDiferencia < 0 ? 'text-danger' : ''}">${moneda(h.valorDiferencia)}</td></tr>`, 4);
+        } catch (e) { errorAlerta(e); }
+    }
+
+    function filtrar() {
+        const q = $('txtBuscar').value.toLowerCase(), c = $('cboCategoria').value;
+        $('tablaConteo').querySelectorAll('tr').forEach(tr =>
+            tr.hidden = !(tr.textContent.toLowerCase().includes(q) && (!c || tr.dataset.cat === c)));
+    }
+    $('txtBuscar').addEventListener('input', filtrar);
+    $('cboCategoria').addEventListener('change', filtrar);
+
+    $('tablaConteo').addEventListener('input', ev => {
+        const inp = ev.target;
+        const celda = inp.closest('tr').querySelector('.diferencia');
+        if (inp.value === '') { celda.textContent = ''; return; }
+        const d = Number(inp.value) - Number(inp.dataset.stock);
+        celda.textContent = (d > 0 ? '+' : '') + num(d);
+        celda.className = 'text-end diferencia ' + (d < 0 ? 'text-danger' : d > 0 ? 'text-primary' : 'text-success');
+    });
+
+    $('btnGuardar').addEventListener('click', async () => {
+        const detalle = [...$('tablaConteo').querySelectorAll('input')].filter(i => i.value !== '')
+            .map(i => ({ idInsumo: Number(i.dataset.id), stockContado: Number(i.value) }));
+        if (!detalle.length) { alerta('Escriba al menos una cantidad contada', 'warning'); return; }
+        if (!confirm(`Se ajustará el stock de ${detalle.length} insumo(s). ¿Continuar?`)) return;
+        try {
+            const r = await api.post('/Conteo/Registrar', { observacion: $('txtObservacion').value, detalle });
+            if (r.resultado) { alerta('Conteo guardado y stock ajustado'); $('txtObservacion').value = ''; cargar(); }
+            else alerta(r.mensaje, 'warning');
+        } catch (e) { errorAlerta(e); }
+    });
+
+    cargar();
+})();
+</script>
+}

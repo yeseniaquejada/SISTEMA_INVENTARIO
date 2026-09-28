@@ -1,0 +1,116 @@
+@{
+    ViewData["Title"] = "Configuración y apariencia";
+}
+<p class="text-muted">Personalice el sistema para cada negocio: nombre, logo, colores y datos que salen en el ticket.</p>
+<div class="row g-4">
+    <div class="col-lg-7">
+        <form id="formulario" class="card"><div class="card-body row g-3">
+            <h6 class="col-12 mb-0">Datos del negocio</h6>
+            <div class="col-md-8"><label class="form-label" for="nombreNegocio">Nombre del negocio</label><input id="nombreNegocio" name="nombreNegocio" class="form-control" maxlength="100" required /></div>
+            <div class="col-md-4"><label class="form-label" for="nit">NIT</label><input id="nit" name="nit" class="form-control" maxlength="30" /></div>
+            <div class="col-md-8"><label class="form-label" for="direccion">Dirección</label><input id="direccion" name="direccion" class="form-control" maxlength="150" /></div>
+            <div class="col-md-4"><label class="form-label" for="telefono">Teléfono</label><input id="telefono" name="telefono" class="form-control" maxlength="30" /></div>
+            <div class="col-12"><label class="form-label" for="mensajeTicket">Mensaje al pie del ticket</label><input id="mensajeTicket" name="mensajeTicket" class="form-control" maxlength="250" /></div>
+
+            <h6 class="col-12 mb-0 mt-4">Apariencia</h6>
+            <div class="col-12">
+                <label class="form-label">Logo</label>
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <div class="border rounded p-2 bg-white" style="min-width:120px;min-height:70px;display:grid;place-items:center">
+                        <img id="imgLogo" alt="Logo" style="max-height:60px;max-width:160px" hidden />
+                        <span id="sinLogo" class="text-muted small">Sin logo</span>
+                    </div>
+                    <input type="file" id="archivoLogo" accept="image/png,image/jpeg,image/webp,image/gif" class="form-control" style="max-width:280px" />
+                    <button type="button" class="btn btn-link text-danger p-0" id="btnQuitarLogo">Quitar logo</button>
+                    <input type="hidden" name="logoUrl" id="logoUrl" />
+                </div>
+                <div class="form-text">PNG con fondo transparente, máximo 3 MB.</div>
+            </div>
+            <div class="col-sm-6"><label class="form-label" for="colorPrimario">Color principal (botones, precios)</label>
+                <div class="input-group"><input type="color" class="form-control form-control-color color-input" id="pickPrimario" /><input id="colorPrimario" name="colorPrimario" class="form-control" pattern="#[0-9A-Fa-f]{6}" required /></div></div>
+            <div class="col-sm-6"><label class="form-label" for="colorSecundario">Color de la barra superior</label>
+                <div class="input-group"><input type="color" class="form-control form-control-color color-input" id="pickSecundario" /><input id="colorSecundario" name="colorSecundario" class="form-control" pattern="#[0-9A-Fa-f]{6}" required /></div></div>
+            <div class="col-12">
+                <span class="form-label d-block">Paletas rápidas</span>
+                <div class="d-flex flex-wrap gap-2" id="paletas"></div>
+            </div>
+
+            <h6 class="col-12 mb-0 mt-4">Operación</h6>
+            <div class="col-sm-6"><label class="form-label" for="simboloMoneda">Símbolo de moneda</label><input id="simboloMoneda" name="simboloMoneda" class="form-control" maxlength="5" /></div>
+            <div class="col-sm-6"><label class="form-label" for="diasAlertaVencimiento">Avisar vencimientos con (días)</label><input id="diasAlertaVencimiento" name="diasAlertaVencimiento" type="number" min="0" max="60" class="form-control" data-tipo="numero" /></div>
+            <div class="col-12"><button class="btn btn-marca px-4">Guardar configuración</button></div>
+        </div></form>
+    </div>
+    <div class="col-lg-5">
+        <div class="position-sticky" style="top:1rem">
+            <h6>Vista previa</h6>
+            <div class="vista-previa bg-white">
+                <div id="pvBarra" class="d-flex align-items-center gap-2 px-3 py-2 fw-bold">
+                    <img id="pvLogo" alt="" style="height:28px;border-radius:4px;background:#fff;padding:2px" hidden /><span id="pvNombre"></span>
+                </div>
+                <div class="p-3 d-grid gap-3" style="background:#f5f5f7">
+                    <div class="producto-card" style="max-width:200px">
+                        <div class="producto-foto sin-foto">🍔</div>
+                        <div class="producto-info"><span class="producto-nombre">Hamburguesa John Wick</span><span class="producto-precio" id="pvPrecio">$ 28.000</span></div>
+                    </div>
+                    <button type="button" id="pvBoton" class="btn">Registrar venta</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(async function () {
+    const f = document.getElementById('formulario');
+    const $ = id => document.getElementById(id);
+    const PALETAS = [['#C8322B', '#1F1A17'], ['#E4572E', '#29335C'], ['#F2A541', '#2D2A32'], ['#2A9D8F', '#264653'], ['#6A4C93', '#1B1B3A'], ['#D62828', '#003049'], ['#FFB703', '#023047']];
+
+    function textoSobre(hex) {
+        const c = [1, 3, 5].map(i => { const v = parseInt(hex.substr(i, 2), 16) / 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); });
+        return (.2126 * c[0] + .7152 * c[1] + .0722 * c[2]) > .4 ? '#1b1b1b' : '#ffffff';
+    }
+    function previa() {
+        const p = f.colorPrimario.value, s = f.colorSecundario.value, ok = /^#[0-9a-f]{6}$/i;
+        if (ok.test(p)) { $('pickPrimario').value = p; $('pvBoton').style.cssText = `background:${p};color:${textoSobre(p)}`; $('pvPrecio').style.color = p; }
+        if (ok.test(s)) { $('pickSecundario').value = s; $('pvBarra').style.cssText = `background:${s};color:${textoSobre(s)}`; }
+        $('pvNombre').textContent = f.nombreNegocio.value || 'Mi negocio';
+        const logo = $('logoUrl').value;
+        [$('imgLogo'), $('pvLogo')].forEach(i => { i.hidden = !logo; if (logo) i.src = logo; });
+        $('sinLogo').hidden = !!logo;
+    }
+
+    $('paletas').innerHTML = PALETAS.map(([p, s], i) => `<button type="button" class="btn p-0 border rounded overflow-hidden d-flex" data-i="${i}" title="${p} / ${s}" style="width:56px;height:30px"><span style="flex:1;background:${s}"></span><span style="flex:1;background:${p}"></span></button>`).join('');
+    $('paletas').addEventListener('click', ev => { const b = ev.target.closest('[data-i]'); if (!b) return; [f.colorPrimario.value, f.colorSecundario.value] = PALETAS[b.dataset.i]; previa(); });
+    $('pickPrimario').addEventListener('input', e => { f.colorPrimario.value = e.target.value.toUpperCase(); previa(); });
+    $('pickSecundario').addEventListener('input', e => { f.colorSecundario.value = e.target.value.toUpperCase(); previa(); });
+    f.addEventListener('input', previa);
+
+    $('archivoLogo').addEventListener('change', async ev => {
+        const archivo = ev.target.files[0]; if (!archivo) return;
+        const datos = new FormData(); datos.append('archivo', archivo);
+        try {
+            const r = await fetch('/Configuracion/SubirLogo', { method: 'POST', body: datos, headers: { 'RequestVerificationToken': token() } }).then(x => x.json());
+            if (!r.resultado) return alerta(r.mensaje, 'warning');
+            $('logoUrl').value = r.url; previa();
+            alerta('Logo cargado. Pulse "Guardar configuración" para aplicarlo.', 'info');
+        } catch (e) { errorAlerta(e); }
+    });
+    $('btnQuitarLogo').addEventListener('click', () => { $('logoUrl').value = ''; $('archivoLogo').value = ''; previa(); });
+
+    f.addEventListener('submit', async ev => {
+        ev.preventDefault();
+        if (!f.reportValidity()) return;
+        try {
+            const r = await api.post('/Configuracion/Guardar', leerForm(f));
+            if (r.resultado) { alerta('Configuración guardada. Recargando...'); setTimeout(() => location.reload(), 900); }
+            else alerta(r.mensaje, 'warning');
+        } catch (e) { errorAlerta(e); }
+    });
+
+    llenarForm(f, await api.get('/Configuracion/Obtener'));
+    previa();
+})().catch(errorAlerta);
+</script>
+}

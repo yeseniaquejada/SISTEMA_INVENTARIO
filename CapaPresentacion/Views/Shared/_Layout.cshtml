@@ -1,63 +1,124 @@
+@using CapaPresentacion.Infraestructura
 @{
-    var esAdmin = User.IsInRole("ADMINISTRADOR");
+    var cfg = new CapaNegocio.CN_Configuracion().Obtener();
+    var esAdmin = User.IsInRole(Claves.Admin);
     var controlador = ViewContext.RouteData.Values["controller"]?.ToString();
-    string Activo(string c) => controlador == c ? "active" : "";
+    string Activo(params string[] c) => c.Contains(controlador) ? "active" : "";
 }
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - Inventario Comidas Rápidas</title>
+    <title>@ViewData["Title"] - @cfg.NombreNegocio</title>
+    @if (!string.IsNullOrEmpty(cfg.LogoUrl)) { <link rel="icon" href="@cfg.LogoUrl" /> }
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <style>
+        :root {
+            --marca: @cfg.ColorPrimario;
+            --marca-texto: @Colores.TextoSobre(cfg.ColorPrimario);
+            --marca-2: @cfg.ColorSecundario;
+            --marca-2-texto: @Colores.TextoSobre(cfg.ColorSecundario);
+        }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-danger shadow-sm">
+    <nav class="navbar navbar-expand-xl navbar-dark barra-marca shadow-sm">
         <div class="container-fluid">
-            <a class="navbar-brand fw-bold" asp-controller="Home" asp-action="Index"><i class="bi bi-basket2-fill"></i> Inventario Fast Food</a>
+            <a class="navbar-brand d-flex align-items-center gap-2 fw-bold" asp-controller="Home" asp-action="Index">
+                @if (!string.IsNullOrEmpty(cfg.LogoUrl)) { <img src="@cfg.LogoUrl" alt="" class="logo-nav" /> }
+                else { <i class="bi bi-basket2-fill"></i> }
+                <span>@cfg.NombreNegocio</span>
+            </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menu"><span class="navbar-toggler-icon"></span></button>
             <div class="collapse navbar-collapse" id="menu">
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item"><a class="nav-link @Activo("Home")" asp-controller="Home" asp-action="Index"><i class="bi bi-speedometer2"></i> Inicio</a></li>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle @Activo("Venta")" href="#" data-bs-toggle="dropdown"><i class="bi bi-cart"></i> Ventas</a>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" asp-controller="Venta" asp-action="Index">Nueva venta</a></li>
-                            <li><a class="dropdown-item" asp-controller="Venta" asp-action="Historial">Historial</a></li>
-                        </ul>
-                    </li>
+                    <li class="nav-item"><a class="nav-link @Activo("Venta")" asp-controller="Venta" asp-action="Index"><i class="bi bi-cart3"></i> Vender</a></li>
+                    <li class="nav-item"><a class="nav-link @Activo("Domicilio")" asp-controller="Domicilio" asp-action="Index"><i class="bi bi-bicycle"></i> Domicilios</a></li>
+                    <li class="nav-item"><a class="nav-link @Activo("Caja")" asp-controller="Caja" asp-action="Index"><i class="bi bi-cash-stack"></i> Caja</a></li>
                     @if (esAdmin)
                     {
-                        <li class="nav-item"><a class="nav-link @Activo("Movimiento")" asp-controller="Movimiento" asp-action="Index"><i class="bi bi-arrow-left-right"></i> Movimientos</a></li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown"><i class="bi bi-gear"></i> Mantenimiento</a>
+                            <a class="nav-link dropdown-toggle @Activo("Movimiento", "Conteo", "Compra", "Insumo")" href="#" data-bs-toggle="dropdown"><i class="bi bi-box-seam"></i> Inventario</a>
                             <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" asp-controller="Insumo" asp-action="Index">Insumos</a></li>
-                                <li><a class="dropdown-item" asp-controller="Producto" asp-action="Index">Productos del menú</a></li>
-                                <li><a class="dropdown-item" asp-controller="Categoria" asp-action="Index">Categorías</a></li>
+                                <li><a class="dropdown-item" asp-controller="Insumo" asp-action="Index">Insumos y stock</a></li>
+                                <li><a class="dropdown-item" asp-controller="Movimiento" asp-action="Index">Entradas, salidas y kardex</a></li>
+                                <li><a class="dropdown-item" asp-controller="Conteo" asp-action="Index">Conteo físico</a></li>
+                                <li><a class="dropdown-item" asp-controller="Compra" asp-action="Index">Orden de compra sugerida</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle @Activo("Reporte")" href="#" data-bs-toggle="dropdown"><i class="bi bi-graph-up"></i> Reportes</a>
+                            <ul class="dropdown-menu">
+                                <li><a class="dropdown-item" asp-controller="Reporte" asp-action="Index">Ventas y ganancias</a></li>
+                                <li><a class="dropdown-item" asp-controller="Venta" asp-action="Historial">Historial de ventas</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle @Activo("Producto", "Modificador", "CategoriaMenu", "Categoria", "Proveedor", "Usuario", "Sede", "Configuracion")" href="#" data-bs-toggle="dropdown"><i class="bi bi-gear"></i> Mantenimiento</a>
+                            <ul class="dropdown-menu">
+                                <li><h6 class="dropdown-header">Menú</h6></li>
+                                <li><a class="dropdown-item" asp-controller="Producto" asp-action="Index">Productos y recetas</a></li>
+                                <li><a class="dropdown-item" asp-controller="Modificador" asp-action="Index">Adiciones y modificadores</a></li>
+                                <li><a class="dropdown-item" asp-controller="CategoriaMenu" asp-action="Index">Categorías del menú</a></li>
+                                <li><h6 class="dropdown-header">Inventario</h6></li>
+                                <li><a class="dropdown-item" asp-controller="Categoria" asp-action="Index">Categorías de insumos</a></li>
                                 <li><a class="dropdown-item" asp-controller="Proveedor" asp-action="Index">Proveedores</a></li>
+                                <li><h6 class="dropdown-header">Negocio</h6></li>
+                                <li><a class="dropdown-item" asp-controller="Usuario" asp-action="Index">Usuarios</a></li>
+                                <li><a class="dropdown-item" asp-controller="Sede" asp-action="Index">Sedes</a></li>
+                                <li><a class="dropdown-item" asp-controller="Configuracion" asp-action="Index">Configuración y apariencia</a></li>
                             </ul>
                         </li>
                     }
+                    else
+                    {
+                        <li class="nav-item"><a class="nav-link @Activo("Venta")" asp-controller="Venta" asp-action="Historial"><i class="bi bi-receipt"></i> Mis ventas</a></li>
+                    }
                 </ul>
-                <span class="navbar-text text-white me-3"><i class="bi bi-person-circle"></i> @User.Identity?.Name</span>
-                <form asp-controller="Acceso" asp-action="Salir" method="post" class="d-inline">
-                    <button class="btn btn-outline-light btn-sm"><i class="bi bi-box-arrow-right"></i> Salir</button>
-                </form>
+                <div class="d-flex flex-wrap align-items-center gap-2">
+                    @if (esAdmin)
+                    {
+                        <form asp-controller="Acceso" asp-action="CambiarSede" method="post" id="formSede" class="d-flex">
+                            <input type="hidden" name="volver" value="@(Context.Request.Path + Context.Request.QueryString)" />
+                            <select name="idSede" id="cboSedeNav" class="form-select form-select-sm" data-actual="@User.IdSede()" title="Sede">
+                                <option value="@User.IdSede()">@User.Sede()</option>
+                            </select>
+                        </form>
+                    }
+                    else
+                    {
+                        <span class="badge rounded-pill text-bg-light"><i class="bi bi-shop"></i> @User.Sede()</span>
+                    }
+                    <div class="dropdown">
+                        <button class="btn btn-sm btn-outline-light dropdown-toggle" data-bs-toggle="dropdown"><i class="bi bi-person-circle"></i> @User.Identity?.Name</button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" asp-controller="Acceso" asp-action="MiClave"><i class="bi bi-key"></i> Cambiar mi contraseña</a></li>
+                            <li><hr class="dropdown-divider" /></li>
+                            <li>
+                                <form asp-controller="Acceso" asp-action="Salir" method="post">
+                                    <button class="dropdown-item"><i class="bi bi-box-arrow-right"></i> Salir</button>
+                                </form>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
     </nav>
 
     @Html.AntiForgeryToken()
     <main class="container-fluid py-4 px-md-4">
-        <h4 class="mb-3">@ViewData["Title"]</h4>
+        @if (ViewData["Title"] != null && ViewData["OcultarTitulo"] == null) { <h4 class="mb-3 titulo-pagina">@ViewData["Title"]</h4> }
         @RenderBody()
     </main>
 
     <div class="toast-container position-fixed top-0 end-0 p-3" id="contenedorAlertas"></div>
 
+    <script>window.APP = { moneda: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(cfg.SimboloMoneda)), esAdmin: @(esAdmin ? "true" : "false") };</script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)

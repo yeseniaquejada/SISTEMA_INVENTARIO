@@ -1,35 +1,63 @@
 @{
-    ViewData["Title"] = "Productos del menú";
+    ViewData["Title"] = "Productos y recetas";
 }
 <partial name="_Barra" />
 <div class="card"><div class="card-body p-0 table-responsive">
     <table class="table table-hover mb-0" id="tabla">
-        <thead class="table-light"><tr><th>Producto</th><th class="text-end">Precio</th><th class="text-center">Insumos en receta</th><th>Estado</th><th></th></tr></thead>
+        <thead class="table-light"><tr><th style="width:70px">Foto</th><th>Producto</th><th>Categoría</th><th class="text-end">Precio</th><th class="text-end">Costo receta</th><th class="text-end">Margen</th><th>Estado</th><th></th></tr></thead>
         <tbody></tbody>
     </table>
 </div></div>
 
 <div class="modal fade" id="modal" tabindex="-1">
-    <div class="modal-dialog modal-lg"><div class="modal-content">
+    <div class="modal-dialog modal-xl"><div class="modal-content">
         <div class="modal-header"><h5 class="modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
-            <form id="formulario" class="row g-3">
-                <input type="hidden" name="idProducto" data-tipo="numero" />
-                <div class="col-md-7"><label class="form-label">Nombre</label><input name="nombre" class="form-control" maxlength="100" required /></div>
-                <div class="col-md-3"><label class="form-label">Precio de venta</label><input name="precio" type="number" min="1" step="0.01" class="form-control" data-tipo="numero" required /></div>
-                <div class="col-md-2 d-flex align-items-end"><div class="form-check"><input type="checkbox" name="activo" class="form-check-input" id="chkActivo" /><label class="form-check-label" for="chkActivo">Activo</label></div></div>
-            </form>
-            <hr />
-            <h6>Receta <small class="text-muted">(insumos que se descuentan por cada unidad vendida)</small></h6>
-            <div class="row g-2 mb-2">
-                <div class="col-md-7"><select id="cboInsumo" class="form-select"></select></div>
-                <div class="col-md-3"><input id="txtCantidad" type="number" min="0.001" step="0.001" class="form-control" placeholder="Cantidad" /></div>
-                <div class="col-md-2"><button type="button" class="btn btn-outline-danger w-100" id="btnAgregar"><i class="bi bi-plus"></i> Agregar</button></div>
+            <div class="row g-4">
+                <div class="col-lg-4">
+                    <div class="producto-card mb-2" style="cursor:default">
+                        <img id="imgProducto" class="producto-foto" alt="" hidden />
+                        <div id="sinFoto" class="producto-foto sin-foto">🍽️</div>
+                    </div>
+                    <input type="file" id="archivoFoto" accept="image/png,image/jpeg,image/webp,image/gif" class="form-control form-control-sm" />
+                    <div class="d-flex justify-content-between mt-1">
+                        <span class="form-text" id="ayudaFoto">JPG o PNG, máximo 3 MB.</span>
+                        <button type="button" class="btn btn-link btn-sm text-danger p-0" id="btnQuitarFoto">Quitar foto</button>
+                    </div>
+                </div>
+                <div class="col-lg-8">
+                    <form id="formulario" class="row g-3">
+                        <input type="hidden" name="idProducto" data-tipo="numero" />
+                        <div class="col-md-7"><label class="form-label">Nombre</label><input name="nombre" class="form-control" maxlength="100" required /></div>
+                        <div class="col-md-5"><label class="form-label">Categoría del menú</label><select name="idCategoriaMenu" id="cboCategoria" class="form-select" data-tipo="numero"></select></div>
+                        <div class="col-12"><label class="form-label">Descripción (opcional)</label><input name="descripcion" class="form-control" maxlength="250" placeholder="Carne de res, tocineta, queso mozzarella..." /></div>
+                        <div class="col-md-4"><label class="form-label">Precio de venta</label><input name="precio" id="txtPrecio" type="number" min="1" step="100" class="form-control" data-tipo="numero" required /></div>
+                        <div class="col-md-5 d-flex align-items-end"><div class="small" id="lblMargen"></div></div>
+                        <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input type="checkbox" name="activo" class="form-check-input" id="chkActivo" /><label class="form-check-label" for="chkActivo">Activo</label></div></div>
+                    </form>
+                </div>
             </div>
-            <table class="table table-sm">
-                <thead><tr><th>Insumo</th><th class="text-end">Cantidad</th><th></th></tr></thead>
-                <tbody id="tablaReceta"></tbody>
-            </table>
+            <hr />
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <h6>Receta <small class="text-muted">(lo que se descuenta por cada unidad vendida)</small></h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-7"><select id="cboInsumo" class="form-select"></select></div>
+                        <div class="col-md-3"><input id="txtCantidad" type="number" min="0.001" step="0.001" class="form-control" placeholder="Cantidad" /></div>
+                        <div class="col-md-2"><button type="button" class="btn btn-outline-marca w-100" id="btnAgregar"><i class="bi bi-plus"></i></button></div>
+                    </div>
+                    <div class="table-responsive" style="max-height:300px">
+                        <table class="table table-sm">
+                            <thead><tr><th>Insumo</th><th class="text-end">Cantidad</th><th class="text-end">Costo</th><th></th></tr></thead>
+                            <tbody id="tablaReceta"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <h6>Adiciones que se pueden elegir</h6>
+                    <div id="listaModificadores" class="d-grid gap-1" style="max-height:340px;overflow-y:auto"></div>
+                </div>
+            </div>
         </div>
         <partial name="_ModalPie" />
     </div></div>

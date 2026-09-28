@@ -1,0 +1,42 @@
+@{
+    ViewData["Title"] = "Orden de compra sugerida";
+}
+<div class="d-flex flex-wrap gap-2 mb-3 align-items-center no-imprimir">
+    <p class="text-muted small mb-0">Insumos que están en el mínimo o por debajo. La cantidad sugerida lleva el stock al doble del mínimo; el proveedor es el de la última entrada.</p>
+    <div class="ms-auto d-flex gap-2">
+        <a href="/Compra/Exportar" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-excel"></i> Excel</a>
+        <button class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="bi bi-file-earmark-pdf"></i> Imprimir / PDF</button>
+    </div>
+</div>
+<div id="grupos"></div>
+<div class="text-end fs-5 fw-bold" id="lblTotal"></div>
+
+@section Scripts {
+<script>
+(async function () {
+    try {
+        const lista = await api.get('/Compra/Sugerida');
+        const grupos = {};
+        lista.forEach(o => (grupos[o.proveedor] ??= []).push(o));
+        document.getElementById('grupos').innerHTML = lista.length ? Object.entries(grupos).map(([prov, items]) => `
+            <div class="card shadow-sm mb-3">
+                <div class="card-header bg-white d-flex justify-content-between">
+                    <strong><i class="bi bi-truck"></i> ${esc(prov)}</strong>
+                    <span class="text-muted">${esc(items[0].telefonoProveedor)}</span>
+                </div>
+                <div class="card-body p-0 table-responsive">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light"><tr><th>Código</th><th>Insumo</th><th class="text-end">Stock</th><th class="text-end">Mínimo</th><th class="text-end">A pedir</th><th class="text-end">Costo unit.</th><th class="text-end">Costo estimado</th></tr></thead>
+                        <tbody>${items.map(o => `<tr><td>${esc(o.codigo)}</td><td>${esc(o.nombre)}</td>
+                            <td class="text-end stock-bajo">${num(o.stock)}</td><td class="text-end">${num(o.stockMinimo)}</td>
+                            <td class="text-end fw-bold">${num(o.cantidadSugerida)} ${esc(o.unidadMedida)}</td>
+                            <td class="text-end">${moneda(o.costoUnitario)}</td><td class="text-end">${moneda(o.costoEstimado)}</td></tr>`).join('')}</tbody>
+                        <tfoot><tr><th colspan="6" class="text-end">Subtotal</th><th class="text-end">${moneda(items.reduce((s, o) => s + o.costoEstimado, 0))}</th></tr></tfoot>
+                    </table>
+                </div>
+            </div>`).join('') : '<div class="alert alert-success"><i class="bi bi-check-circle"></i> No hay insumos por pedir. Todo está por encima del mínimo.</div>';
+        if (lista.length) document.getElementById('lblTotal').textContent = `Total estimado: ${moneda(lista.reduce((s, o) => s + o.costoEstimado, 0))}`;
+    } catch (e) { errorAlerta(e); }
+})();
+</script>
+}

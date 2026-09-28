@@ -1,0 +1,119 @@
+@{
+    ViewData["Title"] = "Cierre de caja";
+}
+<div class="row g-3">
+    <div class="col-lg-5">
+        <!-- Caja cerrada: abrir -->
+        <div class="card shadow-sm" id="panelAbrir" hidden>
+            <div class="card-body">
+                <h5><i class="bi bi-lock"></i> La caja está cerrada</h5>
+                <p class="text-muted">Para empezar a vender, abra la caja con el dinero base que hay en el cajón.</p>
+                <label class="form-label">Base inicial</label>
+                <input type="number" id="txtBase" class="form-control form-control-lg mb-3" min="0" step="1000" value="0" />
+                <button class="btn btn-marca w-100" id="btnAbrir"><i class="bi bi-unlock"></i> Abrir caja</button>
+            </div>
+        </div>
+
+        <!-- Caja abierta: resumen y cierre -->
+        <div class="card shadow-sm" id="panelCerrar" hidden>
+            <div class="card-header bg-white d-flex justify-content-between">
+                <strong><i class="bi bi-unlock text-success"></i> Caja abierta</strong>
+                <small class="text-muted" id="lblApertura"></small>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><td>Base inicial</td><td class="text-end" id="lblBase"></td></tr>
+                    <tr><td>Ventas en efectivo</td><td class="text-end" id="lblEfectivo"></td></tr>
+                    <tr><td>Ventas con tarjeta</td><td class="text-end" id="lblTarjeta"></td></tr>
+                    <tr><td>Ventas por transferencia</td><td class="text-end" id="lblTransferencia"></td></tr>
+                    <tr><td>Número de ventas</td><td class="text-end" id="lblNumero"></td></tr>
+                    <tr class="fw-bold"><td>Efectivo esperado en caja</td><td class="text-end" id="lblEsperado"></td></tr>
+                </table>
+                <label class="form-label">Efectivo contado</label>
+                <input type="number" id="txtContado" class="form-control form-control-lg" min="0" step="100" />
+                <div class="my-2 fw-semibold" id="lblDiferencia"></div>
+                <input id="txtObservacion" class="form-control mb-3" maxlength="250" placeholder="Observación (opcional)" />
+                <button class="btn btn-marca w-100" id="btnCerrar"><i class="bi bi-lock"></i> Cerrar caja</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-7">
+        <div class="card shadow-sm">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <strong>Cierres anteriores</strong>
+                <button class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+            </div>
+            <div class="card-body p-0 table-responsive">
+                <table class="table table-sm table-hover mb-0">
+                    <thead class="table-light"><tr><th>Apertura</th><th>Cierre</th><th class="text-end">Efectivo</th><th class="text-end">Tarjeta</th><th class="text-end">Transf.</th><th class="text-end">Esperado</th><th class="text-end">Contado</th><th class="text-end">Diferencia</th><th>Cerró</th></tr></thead>
+                    <tbody id="tablaHistorial"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const $ = id => document.getElementById(id);
+    let esperado = 0;
+
+    async function cargar() {
+        try {
+            const [c, historial] = await Promise.all([api.get('/Caja/Actual'), api.get('/Caja/Historial')]);
+            $('panelAbrir').hidden = !!c;
+            $('panelCerrar').hidden = !c;
+            if (c) {
+                esperado = c.baseInicial + c.ventasEfectivo;
+                $('lblApertura').textContent = `${c.fechaApertura} · ${c.usuarioApertura}`;
+                $('lblBase').textContent = moneda(c.baseInicial);
+                $('lblEfectivo').textContent = moneda(c.ventasEfectivo);
+                $('lblTarjeta').textContent = moneda(c.ventasTarjeta);
+                $('lblTransferencia').textContent = moneda(c.ventasTransferencia);
+                $('lblNumero').textContent = c.numeroVentas;
+                $('lblEsperado').textContent = moneda(esperado);
+                diferencia();
+            }
+            renderTabla($('tablaHistorial'), historial, h => `<tr>
+                <td class="text-nowrap">${esc(h.fechaApertura)}</td><td class="text-nowrap">${esc(h.fechaCierre)}</td>
+                <td class="text-end">${moneda(h.ventasEfectivo)}</td><td class="text-end">${moneda(h.ventasTarjeta)}</td>
+                <td class="text-end">${moneda(h.ventasTransferencia)}</td><td class="text-end">${moneda(h.efectivoEsperado)}</td>
+                <td class="text-end">${moneda(h.efectivoContado)}</td>
+                <td class="text-end ${h.diferencia < 0 ? 'text-danger' : h.diferencia > 0 ? 'text-primary' : 'text-success'}">${moneda(h.diferencia)}</td>
+                <td>${esc(h.usuarioCierre)}${h.observacion ? `<br><small class="text-muted">${esc(h.observacion)}</small>` : ''}</td></tr>`, 9);
+        } catch (e) { errorAlerta(e); }
+    }
+
+    function diferencia() {
+        const v = $('txtContado').value;
+        if (v === '') { $('lblDiferencia').textContent = ''; return; }
+        const d = Number(v) - esperado;
+        $('lblDiferencia').className = 'my-2 fw-semibold ' + (d < 0 ? 'text-danger' : d > 0 ? 'text-primary' : 'text-success');
+        $('lblDiferencia').textContent = d === 0 ? 'La caja cuadra exacto' : d < 0 ? `Faltan ${moneda(-d)}` : `Sobran ${moneda(d)}`;
+    }
+    $('txtContado').addEventListener('input', diferencia);
+
+    $('btnAbrir').addEventListener('click', async () => {
+        try {
+            const r = await api.post(`/Caja/Abrir?baseInicial=${Number($('txtBase').value || 0)}`);
+            if (r.resultado) { alerta('Caja abierta'); cargar(); } else alerta(r.mensaje, 'warning');
+        } catch (e) { errorAlerta(e); }
+    });
+
+    $('btnCerrar').addEventListener('click', async () => {
+        if ($('txtContado').value === '') { alerta('Ingrese el efectivo contado', 'warning'); return; }
+        if (!confirm('¿Cerrar la caja? Después no se podrán registrar ventas hasta abrirla de nuevo.')) return;
+        try {
+            const q = new URLSearchParams({ efectivoContado: $('txtContado').value, observacion: $('txtObservacion').value });
+            const r = await api.post(`/Caja/Cerrar?${q}`);
+            if (r.resultado) { alerta('Caja cerrada'); $('txtContado').value = ''; $('txtObservacion').value = ''; cargar(); }
+            else alerta(r.mensaje, 'warning');
+        } catch (e) { errorAlerta(e); }
+    });
+
+    cargar();
+})();
+</script>
+}

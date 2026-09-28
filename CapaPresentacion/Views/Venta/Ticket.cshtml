@@ -1,0 +1,70 @@
+@model CapaEntidad.Ticket
+@{
+    Layout = null;
+    var v = Model.Venta;
+    var c = Model.Configuracion;
+    string M(decimal n) => c.SimboloMoneda + " " + n.ToString("N0", new System.Globalization.CultureInfo("es-CO"));
+    var pedido = new Dictionary<string, string> { ["MESA"] = "En mesa", ["LLEVAR"] = "Para llevar", ["DOMICILIO"] = "Domicilio" };
+    var pago = new Dictionary<string, string> { ["EFECTIVO"] = "Efectivo", ["TARJETA"] = "Tarjeta", ["TRANSFERENCIA"] = "Transferencia" };
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>Ticket @v.IdVenta</title>
+    <style>
+        @@page { size: 80mm auto; margin: 3mm; }
+        body { font-family: "Courier New", monospace; font-size: 12px; width: 72mm; margin: 0 auto; color: #000; }
+        .c { text-align: center; } .r { text-align: right; } .b { font-weight: bold; }
+        .logo { max-width: 40mm; max-height: 25mm; display: block; margin: 0 auto 4px; }
+        hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+        table { width: 100%; border-collapse: collapse; } td { vertical-align: top; padding: 1px 0; }
+        .sub { font-size: 11px; padding-left: 8px; }
+        .total td { font-size: 15px; font-weight: bold; }
+        .acciones { text-align: center; margin: 12px 0; }
+        @@media print { .acciones { display: none; } }
+    </style>
+</head>
+<body>
+    @if (!string.IsNullOrEmpty(c.LogoUrl)) { <img src="@c.LogoUrl" class="logo" alt="" /> }
+    <div class="c b" style="font-size:15px">@c.NombreNegocio</div>
+    @if (!string.IsNullOrEmpty(c.Nit)) { <div class="c">NIT @c.Nit</div> }
+    <div class="c">@v.Sede @(string.IsNullOrEmpty(v.SedeDireccion) ? c.Direccion : v.SedeDireccion)</div>
+    @if (!string.IsNullOrEmpty(c.Telefono)) { <div class="c">Tel. @c.Telefono</div> }
+    <hr />
+    <div>Pedido N° <span class="b">@v.IdVenta</span> · @(pedido.GetValueOrDefault(v.TipoPedido, v.TipoPedido))</div>
+    <div>Fecha: @v.Fecha</div>
+    <div>Atendió: @v.Usuario</div>
+    @if (!string.IsNullOrEmpty(v.ClienteNombre)) { <div>Cliente: @v.ClienteNombre</div> }
+    @if (v.TipoPedido == "DOMICILIO")
+    {
+        <div>Tel: @v.ClienteTelefono</div>
+        <div>Dir: @v.Direccion</div>
+    }
+    <hr />
+    <table>
+        @foreach (var l in Model.Lineas)
+        {
+            <tr><td>@l.Cantidad x @l.Nombre</td><td class="r">@M(l.Subtotal)</td></tr>
+            @foreach (var a in l.Adiciones) { <tr><td class="sub" colspan="2">+ @a</td></tr> }
+            @if (!string.IsNullOrEmpty(l.Notas)) { <tr><td class="sub" colspan="2">* @l.Notas</td></tr> }
+        }
+    </table>
+    <hr />
+    <table>
+        <tr><td>Subtotal</td><td class="r">@M(v.Subtotal)</td></tr>
+        @if (v.CostoDomicilio > 0) { <tr><td>Domicilio</td><td class="r">@M(v.CostoDomicilio)</td></tr> }
+        <tr class="total"><td>TOTAL</td><td class="r">@M(v.Total)</td></tr>
+        <tr><td>Pago</td><td class="r">@(pago.GetValueOrDefault(v.MetodoPago, v.MetodoPago))</td></tr>
+        @if (v.MetodoPago == "EFECTIVO")
+        {
+            <tr><td>Recibido</td><td class="r">@M(v.MontoRecibido)</td></tr>
+            <tr><td>Cambio</td><td class="r">@M(v.Cambio)</td></tr>
+        }
+    </table>
+    <hr />
+    <div class="c">@(string.IsNullOrEmpty(c.MensajeTicket) ? "¡Gracias por su compra!" : c.MensajeTicket)</div>
+    <div class="acciones"><button onclick="window.print()">Imprimir</button> <button onclick="window.close()">Cerrar</button></div>
+    <script>window.addEventListener('load', () => setTimeout(() => window.print(), 300));</script>
+</body>
+</html>

@@ -1,0 +1,52 @@
+@{
+    ViewData["Title"] = "Usuarios";
+}
+<p class="text-muted">El <b>administrador</b> ve todo. El <b>cajero</b> solo vende, maneja domicilios y su caja en la sede asignada.</p>
+<partial name="_Barra" />
+<div class="card"><div class="card-body p-0 table-responsive">
+    <table class="table table-hover mb-0" id="tabla">
+        <thead class="table-light"><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Sede</th><th>Estado</th><th></th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div></div>
+
+<div class="modal fade" id="modal" tabindex="-1">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <form id="formulario" class="row g-3" autocomplete="off">
+                <input type="hidden" name="idUsuario" data-tipo="numero" />
+                <div class="col-12"><label class="form-label">Nombre completo</label><input name="nombreCompleto" class="form-control" maxlength="100" required /></div>
+                <div class="col-md-6"><label class="form-label">Usuario</label><input name="nombreUsuario" class="form-control" maxlength="50" required /></div>
+                <div class="col-md-6"><label class="form-label">Contraseña</label><input name="clave" type="password" class="form-control" autocomplete="new-password" />
+                    <div class="form-text" id="ayudaClave"></div></div>
+                <div class="col-md-6"><label class="form-label">Rol</label><select name="idRol" id="cboRol" class="form-select" data-tipo="numero"></select></div>
+                <div class="col-md-6"><label class="form-label">Sede</label><select name="idSede" id="cboSede" class="form-select" data-tipo="numero"></select></div>
+                <div class="col-12 form-check ms-2"><input type="checkbox" name="activo" class="form-check-input" id="chkActivo" /><label class="form-check-label" for="chkActivo">Activo (puede ingresar)</label></div>
+            </form>
+        </div>
+        <partial name="_ModalPie" />
+    </div></div>
+</div>
+
+@section Scripts {
+<script>
+    (async function () {
+        const [roles, sedes] = await Promise.all([api.get('/Usuario/Roles'), api.get('/Sede/Listar')]);
+        llenarSelect(document.getElementById('cboRol'), roles, 'idRol', 'descripcion', null);
+        llenarSelect(document.getElementById('cboSede'), sedes, 'idSede', 'nombre', null);
+        Mantenimiento({
+            base: '/Usuario', id: 'idUsuario', columnas: 6, sinEliminar: true,
+            nuevo: () => ({ idUsuario: 0, idRol: 2, idSede: sedes[0]?.idSede ?? 1, activo: true }),
+            alAbrir: (u, form) => {
+                form.clave.value = '';
+                form.clave.required = !u;
+                document.getElementById('ayudaClave').textContent = u ? 'Déjela vacía para no cambiarla.' : 'Mínimo 6 caracteres.';
+            },
+            fila: u => `<td class="fw-semibold">${esc(u.nombreCompleto)}</td><td>${esc(u.nombreUsuario)}</td>
+                <td><span class="badge ${u.rol === 'ADMINISTRADOR' ? 'bg-marca' : 'text-bg-secondary'}">${esc(u.rol)}</span></td>
+                <td>${esc(u.sede)}</td><td>${badgeActivo(u.activo)}</td>`
+        });
+    })().catch(errorAlerta);
+</script>
+}

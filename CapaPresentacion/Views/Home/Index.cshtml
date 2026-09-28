@@ -1,23 +1,52 @@
 @{
-    ViewData["Title"] = "Panel de control";
+    ViewData["Title"] = "Inicio";
+    ViewData["OcultarTitulo"] = true;
 }
-<div class="row g-3 mb-4">
-    <div class="col-6 col-lg-3"><div class="card tarjeta border-start border-danger border-4"><div class="card-body"><div class="text-muted small">Ventas de hoy</div><div class="fs-4 fw-bold" id="kpiVentas">-</div></div></div></div>
-    <div class="col-6 col-lg-3"><div class="card tarjeta border-start border-primary border-4"><div class="card-body"><div class="text-muted small">Pedidos de hoy</div><div class="fs-4 fw-bold" id="kpiPedidos">-</div></div></div></div>
-    <div class="col-6 col-lg-3"><div class="card tarjeta border-start border-success border-4"><div class="card-body"><div class="text-muted small">Valor del inventario</div><div class="fs-4 fw-bold" id="kpiValor">-</div></div></div></div>
-    <div class="col-6 col-lg-3"><div class="card tarjeta border-start border-warning border-4"><div class="card-body"><div class="text-muted small">Insumos bajo mínimo</div><div class="fs-4 fw-bold" id="kpiBajo">-</div></div></div></div>
-</div>
-
-<div class="card">
-    <div class="card-header bg-white fw-semibold"><i class="bi bi-exclamation-triangle text-warning"></i> Insumos por reabastecer</div>
-    <div class="card-body p-0">
-        <table class="table table-hover mb-0">
-            <thead class="table-light"><tr><th>Código</th><th>Insumo</th><th class="text-end">Stock</th><th class="text-end">Mínimo</th></tr></thead>
-            <tbody id="tablaAlertas"><tr><td colspan="4" class="text-center text-muted">Cargando...</td></tr></tbody>
-        </table>
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+        <h4 class="mb-0 titulo-pagina">Hola, @User.Identity?.Name</h4>
+        <span class="text-muted">Resumen de hoy en la sede <strong>@CapaPresentacion.Infraestructura.UsuarioActual.Sede(User)</strong></span>
+    </div>
+    <div class="d-flex gap-2">
+        <span id="estadoCaja"></span>
+        <a asp-controller="Venta" asp-action="Index" class="btn btn-marca"><i class="bi bi-cart-plus"></i> Nueva venta</a>
     </div>
 </div>
 
-@section Scripts {
-    <script src="~/js/home.js" asp-append-version="true"></script>
-}
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg"><div class="card kpi shadow-sm"><div class="card-body"><div class="text-muted small">Ventas de hoy</div><div class="valor" id="kpiVentas">-</div></div></div></div>
+    <div class="col-6 col-lg"><div class="card kpi shadow-sm"><div class="card-body"><div class="text-muted small">Pedidos de hoy</div><div class="valor" id="kpiPedidos">-</div></div></div></div>
+    <div class="col-6 col-lg"><a asp-controller="Domicilio" asp-action="Index" class="text-reset text-decoration-none"><div class="card kpi shadow-sm"><div class="card-body"><div class="text-muted small">Domicilios pendientes</div><div class="valor" id="kpiDomicilios">-</div></div></div></a></div>
+    <div class="col-6 col-lg"><div class="card kpi ok shadow-sm"><div class="card-body"><div class="text-muted small">Valor del inventario</div><div class="valor" id="kpiValor">-</div></div></div></div>
+    <div class="col-12 col-lg"><div class="card kpi alerta shadow-sm"><div class="card-body"><div class="text-muted small">Insumos bajo el mínimo</div><div class="valor" id="kpiBajo">-</div></div></div></div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                <strong><i class="bi bi-exclamation-triangle text-warning"></i> Insumos por pedir</strong>
+                @if (User.IsInRole("ADMINISTRADOR")) { <a asp-controller="Compra" asp-action="Index" class="btn btn-sm btn-outline-marca">Orden de compra</a> }
+            </div>
+            <div class="card-body p-0 table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light"><tr><th>Código</th><th>Insumo</th><th class="text-end">Stock</th><th class="text-end">Mínimo</th></tr></thead>
+                    <tbody id="tablaAlertas"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card shadow-sm h-100">
+            <div class="card-header bg-white"><strong><i class="bi bi-calendar-x text-danger"></i> Próximos a vencer</strong></div>
+            <div class="card-body p-0 table-responsive">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light"><tr><th>Insumo</th><th class="text-end">Cantidad</th><th>Vence</th></tr></thead>
+                    <tbody id="tablaVencimientos"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts { <script src="~/js/home.js" asp-append-version="true"></script> }

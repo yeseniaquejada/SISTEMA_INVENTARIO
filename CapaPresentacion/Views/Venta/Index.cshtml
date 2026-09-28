@@ -1,31 +1,101 @@
 @{
-    ViewData["Title"] = "Nueva venta";
+    ViewData["Title"] = "Vender";
+    ViewData["OcultarTitulo"] = true;
 }
-<div class="row g-3">
-    <div class="col-lg-8">
-        <input type="search" id="buscar" class="form-control mb-3" placeholder="Buscar producto..." />
-        <div class="row g-2" id="gridProductos"></div>
-    </div>
-    <div class="col-lg-4">
-        <div class="card">
-            <div class="card-header bg-white fw-semibold"><i class="bi bi-receipt"></i> Pedido</div>
-            <div class="card-body p-0">
-                <table class="table table-sm mb-0">
-                    <thead class="table-light"><tr><th>Producto</th><th class="text-center">Cant.</th><th class="text-end">Subtotal</th><th></th></tr></thead>
-                    <tbody id="tablaPedido"></tbody>
-                </table>
+<div id="avisoCaja" class="alert alert-warning" hidden><div class="d-flex align-items-center justify-content-between">
+    <span><i class="bi bi-exclamation-triangle"></i> No hay una caja abierta en esta sede. Ábrala para poder vender.</span>
+    <a asp-controller="Caja" asp-action="Index" class="btn btn-sm btn-marca">Abrir caja</a>
+</div></div>
+
+<div class="pos">
+    <section>
+        <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+            <div class="input-group" style="max-width:340px">
+                <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
+                <input id="txtBuscar" class="form-control" placeholder="Buscar producto..." autocomplete="off" />
             </div>
-            <div class="card-footer bg-white">
-                <div class="d-flex justify-content-between fs-5 fw-bold mb-3"><span>Total</span><span id="lblTotal">$ 0</span></div>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-outline-secondary" id="btnLimpiar">Limpiar</button>
-                    <button class="btn btn-danger flex-fill" id="btnCobrar"><i class="bi bi-cash-coin"></i> Registrar venta</button>
-                </div>
-            </div>
+            <div id="categorias" class="pos-categorias flex-grow-1"></div>
         </div>
-    </div>
+        <div id="productos" class="pos-grid"></div>
+    </section>
+
+    <aside class="card pedido shadow-sm">
+        <div class="card-header bg-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-bag"></i> Pedido</h5>
+            <button class="btn btn-sm btn-link text-danger" id="btnVaciar">Vaciar</button>
+        </div>
+        <div class="card-body">
+            <div class="btn-group segmentado w-100 mb-3" role="group" id="tipoPedido">
+                <button type="button" class="btn btn-outline-marca active" data-valor="MESA"><i class="bi bi-cup-hot"></i> Mesa</button>
+                <button type="button" class="btn btn-outline-marca" data-valor="LLEVAR"><i class="bi bi-bag-check"></i> Llevar</button>
+                <button type="button" class="btn btn-outline-marca" data-valor="DOMICILIO"><i class="bi bi-bicycle"></i> Domicilio</button>
+            </div>
+
+            <div id="datosCliente" class="row g-2 mb-3" hidden>
+                <div class="col-7"><input id="txtCliente" class="form-control form-control-sm" placeholder="Nombre del cliente" maxlength="100" /></div>
+                <div class="col-5"><input id="txtTelefono" class="form-control form-control-sm" placeholder="Teléfono" maxlength="20" /></div>
+                <div class="col-8"><input id="txtDireccion" class="form-control form-control-sm" placeholder="Dirección" maxlength="200" /></div>
+                <div class="col-4"><input id="txtCostoDomicilio" type="number" min="0" step="500" class="form-control form-control-sm" placeholder="Envío" /></div>
+            </div>
+            <div id="datosNombre" class="mb-3">
+                <input id="txtNombreMesa" class="form-control form-control-sm" placeholder="Nombre o mesa (opcional)" maxlength="100" />
+            </div>
+
+            <div class="lineas" id="lineas"></div>
+
+            <hr />
+            <div class="d-flex justify-content-between small"><span>Subtotal</span><span id="lblSubtotal">$ 0</span></div>
+            <div class="d-flex justify-content-between small" id="filaEnvio" hidden><span>Domicilio</span><span id="lblEnvio">$ 0</span></div>
+            <div class="d-flex justify-content-between fs-4 fw-bold"><span>Total</span><span class="text-marca" id="lblTotal">$ 0</span></div>
+
+            <div class="btn-group segmentado w-100 my-3" role="group" id="metodoPago">
+                <button type="button" class="btn btn-outline-secondary active" data-valor="EFECTIVO"><i class="bi bi-cash"></i> Efectivo</button>
+                <button type="button" class="btn btn-outline-secondary" data-valor="TARJETA"><i class="bi bi-credit-card"></i> Tarjeta</button>
+                <button type="button" class="btn btn-outline-secondary" data-valor="TRANSFERENCIA"><i class="bi bi-phone"></i> Transf.</button>
+            </div>
+            <div id="datosEfectivo" class="row g-2 align-items-center mb-3">
+                <div class="col-6"><input id="txtRecibido" type="number" min="0" step="1000" class="form-control" placeholder="Recibido" /></div>
+                <div class="col-6 text-end">Cambio: <strong id="lblCambio">$ 0</strong></div>
+                <div class="col-12 d-flex gap-1 flex-wrap" id="billetes"></div>
+            </div>
+
+            <button class="btn btn-marca btn-lg w-100" id="btnCobrar" disabled><i class="bi bi-check2-circle"></i> Cobrar</button>
+        </div>
+    </aside>
 </div>
 
-@section Scripts {
-    <script src="~/js/venta.js" asp-append-version="true"></script>
-}
+<!-- Adiciones y notas del producto -->
+<div class="modal fade" id="modalProducto" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="tituloProducto"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <div id="modificadores" class="d-grid gap-2 mb-3"></div>
+            <label class="form-label">Notas para cocina</label>
+            <input id="txtNotas" class="form-control" maxlength="150" placeholder="Ej: bien asada, salsas aparte" />
+            <div class="d-flex align-items-center gap-2 mt-3">
+                <button class="btn btn-outline-secondary" id="btnMenos"><i class="bi bi-dash"></i></button>
+                <span class="fs-5 fw-bold" id="lblCantidad">1</span>
+                <button class="btn btn-outline-secondary" id="btnMas"><i class="bi bi-plus"></i></button>
+            </div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-marca w-100" id="btnAgregarPedido">Agregar</button></div>
+    </div></div>
+</div>
+
+<!-- Venta registrada -->
+<div class="modal fade" id="modalListo" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content text-center">
+        <div class="modal-body py-4">
+            <div class="display-5 text-success"><i class="bi bi-check-circle-fill"></i></div>
+            <h5 class="mt-2">Venta registrada</h5>
+            <p class="mb-1" id="lblListoTotal"></p>
+            <p class="text-muted small" id="lblListoCambio"></p>
+            <div class="d-grid gap-2">
+                <a class="btn btn-marca" id="lnkTicket" target="_blank"><i class="bi bi-printer"></i> Imprimir ticket</a>
+                <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Nueva venta</button>
+            </div>
+        </div>
+    </div></div>
+</div>
+
+@section Scripts { <script src="~/js/venta.js" asp-append-version="true"></script> }

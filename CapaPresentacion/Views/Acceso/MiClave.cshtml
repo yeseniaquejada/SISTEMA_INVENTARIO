@@ -1,0 +1,25 @@
+@{
+    ViewData["Title"] = "Cambiar mi contraseña";
+}
+<div class="card" style="max-width:460px">
+    <div class="card-body">
+        <form id="formulario" class="row g-3">
+            <div class="col-12"><label class="form-label" for="actual">Contraseña actual</label><input id="actual" name="actual" type="password" class="form-control" required autocomplete="current-password" /></div>
+            <div class="col-12"><label class="form-label" for="nueva">Nueva contraseña</label><input id="nueva" name="nueva" type="password" class="form-control" minlength="6" required autocomplete="new-password" /></div>
+            <div class="col-12"><label class="form-label" for="confirmacion">Repita la nueva contraseña</label><input id="confirmacion" name="confirmacion" type="password" class="form-control" minlength="6" required autocomplete="new-password" /></div>
+            <div class="col-12"><button class="btn btn-marca w-100">Guardar contraseña</button></div>
+        </form>
+    </div>
+</div>
+@section Scripts {
+<script>
+    const f = document.getElementById('formulario');
+    f.addEventListener('submit', async ev => {
+        ev.preventDefault();
+        try {
+            const r = await api.post('/Acceso/CambiarClave', leerForm(f));
+            if (r.resultado) { f.reset(); alerta('Contraseña actualizada'); } else alerta(r.mensaje, 'warning');
+        } catch (e) { errorAlerta(e); }
+    });
+</script>
+}

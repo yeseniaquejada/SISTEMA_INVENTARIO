@@ -1,0 +1,64 @@
+@{
+    ViewData["Title"] = "Pedidos a domicilio";
+}
+<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <div class="btn-group" id="filtro">
+        <button class="btn btn-outline-marca active" data-pend="true">Pendientes</button>
+        <button class="btn btn-outline-marca" data-pend="false">Todos los de hoy</button>
+    </div>
+    <small class="text-muted ms-auto"><i class="bi bi-arrow-repeat"></i> Se actualiza cada 30 segundos</small>
+</div>
+<div class="row g-3" id="lista"></div>
+
+@section Scripts {
+<script>
+(function () {
+    const lista = document.getElementById('lista');
+    let pendientes = true;
+    const siguiente = { PENDIENTE: ['EN_CAMINO', 'Enviar', 'bi-bicycle'], EN_CAMINO: ['ENTREGADO', 'Entregado', 'bi-check2'] };
+
+    async function cargar() {
+        try {
+            const datos = await api.get(`/Domicilio/Listar?soloPendientes=${pendientes}`);
+            lista.innerHTML = datos.length ? datos.map(d => {
+                const s = siguiente[d.estadoPedido];
+                return `<div class="col-md-6 col-xl-4"><div class="card shadow-sm domicilio ${d.estadoPedido} h-100"><div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <strong>Pedido N° ${d.idVenta}</strong>
+                        <span class="badge text-bg-light">${esc(etiquetaEstado[d.estadoPedido])} · hace ${d.minutos} min</span>
+                    </div>
+                    <div class="mt-2"><i class="bi bi-person"></i> ${esc(d.clienteNombre)} · <a href="tel:${esc(d.clienteTelefono)}">${esc(d.clienteTelefono)}</a></div>
+                    <div><i class="bi bi-geo-alt"></i> ${esc(d.direccion)}</div>
+                    <div class="small text-muted mt-2">${esc(d.detalle)}</div>
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <span class="fw-bold">${moneda(d.total)} <small class="text-muted fw-normal">${esc(etiquetaPago[d.metodoPago])}</small></span>
+                        <span class="d-flex gap-1">
+                            <a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${d.idVenta}" target="_blank" title="Ticket"><i class="bi bi-printer"></i></a>
+                            ${s ? `<button class="btn btn-sm btn-marca" data-id="${d.idVenta}" data-estado="${s[0]}"><i class="bi ${s[2]}"></i> ${s[1]}</button>` : ''}
+                        </span>
+                    </div>
+                </div></div></div>`;
+            }).join('') : '<p class="text-muted">No hay domicilios para mostrar.</p>';
+        } catch (e) { errorAlerta(e); }
+    }
+
+    lista.addEventListener('click', async ev => {
+        const b = ev.target.closest('[data-estado]');
+        if (!b) return;
+        try {
+            const r = await api.post(`/Domicilio/Estado?id=${b.dataset.id}&estado=${b.dataset.estado}`);
+            if (r.resultado) cargar(); else alerta(r.mensaje, 'warning');
+        } catch (e) { errorAlerta(e); }
+    });
+    document.getElementById('filtro').addEventListener('click', ev => {
+        const b = ev.target.closest('[data-pend]');
+        if (!b) return;
+        pendientes = b.dataset.pend === 'true';
+        document.querySelectorAll('#filtro .btn').forEach(x => x.classList.toggle('active', x === b));
+        cargar();
+    });
+    cargar();
+    setInterval(cargar, 30000);
+})();
+</script>
+}
