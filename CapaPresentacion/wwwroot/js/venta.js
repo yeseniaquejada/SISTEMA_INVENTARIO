@@ -45,7 +45,7 @@
                               : `<div class="producto-foto sin-foto">${esc(p.icono || '🍽️')}</div>`}
                 <div class="producto-info">
                     <span class="producto-nombre">${esc(p.nombre)}</span>
-                    ${p.descripcion ? `<small class="text-muted text-truncate">${esc(p.descripcion)}</small>` : ''}
+                    ${p.descripcion ? `<small class="producto-desc">${esc(p.descripcion)}</small>` : ''}
                     <span class="producto-precio">${moneda(p.precio)}</span>
                 </div>
             </button>`).join('')

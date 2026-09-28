@@ -51,6 +51,7 @@ body { background: var(--fondo); min-height: 100vh; }
 .producto-info { padding: .6rem .75rem .75rem; display: grid; gap: .15rem; }
 .producto-nombre { font-weight: 600; line-height: 1.2; }
 .producto-precio { color: var(--marca); font-weight: 700; }
+.producto-desc { color: var(--texto-suave); font-size: .8rem; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .pedido { position: sticky; top: 1rem; }
 .pedido .lineas { max-height: 38vh; overflow-y: auto; }
 .pedido .linea small { color: var(--texto-suave); }

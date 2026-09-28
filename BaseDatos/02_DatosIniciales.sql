@@ -415,3 +415,33 @@ CLOSE c; DEALLOCATE c;
 /* Caja abierta para poder vender desde el primer ingreso */
 INSERT INTO CAJA (IdSede, IdUsuarioApertura, BaseInicial) VALUES (1, 1, 100000);
 GO
+
+/* Descripciones que se muestran en las tarjetas del punto de venta */
+UPDATE p SET Descripcion = d.Descripcion
+FROM PRODUCTO_MENU p INNER JOIN (VALUES
+    ('Arepa burguer', 'Arepa con carne de hamburguesa, huevo, queso mozzarella, ensalada y papa ripio'),
+    ('Hamburguesa callejera', 'Carne de res, tocineta, queso mozzarella, ensalada y papa ripio'),
+    ('Hamburguesa hawaiana', 'Carne de res, tocineta, queso mozzarella, piña, lechuga y tomate'),
+    ('Hamburguesa John Wick', 'Carne de res, tocineta, chicharrón caramelizado, queso mozzarella y vegetales'),
+    ('Hamburguesa Philadelphia', 'Carne de res, tocineta, queso mozzarella, lechuga, tomate y pepino'),
+    ('Hamburguesa pulled pork', 'Cerdo desmechado, tocineta, queso mozzarella, lechuga y tomate'),
+    ('Choriperro', 'Chorizo en pan artesanal, queso mozzarella, pico de gallo y papa ripio'),
+    ('Perra callejera', 'Tocineta, queso mozzarella, huevos de codorniz, ensalada y papa ripio'),
+    ('Perro caliente', 'Salchicha americana, tocineta, queso mozzarella, huevos de codorniz y papa ripio'),
+    ('Choripapa', 'Papa a la francesa con chorizo casero, chorizo coctelero, tocineta y maduro'),
+    ('Papa mexicana', 'Papa a la francesa con carne desmechada, maicitos, guacamole y pico de gallo'),
+    ('Papa paisa', 'Papa a la francesa con chicharrón, chorizo, butifarra, tocineta y maduro'),
+    ('Papa pollo', 'Papa a la francesa con pollo desmechado, maicitos, tocineta y queso mozzarella'),
+    ('Papa tradicional', 'Papa a la francesa con salchicha, tocineta, queso mozzarella y huevos de codorniz'),
+    ('Papas full bacon', 'Papa a la francesa con tocineta y huevos de codorniz'),
+    ('Papas John Wick', 'Papa a la francesa con pulled pork, salchicha, chicharrón caramelizado y queso'),
+    ('Churrasco', 'Churrasco a la parrilla con papa, arepa con queso y ensalada'),
+    ('Chuzo de pollo', 'Chuzo de pollo con papa, arepa con queso y ensalada'),
+    ('Lomo de cerdo', 'Lomo de cerdo con papa, arepa con queso y ensalada'),
+    ('Burrito de carne', 'Tortilla con carne desmechada, tocineta, nachos, guacamole y pico de gallo'),
+    ('Burrito de pollo', 'Tortilla con pollo desmechado, tocineta, nachos, guacamole y pico de gallo'),
+    ('Desgranado', 'Maíz desgranado con pollo, tocineta, queso mozzarella, crema y papa ripio'),
+    ('Patacón de carne', 'Patacón con carne desmechada, queso mozzarella, guacamole y papa ripio'),
+    ('Patacón de pollo', 'Patacón con pollo desmechado, queso mozzarella, guacamole y papa ripio')
+) d (Nombre, Descripcion) ON d.Nombre = p.Nombre;
+GO
