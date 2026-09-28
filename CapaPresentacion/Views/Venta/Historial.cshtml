@@ -1,0 +1,38 @@
+@{
+    ViewData["Title"] = "Historial de ventas";
+}
+<div class="card">
+    <div class="card-header bg-white">
+        <div class="row g-2 align-items-end">
+            <div class="col-sm-3"><label class="form-label small mb-0">Desde</label><input type="date" id="txtInicio" class="form-control form-control-sm" /></div>
+            <div class="col-sm-3"><label class="form-label small mb-0">Hasta</label><input type="date" id="txtFin" class="form-control form-control-sm" /></div>
+            <div class="col-sm-2"><button class="btn btn-sm btn-outline-danger w-100" id="btnBuscar"><i class="bi bi-search"></i> Buscar</button></div>
+            <div class="col-sm-4 text-sm-end fw-bold" id="lblTotal"></div>
+        </div>
+    </div>
+    <div class="card-body p-0 table-responsive">
+        <table class="table table-sm table-hover mb-0">
+            <thead class="table-light"><tr><th>#</th><th>Fecha</th><th>Detalle</th><th>Usuario</th><th class="text-end">Total</th></tr></thead>
+            <tbody id="tablaVentas"></tbody>
+        </table>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+    (function () {
+        const inicio = document.getElementById('txtInicio'), fin = document.getElementById('txtFin');
+        inicio.value = fin.value = hoy();
+        async function buscar() {
+            const lista = await api.get(`/Venta/Listar?inicio=${inicio.value}&fin=${fin.value}`);
+            renderTabla(document.getElementById('tablaVentas'), lista, v => `<tr>
+                <td>${v.idVenta}</td><td class="text-nowrap">${esc(v.fecha)}</td><td>${esc(v.detalle)}</td>
+                <td>${esc(v.usuario)}</td><td class="text-end">${moneda(v.total)}</td></tr>`, 5);
+            document.getElementById('lblTotal').textContent =
+                `${lista.length} ventas · ${moneda(lista.reduce((s, v) => s + v.total, 0))}`;
+        }
+        document.getElementById('btnBuscar').addEventListener('click', () => buscar().catch(errorAlerta));
+        buscar().catch(errorAlerta);
+    })();
+</script>
+}

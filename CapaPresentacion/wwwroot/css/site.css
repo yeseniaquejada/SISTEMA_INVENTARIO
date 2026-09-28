@@ -1,0 +1,8 @@
+html { font-size: 15px; }
+body { background: #f5f6f8; min-height: 100vh; }
+.tarjeta { border-radius: .6rem; }
+.table td, .table th { vertical-align: middle; }
+.login-fondo { background: linear-gradient(135deg, #dc3545 0%, #fd7e14 100%); min-height: 100vh; }
+.login-card { width: 100%; max-width: 380px; border-radius: 1rem; }
+.producto-btn { min-height: 90px; white-space: normal; }
+.stock-bajo { color: #dc3545; font-weight: 600; }

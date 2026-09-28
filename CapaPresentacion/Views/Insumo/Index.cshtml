@@ -1,0 +1,51 @@
+@{
+    ViewData["Title"] = "Insumos";
+}
+<partial name="_Barra" />
+<div class="alert alert-info py-2 small"><i class="bi bi-info-circle"></i> El stock no se edita aquí: se actualiza con los <a asp-controller="Movimiento" asp-action="Index">movimientos</a> (entradas, salidas, mermas) y con las ventas.</div>
+<div class="card"><div class="card-body p-0 table-responsive">
+    <table class="table table-hover mb-0" id="tabla">
+        <thead class="table-light"><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th class="text-end">Stock</th><th class="text-end">Mínimo</th><th class="text-end">Costo unit.</th><th>Estado</th><th></th></tr></thead>
+        <tbody></tbody>
+    </table>
+</div></div>
+
+<div class="modal fade" id="modal" tabindex="-1">
+    <div class="modal-dialog modal-lg"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <form id="formulario" class="row g-3">
+                <input type="hidden" name="idInsumo" data-tipo="numero" />
+                <div class="col-md-4"><label class="form-label">Código</label><input name="codigo" class="form-control text-uppercase" maxlength="30" required /></div>
+                <div class="col-md-8"><label class="form-label">Nombre</label><input name="nombre" class="form-control" maxlength="100" required /></div>
+                <div class="col-md-6"><label class="form-label">Categoría</label><select name="idCategoria" id="cboCategoria" class="form-select" data-tipo="numero" required></select></div>
+                <div class="col-md-6"><label class="form-label">Unidad de medida</label>
+                    <select name="unidadMedida" class="form-select">
+                        <option value="UND">Unidad (UND)</option><option value="KG">Kilogramo (KG)</option><option value="GR">Gramo (GR)</option>
+                        <option value="LT">Litro (LT)</option><option value="ML">Mililitro (ML)</option>
+                    </select></div>
+                <div class="col-md-6"><label class="form-label">Stock mínimo</label><input name="stockMinimo" type="number" min="0" step="0.001" class="form-control" data-tipo="numero" required /></div>
+                <div class="col-md-6"><label class="form-label">Costo unitario</label><input name="costoUnitario" type="number" min="0" step="0.01" class="form-control" data-tipo="numero" required /></div>
+                <div class="col-12 form-check ms-2"><input type="checkbox" name="activo" class="form-check-input" id="chkActivo" /><label class="form-check-label" for="chkActivo">Activo</label></div>
+            </form>
+        </div>
+        <partial name="_ModalPie" />
+    </div></div>
+</div>
+
+@section Scripts {
+<script>
+    (async function () {
+        const categorias = await api.get('/Categoria/Listar');
+        llenarSelect(document.getElementById('cboCategoria'), categorias, 'idCategoria', 'descripcion');
+        Mantenimiento({
+            base: '/Insumo', id: 'idInsumo', columnas: 8,
+            nuevo: () => ({ idInsumo: 0, idCategoria: 0, unidadMedida: 'UND', stockMinimo: 0, costoUnitario: 0, activo: true }),
+            fila: i => `<td>${esc(i.codigo)}</td><td>${esc(i.nombre)}</td><td>${esc(i.categoria)}</td>
+                <td class="text-end ${i.stock <= i.stockMinimo ? 'stock-bajo' : ''}">${num(i.stock)} ${esc(i.unidadMedida)}</td>
+                <td class="text-end">${num(i.stockMinimo)}</td><td class="text-end">${moneda(i.costoUnitario)}</td>
+                <td>${badgeActivo(i.activo)}</td>`
+        });
+    })().catch(errorAlerta);
+</script>
+}

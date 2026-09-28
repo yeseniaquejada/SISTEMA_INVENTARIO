@@ -1,0 +1,49 @@
+@{
+    ViewData["Title"] = "Movimientos de inventario";
+}
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-white fw-semibold">Registrar movimiento</div>
+            <div class="card-body">
+                <form id="formulario" class="row g-3">
+                    <div class="col-12"><label class="form-label">Tipo</label>
+                        <select name="tipo" id="cboTipo" class="form-select">
+                            <option value="ENTRADA">Entrada (compra a proveedor)</option>
+                            <option value="SALIDA">Salida (consumo interno)</option>
+                            <option value="MERMA">Merma (daño o vencimiento)</option>
+                        </select></div>
+                    <div class="col-12"><label class="form-label">Insumo</label><select name="idInsumo" id="cboInsumo" class="form-select" data-tipo="numero"></select>
+                        <div class="form-text" id="lblStock"></div></div>
+                    <div class="col-6"><label class="form-label">Cantidad</label><input name="cantidad" type="number" min="0.001" step="0.001" class="form-control" data-tipo="numero" required /></div>
+                    <div class="col-6 solo-entrada"><label class="form-label">Costo unitario</label><input name="costoUnitario" type="number" min="0" step="0.01" class="form-control" data-tipo="numero" /></div>
+                    <div class="col-12 solo-entrada"><label class="form-label">Proveedor</label><select name="idProveedor" id="cboProveedor" class="form-select" data-tipo="numero"></select></div>
+                    <div class="col-12"><label class="form-label">Observación</label><input name="observacion" class="form-control" maxlength="250" /></div>
+                    <div class="col-12"><button type="button" class="btn btn-danger w-100" id="btnRegistrar"><i class="bi bi-check-lg"></i> Registrar</button></div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header bg-white">
+                <div class="row g-2 align-items-end">
+                    <div class="col-sm-3"><label class="form-label small mb-0">Desde</label><input type="date" id="txtInicio" class="form-control form-control-sm" /></div>
+                    <div class="col-sm-3"><label class="form-label small mb-0">Hasta</label><input type="date" id="txtFin" class="form-control form-control-sm" /></div>
+                    <div class="col-sm-4"><label class="form-label small mb-0">Insumo</label><select id="cboFiltroInsumo" class="form-select form-select-sm"></select></div>
+                    <div class="col-sm-2"><button class="btn btn-sm btn-outline-danger w-100" id="btnBuscar"><i class="bi bi-search"></i> Kardex</button></div>
+                </div>
+            </div>
+            <div class="card-body p-0 table-responsive">
+                <table class="table table-sm table-hover mb-0 small">
+                    <thead class="table-light"><tr><th>Fecha</th><th>Insumo</th><th>Tipo</th><th class="text-end">Cantidad</th><th class="text-end">Antes</th><th class="text-end">Después</th><th>Proveedor / Obs.</th><th>Usuario</th></tr></thead>
+                    <tbody id="tablaKardex"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/movimiento.js" asp-append-version="true"></script>
+}

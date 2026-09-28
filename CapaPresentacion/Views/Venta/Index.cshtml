@@ -1,0 +1,31 @@
+@{
+    ViewData["Title"] = "Nueva venta";
+}
+<div class="row g-3">
+    <div class="col-lg-8">
+        <input type="search" id="buscar" class="form-control mb-3" placeholder="Buscar producto..." />
+        <div class="row g-2" id="gridProductos"></div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header bg-white fw-semibold"><i class="bi bi-receipt"></i> Pedido</div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead class="table-light"><tr><th>Producto</th><th class="text-center">Cant.</th><th class="text-end">Subtotal</th><th></th></tr></thead>
+                    <tbody id="tablaPedido"></tbody>
+                </table>
+            </div>
+            <div class="card-footer bg-white">
+                <div class="d-flex justify-content-between fs-5 fw-bold mb-3"><span>Total</span><span id="lblTotal">$ 0</span></div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-secondary" id="btnLimpiar">Limpiar</button>
+                    <button class="btn btn-danger flex-fill" id="btnCobrar"><i class="bi bi-cash-coin"></i> Registrar venta</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+    <script src="~/js/venta.js" asp-append-version="true"></script>
+}
