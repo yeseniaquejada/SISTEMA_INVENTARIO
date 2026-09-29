@@ -37,6 +37,7 @@
                 <ul class="navbar-nav me-auto">
                     <li class="nav-item"><a class="nav-link @Activo("Home")" asp-controller="Home" asp-action="Index"><i class="bi bi-speedometer2"></i> Inicio</a></li>
                     <li class="nav-item"><a class="nav-link @Activo("Venta")" asp-controller="Venta" asp-action="Index"><i class="bi bi-cart3"></i> Vender</a></li>
+                    <li class="nav-item"><a class="nav-link @Activo("Cocina")" asp-controller="Cocina" asp-action="Index"><i class="bi bi-fire"></i> Cocina</a></li>
                     <li class="nav-item"><a class="nav-link @Activo("Domicilio")" asp-controller="Domicilio" asp-action="Index"><i class="bi bi-bicycle"></i> Domicilios</a></li>
                     <li class="nav-item"><a class="nav-link @Activo("Caja")" asp-controller="Caja" asp-action="Index"><i class="bi bi-cash-stack"></i> Caja</a></li>
                     @if (esAdmin)
@@ -118,7 +119,9 @@
 
     <div class="toast-container position-fixed top-0 end-0 p-3" id="contenedorAlertas"></div>
 
-    <script>window.APP = { moneda: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(cfg.SimboloMoneda)), esAdmin: @(esAdmin ? "true" : "false") };</script>
+    <script>window.APP = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new {
+        moneda = cfg.SimboloMoneda, esAdmin, negocio = cfg.NombreNegocio, costoDomicilio = cfg.CostoDomicilio,
+        minutosEdicion = cfg.MinutosEdicion, minutosAlertaCocina = cfg.MinutosAlertaCocina, minutosAlertaDomicilio = cfg.MinutosAlertaDomicilio }));</script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)

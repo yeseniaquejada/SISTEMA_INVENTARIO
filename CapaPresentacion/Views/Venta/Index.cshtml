@@ -7,21 +7,36 @@
     <a asp-controller="Caja" asp-action="Index" class="btn btn-sm btn-marca">Abrir caja</a>
 </div></div>
 
+<div id="avisoEdicion" class="alert alert-info d-flex align-items-center justify-content-between gap-2" hidden>
+    <span><i class="bi bi-pencil-square"></i> Editando el pedido <strong id="lblEdicionId"></strong>.
+        <span id="lblEdicionTiempo"></span></span>
+    <a href="/Venta" class="btn btn-sm btn-outline-secondary">Cancelar edición</a>
+</div>
+
 <div class="pos">
     <section>
         <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
-            <div class="input-group" style="max-width:340px">
+            <div class="input-group" style="max-width:320px">
                 <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                <input id="txtBuscar" class="form-control" placeholder="Buscar producto..." autocomplete="off" />
+                <input id="txtBuscar" class="form-control" placeholder="Buscar producto... (F2)" autocomplete="off" />
             </div>
-            <div id="categorias" class="pos-categorias flex-grow-1"></div>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary bg-white" data-bs-toggle="dropdown" id="btnEspera" title="Pedidos guardados sin cobrar">
+                    <i class="bi bi-pause-circle"></i> En espera <span class="badge rounded-pill text-bg-secondary" id="lblEspera">0</span>
+                </button>
+                <ul class="dropdown-menu" id="listaEspera"></ul>
+            </div>
+            <button class="btn btn-outline-secondary bg-white" data-bs-toggle="offcanvas" data-bs-target="#panelComandas" title="Pedidos que están en cocina">
+                <i class="bi bi-fire"></i> Comandas <span class="badge rounded-pill text-bg-danger" id="lblComandas">0</span>
+            </button>
         </div>
+        <div id="categorias" class="pos-categorias mb-3"></div>
         <div id="productos" class="pos-grid"></div>
     </section>
 
     <aside class="card pedido shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bi bi-bag"></i> Pedido</h5>
+            <h5 class="mb-0"><i class="bi bi-bag"></i> <span id="lblTituloPedido">Pedido</span></h5>
             <button class="btn btn-sm btn-link text-danger" id="btnVaciar">Vaciar</button>
         </div>
         <div class="card-body">
@@ -32,10 +47,11 @@
             </div>
 
             <div id="datosCliente" class="row g-2 mb-3" hidden>
+                <div class="col-5"><input id="txtTelefono" class="form-control form-control-sm" placeholder="Teléfono" maxlength="20" inputmode="tel" autocomplete="off" /></div>
                 <div class="col-7"><input id="txtCliente" class="form-control form-control-sm" placeholder="Nombre del cliente" maxlength="100" /></div>
-                <div class="col-5"><input id="txtTelefono" class="form-control form-control-sm" placeholder="Teléfono" maxlength="20" /></div>
-                <div class="col-8"><input id="txtDireccion" class="form-control form-control-sm" placeholder="Dirección" maxlength="200" /></div>
-                <div class="col-4"><input id="txtCostoDomicilio" type="number" min="0" step="500" class="form-control form-control-sm" placeholder="Envío" /></div>
+                <div class="col-8"><input id="txtDireccion" class="form-control form-control-sm" placeholder="Dirección y barrio" maxlength="200" /></div>
+                <div class="col-4"><input id="txtCostoDomicilio" type="number" min="0" step="500" class="form-control form-control-sm" placeholder="Envío" title="Valor del domicilio" /></div>
+                <div class="col-12 small text-success" id="lblClienteFrecuente" hidden></div>
             </div>
             <div id="datosNombre" class="mb-3">
                 <input id="txtNombreMesa" class="form-control form-control-sm" placeholder="Nombre o mesa (opcional)" maxlength="100" />
@@ -59,26 +75,32 @@
                 <div class="col-12 d-flex gap-1 flex-wrap" id="billetes"></div>
             </div>
 
-            <button class="btn btn-marca btn-lg w-100" id="btnCobrar" disabled><i class="bi bi-check2-circle"></i> Cobrar</button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-secondary" id="btnPonerEspera" title="Guardar el pedido sin cobrar"><i class="bi bi-pause-circle"></i></button>
+                <button class="btn btn-marca btn-lg flex-grow-1" id="btnCobrar" disabled><i class="bi bi-check2-circle"></i> <span id="lblCobrar">Cobrar</span></button>
+            </div>
+            <div class="text-muted text-center small mt-2 d-none d-lg-block">F2 buscar · Enter agregar · F9 cobrar</div>
         </div>
     </aside>
 </div>
 
-<!-- Adiciones y notas del producto -->
+<!-- Adiciones, salsas y notas del producto -->
 <div class="modal fade" id="modalProducto" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
         <div class="modal-header"><h5 class="modal-title" id="tituloProducto"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
-            <div id="modificadores" class="d-grid gap-2 mb-3"></div>
-            <label class="form-label">Notas para cocina</label>
+            <div id="modificadores"></div>
+            <label class="form-label mt-2" for="txtNotas">Notas para cocina</label>
             <input id="txtNotas" class="form-control" maxlength="150" placeholder="Ej: bien asada, salsas aparte" />
-            <div class="d-flex align-items-center gap-2 mt-3">
-                <button class="btn btn-outline-secondary" id="btnMenos"><i class="bi bi-dash"></i></button>
-                <span class="fs-5 fw-bold" id="lblCantidad">1</span>
-                <button class="btn btn-outline-secondary" id="btnMas"><i class="bi bi-plus"></i></button>
-            </div>
         </div>
-        <div class="modal-footer"><button class="btn btn-marca w-100" id="btnAgregarPedido">Agregar</button></div>
+        <div class="modal-footer d-flex flex-nowrap">
+            <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-secondary" id="btnMenos" aria-label="Menos"><i class="bi bi-dash"></i></button>
+                <span class="fs-5 fw-bold" id="lblCantidad">1</span>
+                <button class="btn btn-outline-secondary" id="btnMas" aria-label="Más"><i class="bi bi-plus"></i></button>
+            </div>
+            <button class="btn btn-marca flex-grow-1" id="btnAgregarPedido">Agregar</button>
+        </div>
     </div></div>
 </div>
 
@@ -87,15 +109,29 @@
     <div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content text-center">
         <div class="modal-body py-4">
             <div class="display-5 text-success"><i class="bi bi-check-circle-fill"></i></div>
-            <h5 class="mt-2">Venta registrada</h5>
+            <h5 class="mt-2" id="lblListoTitulo">Venta registrada</h5>
             <p class="mb-1" id="lblListoTotal"></p>
             <p class="text-muted small" id="lblListoCambio"></p>
             <div class="d-grid gap-2">
                 <a class="btn btn-marca" id="lnkTicket" target="_blank"><i class="bi bi-printer"></i> Imprimir ticket</a>
+                <a class="btn btn-outline-secondary" id="lnkComanda" target="_blank"><i class="bi bi-fire"></i> Comanda para cocina</a>
                 <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Nueva venta</button>
             </div>
         </div>
     </div></div>
+</div>
+
+<!-- Comandas en proceso -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="panelComandas" style="width:420px">
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title"><i class="bi bi-fire text-danger"></i> Comandas en proceso</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+    </div>
+    <div class="offcanvas-body">
+        <p class="small text-muted" id="lblReglaEdicion"></p>
+        <div id="listaComandas" class="d-grid gap-2"></div>
+        <a asp-controller="Cocina" asp-action="Index" class="btn btn-outline-marca w-100 mt-3"><i class="bi bi-display"></i> Abrir pantalla de cocina</a>
+    </div>
 </div>
 
 @section Scripts { <script src="~/js/venta.js" asp-append-version="true"></script> }

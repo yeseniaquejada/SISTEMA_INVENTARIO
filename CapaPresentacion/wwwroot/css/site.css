@@ -42,8 +42,24 @@ body { background: var(--fondo); min-height: 100vh; }
 .producto-card {
     border: 1px solid var(--borde); border-radius: 14px; overflow: hidden; background: #fff;
     text-align: left; padding: 0; cursor: pointer; transition: transform .12s, box-shadow .12s;
-    display: flex; flex-direction: column;
+    display: flex; flex-direction: column; position: relative;
 }
+.producto-card.agotado { opacity: .55; }
+.producto-card.agotado .producto-foto { filter: grayscale(1); }
+.producto-top {
+    position: absolute; top: .5rem; left: .5rem; background: rgb(255 255 255 / .92); color: #b3261e;
+    font-size: .72rem; font-weight: 700; padding: .1rem .45rem; border-radius: 999px; box-shadow: 0 1px 4px rgb(0 0 0 / .15);
+}
+.producto-rapido {
+    position: absolute; top: .45rem; right: .45rem; width: 2rem; height: 2rem; border-radius: 50%; border: 0;
+    background: var(--marca); color: var(--marca-texto); display: grid; place-items: center; box-shadow: 0 2px 6px rgb(0 0 0 / .25);
+}
+.producto-rapido:hover { filter: brightness(.9); }
+.producto-stock { font-size: .72rem; font-weight: 600; color: #a15c00; background: #fff4d6; border-radius: 999px; padding: 0 .45rem; }
+.producto-stock.agotado { color: #fff; background: #6c757d; }
+.comanda-mini { border-left: 4px solid #adb5bd; }
+.comanda-mini.PREPARANDO { border-left-color: #f0ad00; }
+.comanda-mini.LISTO { border-left-color: #198754; }
 .producto-card:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgb(0 0 0 / .08); }
 .producto-card:focus-visible { outline: 3px solid var(--marca); outline-offset: 2px; }
 .producto-foto { aspect-ratio: 4 / 3; width: 100%; object-fit: cover; background: #f0ece9; display: block; }
@@ -62,7 +78,27 @@ body { background: var(--fondo); min-height: 100vh; }
 .domicilio { border-left: 4px solid #adb5bd; }
 .domicilio.PENDIENTE { border-left-color: #f0ad00; }
 .domicilio.EN_CAMINO { border-left-color: #0d6efd; }
-.domicilio.ENTREGADO { border-left-color: #198754; opacity: .75; }
+.domicilio.ENTREGADO { border-left-color: #198754; opacity: .8; }
+.domicilio.tarde { box-shadow: 0 0 0 2px #dc3545; }
+.tablero { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; align-items: start; }
+.tablero-col { background: #ecebea; border-radius: .8rem; padding: .75rem; min-height: 200px; }
+.tablero-col > h6 { display: flex; justify-content: space-between; align-items: center; margin-bottom: .75rem; }
+.tablero-col .card + .card { margin-top: .6rem; }
+@media (max-width: 991px) { .tablero { grid-template-columns: 1fr; } }
+
+/* ---- Cocina (comandas) ---- */
+.cocina .tablero-col { min-height: 70vh; }
+.comanda { border: 0; border-top: 6px solid #198754; }
+.comanda.medio { border-top-color: #f0ad00; }
+.comanda.tarde { border-top-color: #dc3545; }
+.comanda .reloj { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 1.1rem; }
+.comanda.tarde .reloj { color: #dc3545; }
+.comanda .item { font-size: 1.05rem; padding: .25rem 0; border-bottom: 1px dashed var(--borde); }
+.comanda .item:last-child { border-bottom: 0; }
+.comanda .cant { display: inline-block; min-width: 2rem; font-weight: 800; }
+.comanda .opciones { color: var(--texto-suave); font-size: .88rem; padding-left: 2rem; }
+.comanda .nota { color: #b3261e; font-weight: 600; font-size: .88rem; padding-left: 2rem; }
+.comanda .editable { font-size: .75rem; }
 
 /* ---- Configuración ---- */
 .vista-previa { border-radius: .6rem; overflow: hidden; border: 1px solid var(--borde); }
@@ -75,3 +111,13 @@ body { background: var(--fondo); min-height: 100vh; }
     main { padding: 0 !important; }
     .card { border: 0 !important; box-shadow: none !important; }
 }
+
+/* ---- Utilidades text-bg-* (vienen en Bootstrap 5.2; este proyecto usa 5.1) ---- */
+.text-bg-primary   { color: #fff !important; background-color: #0d6efd !important; }
+.text-bg-secondary { color: #fff !important; background-color: #6c757d !important; }
+.text-bg-success   { color: #fff !important; background-color: #198754 !important; }
+.text-bg-danger    { color: #fff !important; background-color: #dc3545 !important; }
+.text-bg-warning   { color: #000 !important; background-color: #ffc107 !important; }
+.text-bg-info      { color: #000 !important; background-color: #0dcaf0 !important; }
+.text-bg-light     { color: #000 !important; background-color: #f8f9fa !important; }
+.text-bg-dark      { color: #fff !important; background-color: #212529 !important; }

@@ -27,13 +27,27 @@
                     <tr><td>Ventas con tarjeta</td><td class="text-end" id="lblTarjeta"></td></tr>
                     <tr><td>Ventas por transferencia</td><td class="text-end" id="lblTransferencia"></td></tr>
                     <tr><td>Número de ventas</td><td class="text-end" id="lblNumero"></td></tr>
+                    <tr class="text-muted small" id="filaAnuladas" hidden><td>Pedidos anulados (no suman)</td><td class="text-end" id="lblAnuladas"></td></tr>
                     <tr class="fw-bold"><td>Efectivo esperado en caja</td><td class="text-end" id="lblEsperado"></td></tr>
                 </table>
-                <label class="form-label">Efectivo contado</label>
+                <div class="alert alert-warning py-2 small" id="avisoDomicilios" hidden></div>
+                <div class="d-flex justify-content-between align-items-end">
+                    <label class="form-label" for="txtContado">Efectivo contado</label>
+                    <button type="button" class="btn btn-sm btn-link p-0 mb-2" data-bs-toggle="collapse" data-bs-target="#contador"><i class="bi bi-calculator"></i> Contar por billetes</button>
+                </div>
+                <div class="collapse" id="contador">
+                    <div class="border rounded p-2 mb-2 bg-light">
+                        <div class="row g-1 small" id="denominaciones"></div>
+                        <div class="text-end fw-semibold mt-1">Total contado: <span id="lblConteoBilletes">$ 0</span></div>
+                    </div>
+                </div>
                 <input type="number" id="txtContado" class="form-control form-control-lg" min="0" step="100" />
                 <div class="my-2 fw-semibold" id="lblDiferencia"></div>
                 <input id="txtObservacion" class="form-control mb-3" maxlength="250" placeholder="Observación (opcional)" />
-                <button class="btn btn-marca w-100" id="btnCerrar"><i class="bi bi-lock"></i> Cerrar caja</button>
+                <div class="d-flex gap-2">
+                    <a class="btn btn-outline-secondary" id="lnkPrevia" target="_blank" title="Ver el reporte antes de cerrar"><i class="bi bi-eye"></i> Vista previa</a>
+                    <button class="btn btn-marca flex-grow-1" id="btnCerrar"><i class="bi bi-lock"></i> Cerrar caja</button>
+                </div>
             </div>
         </div>
     </div>
@@ -46,7 +60,7 @@
             </div>
             <div class="card-body p-0 table-responsive">
                 <table class="table table-sm table-hover mb-0">
-                    <thead class="table-light"><tr><th>Apertura</th><th>Cierre</th><th class="text-end">Efectivo</th><th class="text-end">Tarjeta</th><th class="text-end">Transf.</th><th class="text-end">Esperado</th><th class="text-end">Contado</th><th class="text-end">Diferencia</th><th>Cerró</th></tr></thead>
+                    <thead class="table-light"><tr><th>Apertura</th><th>Cierre</th><th class="text-end">Efectivo</th><th class="text-end">Tarjeta</th><th class="text-end">Transf.</th><th class="text-end">Esperado</th><th class="text-end">Contado</th><th class="text-end">Diferencia</th><th>Cerró</th><th class="no-imprimir"></th></tr></thead>
                     <tbody id="tablaHistorial"></tbody>
                 </table>
             </div>
@@ -59,6 +73,18 @@
 (function () {
     const $ = id => document.getElementById(id);
     let esperado = 0;
+    const DENOMINACIONES = [100000, 50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50];
+    $('denominaciones').innerHTML = DENOMINACIONES.map(d => `
+        <div class="col-6 d-flex align-items-center gap-1">
+            <span class="text-end text-nowrap" style="min-width:5.5rem">${moneda(d)}</span><span>×</span>
+            <input type="number" min="0" step="1" class="form-control form-control-sm" data-den="${d}" placeholder="0" />
+        </div>`).join('');
+    $('denominaciones').addEventListener('input', () => {
+        const t = [...$('denominaciones').querySelectorAll('[data-den]')].reduce((s, i) => s + Number(i.dataset.den) * Math.max(0, Number(i.value || 0)), 0);
+        $('lblConteoBilletes').textContent = moneda(t);
+        $('txtContado').value = t;
+        diferencia();
+    });
 
     async function cargar() {
         try {
@@ -73,7 +99,12 @@
                 $('lblTarjeta').textContent = moneda(c.ventasTarjeta);
                 $('lblTransferencia').textContent = moneda(c.ventasTransferencia);
                 $('lblNumero').textContent = c.numeroVentas;
+                $('filaAnuladas').hidden = !c.numeroAnuladas;
+                $('lblAnuladas').textContent = `${c.numeroAnuladas} · ${moneda(c.totalAnulado)}`;
                 $('lblEsperado').textContent = moneda(esperado);
+                $('avisoDomicilios').hidden = !c.efectivoEnDomicilios;
+                $('avisoDomicilios').innerHTML = `<i class="bi bi-bicycle"></i> Hay ${moneda(c.efectivoEnDomicilios)} de domicilios en efectivo que aún no se han entregado. Ese dinero está incluido en el esperado: espere a que vuelvan los domiciliarios antes de cerrar.`;
+                $('lnkPrevia').href = `/Caja/Reporte/${c.idCaja}`;
                 diferencia();
             }
             renderTabla($('tablaHistorial'), historial, h => `<tr>
@@ -82,7 +113,8 @@
                 <td class="text-end">${moneda(h.ventasTransferencia)}</td><td class="text-end">${moneda(h.efectivoEsperado)}</td>
                 <td class="text-end">${moneda(h.efectivoContado)}</td>
                 <td class="text-end ${h.diferencia < 0 ? 'text-danger' : h.diferencia > 0 ? 'text-primary' : 'text-success'}">${moneda(h.diferencia)}</td>
-                <td>${esc(h.usuarioCierre)}${h.observacion ? `<br><small class="text-muted">${esc(h.observacion)}</small>` : ''}</td></tr>`, 9);
+                <td>${esc(h.usuarioCierre)}${h.observacion ? `<br><small class="text-muted">${esc(h.observacion)}</small>` : ''}</td>
+                <td class="no-imprimir"><a class="btn btn-sm btn-outline-secondary" href="/Caja/Reporte/${h.idCaja}" target="_blank" title="Reporte de cierre"><i class="bi bi-printer"></i></a></td></tr>`, 10);
         } catch (e) { errorAlerta(e); }
     }
 
@@ -105,12 +137,19 @@
     $('btnCerrar').addEventListener('click', async () => {
         if ($('txtContado').value === '') { alerta('Ingrese el efectivo contado', 'warning'); return; }
         if (!confirm('¿Cerrar la caja? Después no se podrán registrar ventas hasta abrirla de nuevo.')) return;
+        const reporte = window.open('', '_blank');   // se abre ya para que el navegador no la bloquee
         try {
             const q = new URLSearchParams({ efectivoContado: $('txtContado').value, observacion: $('txtObservacion').value });
             const r = await api.post(`/Caja/Cerrar?${q}`);
-            if (r.resultado) { alerta('Caja cerrada'); $('txtContado').value = ''; $('txtObservacion').value = ''; cargar(); }
-            else alerta(r.mensaje, 'warning');
-        } catch (e) { errorAlerta(e); }
+            if (r.resultado) {
+                alerta('Caja cerrada');
+                if (reporte) reporte.location = `/Caja/Reporte/${r.id}`;
+                $('txtContado').value = ''; $('txtObservacion').value = '';
+                $('denominaciones').querySelectorAll('input').forEach(i => i.value = '');
+                cargar();
+            }
+            else { reporte?.close(); alerta(r.mensaje, 'warning'); }
+        } catch (e) { reporte?.close(); errorAlerta(e); }
     });
 
     cargar();

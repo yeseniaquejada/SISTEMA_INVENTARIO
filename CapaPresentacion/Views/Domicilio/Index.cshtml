@@ -1,64 +1,169 @@
 @{
-    ViewData["Title"] = "Pedidos a domicilio";
+    ViewData["Title"] = "Domicilios";
+    ViewData["OcultarTitulo"] = true;
 }
-<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
-    <div class="btn-group" id="filtro">
-        <button class="btn btn-outline-marca active" data-pend="true">Pendientes</button>
-        <button class="btn btn-outline-marca" data-pend="false">Todos los de hoy</button>
-    </div>
-    <small class="text-muted ms-auto"><i class="bi bi-arrow-repeat"></i> Se actualiza cada 30 segundos</small>
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <h4 class="mb-0 titulo-pagina me-auto"><i class="bi bi-bicycle"></i> Domicilios</h4>
+    <a asp-controller="Venta" asp-action="Index" class="btn btn-sm btn-marca"><i class="bi bi-plus-lg"></i> Nuevo domicilio</a>
 </div>
-<div class="row g-3" id="lista"></div>
+
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3"><div class="card kpi shadow-sm"><div class="card-body py-2"><div class="text-muted small">Por despachar</div><div class="valor" id="kpiPendientes">0</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card kpi shadow-sm"><div class="card-body py-2"><div class="text-muted small">En camino</div><div class="valor" id="kpiCamino">0</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card kpi ok shadow-sm"><div class="card-body py-2"><div class="text-muted small">Entregados hoy · tiempo promedio</div><div class="valor" id="kpiEntregados">0</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card kpi alerta shadow-sm"><div class="card-body py-2"><div class="text-muted small">Efectivo por recoger</div><div class="valor" id="kpiEfectivo">$ 0</div></div></div></div>
+</div>
+
+<div class="tablero">
+    <div class="tablero-col"><h6>Por despachar <span class="badge text-bg-warning" id="nPENDIENTE">0</span></h6><div id="colPENDIENTE"></div></div>
+    <div class="tablero-col"><h6>En camino <span class="badge text-bg-primary" id="nEN_CAMINO">0</span></h6><div id="colEN_CAMINO"></div></div>
+    <div class="tablero-col"><h6>Entregados hoy <span class="badge text-bg-success" id="nENTREGADO">0</span></h6><div id="colENTREGADO"></div></div>
+</div>
+<p class="small text-muted mt-2"><i class="bi bi-arrow-repeat"></i> Se actualiza cada 20 segundos. En rojo: más de <span id="lblAlerta"></span> minutos desde que se pidió.</p>
+
+<!-- Despachar -->
+<div class="modal fade" id="modalDespacho" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-sm"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title">Despachar pedido <span id="lblDespachoId"></span></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body">
+            <label class="form-label" for="txtRepartidor">¿Quién lo lleva?</label>
+            <input id="txtRepartidor" class="form-control" list="listaRepartidores" maxlength="60" placeholder="Nombre del domiciliario" autocomplete="off" />
+            <datalist id="listaRepartidores"></datalist>
+            <div id="repartidoresRapidos" class="d-flex flex-wrap gap-1 mt-2"></div>
+            <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox" id="chkWhatsapp" checked />
+                <label class="form-check-label" for="chkWhatsapp">Avisar al cliente por WhatsApp</label>
+            </div>
+        </div>
+        <div class="modal-footer"><button class="btn btn-marca w-100" id="btnDespachar"><i class="bi bi-bicycle"></i> Enviar</button></div>
+    </div></div>
+</div>
 
 @section Scripts {
 <script>
 (function () {
-    const lista = document.getElementById('lista');
-    let pendientes = true;
-    const siguiente = { PENDIENTE: ['EN_CAMINO', 'Enviar', 'bi-bicycle'], EN_CAMINO: ['ENTREGADO', 'Entregado', 'bi-check2'] };
+    const $ = id => document.getElementById(id);
+    const modal = new bootstrap.Modal($('modalDespacho'));
+    let datos = [], despacho = null;
+    $('lblAlerta').textContent = APP.minutosAlertaDomicilio;
+
+    const telefonoWa = t => { const d = String(t || '').replace(/\D/g, ''); return d.length === 10 ? '57' + d : d; };
+    const whatsapp = (d, texto) => `https://wa.me/${telefonoWa(d.clienteTelefono)}?text=${encodeURIComponent(texto)}`;
+    const mapa = d => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d.direccion)}`;
 
     async function cargar() {
         try {
-            const datos = await api.get(`/Domicilio/Listar?soloPendientes=${pendientes}`);
-            lista.innerHTML = datos.length ? datos.map(d => {
-                const s = siguiente[d.estadoPedido];
-                return `<div class="col-md-6 col-xl-4"><div class="card shadow-sm domicilio ${d.estadoPedido} h-100"><div class="card-body">
-                    <div class="d-flex justify-content-between">
-                        <strong>Pedido N° ${d.idVenta}</strong>
-                        <span class="badge text-bg-light">${esc(etiquetaEstado[d.estadoPedido])} · hace ${d.minutos} min</span>
-                    </div>
-                    <div class="mt-2"><i class="bi bi-person"></i> ${esc(d.clienteNombre)} · <a href="tel:${esc(d.clienteTelefono)}">${esc(d.clienteTelefono)}</a></div>
-                    <div><i class="bi bi-geo-alt"></i> ${esc(d.direccion)}</div>
-                    <div class="small text-muted mt-2">${esc(d.detalle)}</div>
-                    <div class="d-flex justify-content-between align-items-center mt-3">
-                        <span class="fw-bold">${moneda(d.total)} <small class="text-muted fw-normal">${esc(etiquetaPago[d.metodoPago])}</small></span>
-                        <span class="d-flex gap-1">
-                            <a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${d.idVenta}" target="_blank" title="Ticket"><i class="bi bi-printer"></i></a>
-                            ${s ? `<button class="btn btn-sm btn-marca" data-id="${d.idVenta}" data-estado="${s[0]}"><i class="bi ${s[2]}"></i> ${s[1]}</button>` : ''}
-                        </span>
-                    </div>
-                </div></div></div>`;
-            }).join('') : '<p class="text-muted">No hay domicilios para mostrar.</p>';
+            const [pend, hoyLista] = await Promise.all([api.get('/Domicilio/Listar?soloPendientes=true'), api.get('/Domicilio/Listar?soloPendientes=false')]);
+            const porId = new Map();
+            [...pend, ...hoyLista].forEach(d => porId.set(d.idVenta, d));
+            datos = [...porId.values()];
+            pintar();
         } catch (e) { errorAlerta(e); }
     }
 
-    lista.addEventListener('click', async ev => {
+    function tarjeta(d) {
+        const tarde = d.estadoPedido !== 'ENTREGADO' && d.minutos >= APP.minutosAlertaDomicilio;
+        const cobro = d.estadoPedido === 'ENTREGADO'
+            ? `<span class="badge text-bg-light border">Pagado · ${esc(etiquetaPago[d.metodoPago])} ${moneda(d.total)}</span>`
+            : d.metodoPago === 'EFECTIVO'
+            ? `<span class="badge text-bg-warning">Cobrar ${moneda(d.total)}</span>${d.cambio > 0 ? ` <small class="text-muted">paga con ${moneda(d.montoRecibido)}, llevar ${moneda(d.cambio)} de cambio</small>` : ''}`
+            : `<span class="badge text-bg-success">Pagado · ${esc(etiquetaPago[d.metodoPago])}</span>`;
+        let estado = '', acciones = '';
+        if (d.estadoPedido === 'PENDIENTE') {
+            estado = `<span class="badge ${claseCocina[d.estadoCocina]}">Cocina: ${esc(etiquetaCocina[d.estadoCocina])}</span>`;
+            acciones = `<button class="btn btn-sm btn-marca" data-despachar="${d.idVenta}"><i class="bi bi-bicycle"></i> Despachar</button>`;
+        } else if (d.estadoPedido === 'EN_CAMINO') {
+            estado = `<span class="badge text-bg-primary"><i class="bi bi-person"></i> ${esc(d.repartidor)} · salió ${esc(d.horaDespacho)} (${d.minutosEnCamino} min)</span>`;
+            acciones = `<button class="btn btn-sm btn-outline-secondary" data-id="${d.idVenta}" data-estado="PENDIENTE" title="Devolver a por despachar"><i class="bi bi-arrow-left"></i></button>
+                <button class="btn btn-sm btn-success" data-id="${d.idVenta}" data-estado="ENTREGADO"><i class="bi bi-check2"></i> Entregado</button>`;
+        } else {
+            estado = d.horaEntrega
+                ? `<span class="small text-success"><i class="bi bi-check2-circle"></i> ${esc(d.repartidor)} lo entregó a las ${esc(d.horaEntrega)} · ${d.minutos} min en total</span>`
+                : '<span class="small text-success"><i class="bi bi-check2-circle"></i> Entregado</span>';
+        }
+        return `<div class="card shadow-sm domicilio ${d.estadoPedido} ${tarde ? 'tarde' : ''}"><div class="card-body p-3">
+            <div class="d-flex justify-content-between">
+                <strong>N° ${d.idVenta}</strong>
+                <span class="small ${tarde ? 'text-danger fw-bold' : 'text-muted'}"><i class="bi bi-clock"></i> ${esc(d.fecha.substr(11))}${d.estadoPedido !== 'ENTREGADO' ? ` · hace ${d.minutos} min` : ''}</span>
+            </div>
+            <div class="mt-1"><i class="bi bi-person"></i> ${esc(d.clienteNombre)}</div>
+            <div><i class="bi bi-geo-alt"></i> <a href="${mapa(d)}" target="_blank" rel="noopener">${esc(d.direccion)}</a></div>
+            <div class="small text-muted mt-1">${esc(d.detalle)}</div>
+            <div class="mt-2">${cobro}</div>
+            <div class="mt-1">${estado}</div>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+                <span class="d-flex gap-1">
+                    <a class="btn btn-sm btn-outline-success" href="${whatsapp(d, `Hola ${d.clienteNombre}, te escribimos de ${APP.negocio} por tu pedido N° ${d.idVenta}.`)}" target="_blank" rel="noopener" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>
+                    <a class="btn btn-sm btn-outline-secondary" href="tel:${esc(d.clienteTelefono)}" title="Llamar ${esc(d.clienteTelefono)}"><i class="bi bi-telephone"></i></a>
+                    <a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${d.idVenta}" target="_blank" title="Ticket"><i class="bi bi-printer"></i></a>
+                </span>
+                <span class="d-flex gap-1">${acciones}</span>
+            </div>
+        </div></div>`;
+    }
+
+    function pintar() {
+        for (const est of ['PENDIENTE', 'EN_CAMINO', 'ENTREGADO']) {
+            const lista = datos.filter(d => d.estadoPedido === est);
+            if (est === 'ENTREGADO') lista.reverse();
+            $('n' + est).textContent = lista.length;
+            $('col' + est).innerHTML = lista.length ? lista.map(tarjeta).join('') : '<p class="text-muted small text-center mt-4">Sin pedidos</p>';
+        }
+        const entregados = datos.filter(d => d.estadoPedido === 'ENTREGADO' && d.horaEntrega);
+        $('kpiPendientes').textContent = datos.filter(d => d.estadoPedido === 'PENDIENTE').length;
+        $('kpiCamino').textContent = datos.filter(d => d.estadoPedido === 'EN_CAMINO').length;
+        $('kpiEntregados').textContent = datos.filter(d => d.estadoPedido === 'ENTREGADO').length +
+            (entregados.length ? ` · ${Math.round(entregados.reduce((s, d) => s + d.minutos, 0) / entregados.length)} min` : '');
+        $('kpiEfectivo').textContent = moneda(datos.filter(d => d.estadoPedido !== 'ENTREGADO' && d.metodoPago === 'EFECTIVO').reduce((s, d) => s + d.total, 0));
+    }
+
+    async function cambiarEstado(id, estado, repartidor) {
+        const q = new URLSearchParams({ id, estado, repartidor: repartidor || '' });
+        const r = await api.post(`/Domicilio/Estado?${q}`);
+        if (!r.resultado) alerta(r.mensaje, 'warning');
+        return r.resultado;
+    }
+
+    document.querySelector('.tablero').addEventListener('click', async ev => {
+        const desp = ev.target.closest('[data-despachar]');
+        if (desp) { abrirDespacho(Number(desp.dataset.despachar)); return; }
         const b = ev.target.closest('[data-estado]');
         if (!b) return;
+        try { if (await cambiarEstado(b.dataset.id, b.dataset.estado)) cargar(); } catch (e) { errorAlerta(e); }
+    });
+
+    async function abrirDespacho(id) {
+        despacho = datos.find(d => d.idVenta === id);
+        $('lblDespachoId').textContent = `N° ${id}`;
+        let ultimo = ''; try { ultimo = localStorage.getItem('ultimo-repartidor') || ''; } catch { }
+        $('txtRepartidor').value = ultimo;
         try {
-            const r = await api.post(`/Domicilio/Estado?id=${b.dataset.id}&estado=${b.dataset.estado}`);
-            if (r.resultado) cargar(); else alerta(r.mensaje, 'warning');
-        } catch (e) { errorAlerta(e); }
+            const reps = await api.get('/Domicilio/Repartidores');
+            $('listaRepartidores').innerHTML = reps.map(r => `<option value="${esc(r)}">`).join('');
+            $('repartidoresRapidos').innerHTML = reps.slice(0, 6).map(r => `<button type="button" class="btn btn-sm btn-light border" data-rep="${esc(r)}">${esc(r)}</button>`).join('');
+        } catch { }
+        modal.show();
+    }
+    $('repartidoresRapidos').addEventListener('click', ev => { const b = ev.target.closest('[data-rep]'); if (b) $('txtRepartidor').value = b.dataset.rep; });
+    $('modalDespacho').addEventListener('shown.bs.modal', () => $('txtRepartidor').select());
+    $('btnDespachar').addEventListener('click', async () => {
+        const rep = $('txtRepartidor').value.trim();
+        if (!rep) { alerta('Indique quién lleva el domicilio', 'warning'); return; }
+        // Se abre la ventana antes de esperar al servidor para que el navegador no la bloquee
+        const wa = $('chkWhatsapp').checked ? window.open('', '_blank') : null;
+        try {
+            if (await cambiarEstado(despacho.idVenta, 'EN_CAMINO', rep)) {
+                try { localStorage.setItem('ultimo-repartidor', rep); } catch { }
+                modal.hide();
+                const cobro = despacho.metodoPago === 'EFECTIVO' ? `Total a pagar: ${moneda(despacho.total)}.` : 'Tu pedido ya está pago.';
+                if (wa) wa.location = whatsapp(despacho, `Hola ${despacho.clienteNombre}, tu pedido N° ${despacho.idVenta} de ${APP.negocio} va en camino con ${rep}. ${cobro} ¡Gracias!`);
+                cargar();
+            } else wa?.close();
+        } catch (e) { wa?.close(); errorAlerta(e); }
     });
-    document.getElementById('filtro').addEventListener('click', ev => {
-        const b = ev.target.closest('[data-pend]');
-        if (!b) return;
-        pendientes = b.dataset.pend === 'true';
-        document.querySelectorAll('#filtro .btn').forEach(x => x.classList.toggle('active', x === b));
-        cargar();
-    });
+
     cargar();
-    setInterval(cargar, 30000);
+    setInterval(cargar, 20000);
 })();
 </script>
 }

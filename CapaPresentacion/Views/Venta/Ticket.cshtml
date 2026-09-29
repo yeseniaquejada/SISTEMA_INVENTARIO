@@ -6,6 +6,7 @@
     string M(decimal n) => c.SimboloMoneda + " " + n.ToString("N0", new System.Globalization.CultureInfo("es-CO"));
     var pedido = new Dictionary<string, string> { ["MESA"] = "En mesa", ["LLEVAR"] = "Para llevar", ["DOMICILIO"] = "Domicilio" };
     var pago = new Dictionary<string, string> { ["EFECTIVO"] = "Efectivo", ["TARJETA"] = "Tarjeta", ["TRANSFERENCIA"] = "Transferencia" };
+    var comanda = ViewData["Comanda"] is true;
 }
 <!DOCTYPE html>
 <html lang="es">
@@ -22,10 +23,33 @@
         .sub { font-size: 11px; padding-left: 8px; }
         .total td { font-size: 15px; font-weight: bold; }
         .acciones { text-align: center; margin: 12px 0; }
+        .anulado { border: 2px solid #000; text-align: center; font-weight: bold; font-size: 16px; padding: 4px; margin: 6px 0; }
+        .comanda { font-size: 15px; } .comanda .sub { font-size: 13px; }
         @@media print { .acciones { display: none; } }
     </style>
 </head>
-<body>
+<body class="@(comanda ? "comanda" : "")">
+    @if (v.Anulada) { <div class="anulado">PEDIDO ANULADO<br /><small>@v.MotivoAnulacion</small></div> }
+    @if (comanda)
+    {
+        <div class="c b" style="font-size:20px">COMANDA N° @v.IdVenta</div>
+        <div class="c b">@(pedido.GetValueOrDefault(v.TipoPedido, v.TipoPedido))@(string.IsNullOrEmpty(v.ClienteNombre) ? "" : " · " + v.ClienteNombre)</div>
+        <div class="c">@v.Fecha</div>
+        <hr />
+        <table>
+            @foreach (var l in Model.Lineas)
+            {
+                <tr><td class="b">@l.Cantidad x @l.Nombre</td></tr>
+                @foreach (var a in l.Adiciones) { <tr><td class="sub">- @a</td></tr> }
+                @if (!string.IsNullOrEmpty(l.Notas)) { <tr><td class="sub b">* @l.Notas</td></tr> }
+            }
+        </table>
+        <hr />
+        <div class="acciones"><button onclick="window.print()">Imprimir</button> <button onclick="window.close()">Cerrar</button></div>
+        <script>window.addEventListener('load', () => setTimeout(() => window.print(), 300));</script>
+        @:</body></html>
+        return;
+    }
     @if (!string.IsNullOrEmpty(c.LogoUrl)) { <img src="@c.LogoUrl" class="logo" alt="" /> }
     <div class="c b" style="font-size:15px">@c.NombreNegocio</div>
     @if (!string.IsNullOrEmpty(c.Nit)) { <div class="c">NIT @c.Nit</div> }

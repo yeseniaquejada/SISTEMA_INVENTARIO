@@ -1,11 +1,11 @@
 @{
     ViewData["Title"] = "Adiciones y modificadores";
 }
-<p class="text-muted">Opciones que el cajero elige al vender: <b>Extra queso</b> suma precio y descuenta insumo; <b>Sin ensalada</b> no cobra y deja de descontar ese insumo (cantidad negativa). Se asignan a cada producto en <a asp-controller="Producto" asp-action="Index">Productos y recetas</a>.</p>
+<p class="text-muted">Opciones que el cajero elige al vender, agrupadas en <b>Salsas</b>, <b>Adiciones</b> y <b>Preferencias</b> (o el grupo que usted quiera): <b>Extra queso</b> suma precio y descuenta insumo; <b>Sin ensalada</b> no cobra y deja de descontar ese insumo (cantidad negativa); las <b>salsas</b> son gratis y salen como botones para marcar. Se asignan a cada producto en <a asp-controller="Producto" asp-action="Index">Productos y recetas</a>.</p>
 <partial name="_Barra" />
 <div class="card"><div class="card-body p-0 table-responsive">
     <table class="table table-hover mb-0" id="tabla">
-        <thead class="table-light"><tr><th>Nombre</th><th class="text-end">Precio</th><th>Insumo afectado</th><th class="text-end">Cantidad</th><th>Estado</th><th></th></tr></thead>
+        <thead class="table-light"><tr><th>Grupo</th><th>Nombre</th><th class="text-end">Precio</th><th>Insumo afectado</th><th class="text-end">Cantidad</th><th>Estado</th><th></th></tr></thead>
         <tbody></tbody>
     </table>
 </div></div>
@@ -17,6 +17,8 @@
             <form id="formulario" class="row g-3">
                 <input type="hidden" name="idModificador" data-tipo="numero" />
                 <div class="col-md-8"><label class="form-label">Nombre</label><input name="nombre" class="form-control" maxlength="80" required placeholder="Ej: Adición de queso" /></div>
+                <div class="col-md-4"><label class="form-label">Grupo</label><input name="grupo" class="form-control" maxlength="40" list="grupos" required />
+                    <datalist id="grupos"><option value="Salsas"></option><option value="Adiciones"></option><option value="Preferencias"></option></datalist></div>
                 <div class="col-md-4"><label class="form-label">Precio</label><input name="precio" type="number" min="0" step="100" class="form-control" data-tipo="numero" /></div>
                 <div class="col-md-8"><label class="form-label">Insumo que afecta (opcional)</label><select name="idInsumo" id="cboInsumo" class="form-select" data-tipo="numero"></select></div>
                 <div class="col-md-4"><label class="form-label">Cantidad</label><input name="cantidad" type="number" step="0.001" class="form-control" data-tipo="numero" /></div>
@@ -34,9 +36,9 @@
         const insumos = await api.get('/Insumo/Listar');
         llenarSelect(document.getElementById('cboInsumo'), insumos.map(i => ({ ...i, t: `${i.nombre} (${i.unidadMedida})` })), 'idInsumo', 't', 'Ninguno (solo cambia el precio)');
         Mantenimiento({
-            base: '/Modificador', id: 'idModificador', columnas: 6,
-            nuevo: () => ({ idModificador: 0, precio: 0, idInsumo: 0, cantidad: 0, activo: true }),
-            fila: m => `<td class="fw-semibold">${esc(m.nombre)}</td><td class="text-end">${m.precio ? moneda(m.precio) : 'Gratis'}</td>
+            base: '/Modificador', id: 'idModificador', columnas: 7,
+            nuevo: () => ({ idModificador: 0, precio: 0, idInsumo: 0, cantidad: 0, activo: true, grupo: 'Adiciones' }),
+            fila: m => `<td><span class="badge text-bg-light border">${esc(m.grupo)}</span></td><td class="fw-semibold">${esc(m.nombre)}</td><td class="text-end">${m.precio ? moneda(m.precio) : 'Gratis'}</td>
                 <td>${esc(m.insumo) || '<span class="text-muted">—</span>'}</td>
                 <td class="text-end ${m.cantidad < 0 ? 'text-danger' : ''}">${m.idInsumo ? num(m.cantidad) + ' ' + esc(m.unidadMedida) : ''}</td>
                 <td>${badgeActivo(m.activo)}</td>`

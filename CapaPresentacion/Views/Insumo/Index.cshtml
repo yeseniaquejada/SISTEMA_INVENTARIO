@@ -4,10 +4,24 @@
 <div class="d-flex flex-wrap gap-2 mb-3">
     <button class="btn btn-marca" id="btnNuevo"><i class="bi bi-plus-lg"></i> Nuevo</button>
     <a href="/Insumo/Exportar" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel"></i> Excel</a>
+    <div class="btn-group">
+        <a href="/Insumo/Plantilla" class="btn btn-outline-success" title="Plantilla con los insumos actuales para llenar"><i class="bi bi-file-earmark-arrow-down"></i> Plantilla de carga</a>
+        <label class="btn btn-outline-success mb-0" title="Cargar la plantilla llena"><i class="bi bi-file-earmark-arrow-up"></i> Cargar Excel
+            <input type="file" id="archivoExcel" accept=".xlsx" hidden /></label>
+    </div>
     <button class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer"></i> PDF</button>
     <input type="search" id="buscar" class="form-control ms-auto" style="max-width:280px" placeholder="Buscar..." />
 </div>
-<div class="alert alert-info py-2 small"><i class="bi bi-info-circle"></i> El stock no se edita aquí: se actualiza con los <a asp-controller="Movimiento" asp-action="Index">movimientos</a> (entradas, salidas, mermas) y con las ventas.</div>
+<div class="alert alert-info py-2 small"><i class="bi bi-info-circle"></i> El stock no se edita aquí: se actualiza con los <a asp-controller="Movimiento" asp-action="Index">movimientos</a> (entradas, salidas, mermas) y con las ventas.
+    Para configurar el inventario de una sede nueva, descargue la <b>Plantilla de carga</b>, llene el stock real y súbala con <b>Cargar Excel</b>.</div>
+
+<div class="modal fade" id="modalImportar" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="tituloImportar">Resultado de la carga</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body" id="cuerpoImportar"></div>
+        <div class="modal-footer"><button class="btn btn-marca" data-bs-dismiss="modal">Aceptar</button></div>
+    </div></div>
+</div>
 <div class="card"><div class="card-body p-0 table-responsive">
     <table class="table table-hover mb-0" id="tabla">
         <thead class="table-light"><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th class="text-end">Stock</th><th class="text-end">Mínimo</th><th class="text-end">Costo unit.</th><th>Próximo vencimiento</th><th>Estado</th><th></th></tr></thead>
@@ -43,7 +57,7 @@
     (async function () {
         const categorias = await api.get('/Categoria/Listar');
         llenarSelect(document.getElementById('cboCategoria'), categorias, 'idCategoria', 'descripcion');
-        Mantenimiento({
+        const mant = Mantenimiento({
             base: '/Insumo', id: 'idInsumo', columnas: 9,
             nuevo: () => ({ idInsumo: 0, idCategoria: 0, unidadMedida: 'UND', stockMinimo: 0, costoUnitario: 0, activo: true }),
             fila: i => `<td>${esc(i.codigo)}</td><td>${esc(i.nombre)}</td><td>${esc(i.categoria)}</td>
@@ -51,6 +65,26 @@
                 <td class="text-end">${num(i.stockMinimo)}</td><td class="text-end">${moneda(i.costoUnitario)}</td>
                 <td>${i.proximoVencimiento ? esc(i.proximoVencimiento) : '<span class="text-muted">-</span>'}</td>
                 <td>${badgeActivo(i.activo)}</td>`
+        });
+
+        const modalImportar = new bootstrap.Modal(document.getElementById('modalImportar'));
+        document.getElementById('archivoExcel').addEventListener('change', async ev => {
+            const archivo = ev.target.files[0]; if (!archivo) return;
+            ev.target.value = '';
+            const datos = new FormData(); datos.append('archivo', archivo);
+            try {
+                alerta('Cargando el archivo...', 'info');
+                const r = await fetch('/Insumo/Importar', { method: 'POST', body: datos, headers: { 'RequestVerificationToken': token() } }).then(x => x.json());
+                document.getElementById('tituloImportar').textContent = r.resultado ? 'Inventario cargado' : 'Revise el archivo';
+                document.getElementById('cuerpoImportar').innerHTML = (r.resultado || r.creados || r.actualizados
+                    ? `<ul class="mb-3"><li>${r.creados} insumos nuevos</li><li>${r.actualizados} insumos actualizados</li>
+                        <li>${r.stockAjustado} con stock ajustado (quedó en el kardex como conteo físico)</li>
+                        ${r.categoriasNuevas ? `<li>${r.categoriasNuevas} categorías nuevas</li>` : ''}</ul>` : '')
+                    + (r.errores.length ? `<div class="alert alert-warning mb-0"><strong>${r.resultado ? '' : 'No se guardó nada. '}Corrija y vuelva a cargar:</strong>
+                        <ul class="mb-0 small">${r.errores.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>` : '');
+                modalImportar.show();
+                mant.cargar();
+            } catch (e) { errorAlerta(e); }
         });
     })().catch(errorAlerta);
 </script>

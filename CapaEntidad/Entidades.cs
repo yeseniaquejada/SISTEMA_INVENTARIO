@@ -12,6 +12,10 @@ namespace CapaEntidad
         public string SimboloMoneda { get; set; } = "$";
         public string? MensajeTicket { get; set; }
         public int DiasAlertaVencimiento { get; set; } = 3;
+        public int MinutosEdicion { get; set; } = 5;
+        public int MinutosAlertaCocina { get; set; } = 15;
+        public int MinutosAlertaDomicilio { get; set; } = 40;
+        public decimal CostoDomicilio { get; set; }
     }
 
     public class Sede
@@ -146,6 +150,10 @@ namespace CapaEntidad
         public decimal Costo { get; set; }
         public List<RecetaItem> Receta { get; set; } = new();
         public List<int> Modificadores { get; set; } = new();
+        /// <summary>Unidades vendidas en los últimos 30 días (para ordenar el punto de venta).</summary>
+        public int Vendidos { get; set; }
+        /// <summary>Unidades que alcanzan a salir con el stock actual; null si no tiene receta.</summary>
+        public int? Disponibles { get; set; }
     }
 
     public class Modificador
@@ -158,6 +166,8 @@ namespace CapaEntidad
         public string UnidadMedida { get; set; } = "";
         public decimal Cantidad { get; set; }
         public bool Activo { get; set; } = true;
+        /// <summary>Adiciones, Salsas, Preferencias... agrupa las opciones en la pantalla de venta.</summary>
+        public string Grupo { get; set; } = "Adiciones";
     }
 
     public class ProductoModificador
@@ -166,6 +176,7 @@ namespace CapaEntidad
         public int IdModificador { get; set; }
         public string Nombre { get; set; } = "";
         public decimal Precio { get; set; }
+        public string Grupo { get; set; } = "Adiciones";
     }
 
     public class CatalogoPos
@@ -184,6 +195,8 @@ namespace CapaEntidad
 
     public class NuevaVenta
     {
+        /// <summary>0 = venta nueva; mayor a 0 = editar ese pedido (si aún está dentro del tiempo permitido).</summary>
+        public int IdVenta { get; set; }
         public string TipoPedido { get; set; } = "MESA";
         public string? ClienteNombre { get; set; }
         public string? ClienteTelefono { get; set; }
@@ -214,17 +227,53 @@ namespace CapaEntidad
         public string SedeDireccion { get; set; } = "";
         public string Detalle { get; set; } = "";
         public int Minutos { get; set; }
+        public bool Anulada { get; set; }
+        public string MotivoAnulacion { get; set; } = "";
+        public string EstadoCocina { get; set; } = "";
+        /// <summary>Segundos que quedan para editar o anular el pedido (0 = ya no se puede).</summary>
+        public int SegundosEdicion { get; set; }
+        public bool CajaAbierta { get; set; }
+        public string Repartidor { get; set; } = "";
+        public int MinutosEnCamino { get; set; }
+        public string HoraDespacho { get; set; } = "";
+        public string HoraEntrega { get; set; } = "";
+    }
+
+    /// <summary>Pedido en la pantalla de cocina.</summary>
+    public class Comanda
+    {
+        public int IdVenta { get; set; }
+        public string Fecha { get; set; } = "";
+        public string TipoPedido { get; set; } = "";
+        public string ClienteNombre { get; set; } = "";
+        public string EstadoCocina { get; set; } = "";
+        public string EstadoPedido { get; set; } = "";
+        public int Segundos { get; set; }
+        public int SegundosEdicion { get; set; }
+        public decimal Total { get; set; }
+        public bool Editada { get; set; }
+        public List<TicketLinea> Lineas { get; set; } = new();
+    }
+
+    public class ClienteFrecuente
+    {
+        public string ClienteNombre { get; set; } = "";
+        public string Direccion { get; set; } = "";
+        public int Pedidos { get; set; }
+        public string UltimoPedido { get; set; } = "";
     }
 
     public class TicketLinea
     {
         public int IdDetalle { get; set; }
+        public int IdProducto { get; set; }
         public string Nombre { get; set; } = "";
         public int Cantidad { get; set; }
         public decimal PrecioUnitario { get; set; }
         public decimal Subtotal { get; set; }
         public string Notas { get; set; } = "";
         public List<string> Adiciones { get; set; } = new();
+        public List<int> Modificadores { get; set; } = new();
     }
 
     public class Ticket
@@ -250,6 +299,46 @@ namespace CapaEntidad
         public decimal EfectivoContado { get; set; }
         public decimal Diferencia { get; set; }
         public string Observacion { get; set; } = "";
+        public int NumeroAnuladas { get; set; }
+        public decimal TotalAnulado { get; set; }
+        /// <summary>Efectivo de domicilios que aún no han vuelto (lo tiene el repartidor).</summary>
+        public decimal EfectivoEnDomicilios { get; set; }
+        public decimal Domicilios { get; set; }
+        public string Estado { get; set; } = "";
+        public string Sede { get; set; } = "";
+    }
+
+    /// <summary>Reporte de cierre de caja (resumen, productos vendidos y anulaciones).</summary>
+    public class ReporteCaja
+    {
+        public Caja Caja { get; set; } = new();
+        public List<PuntoReporte> Productos { get; set; } = new();
+        public List<Venta> Anuladas { get; set; } = new();
+        public Configuracion Configuracion { get; set; } = new();
+    }
+
+    /// <summary>Una fila de la plantilla de Excel para cargar insumos y stock.</summary>
+    public class FilaImportacion
+    {
+        public int Fila { get; set; }
+        public string Codigo { get; set; } = "";
+        public string Nombre { get; set; } = "";
+        public string Categoria { get; set; } = "";
+        public string UnidadMedida { get; set; } = "";
+        public decimal StockMinimo { get; set; }
+        public decimal CostoUnitario { get; set; }
+        /// <summary>Stock real contado; null = no cambiar el stock.</summary>
+        public decimal? Stock { get; set; }
+    }
+
+    public class ResultadoImportacion
+    {
+        public bool Resultado { get; set; }
+        public int Creados { get; set; }
+        public int Actualizados { get; set; }
+        public int StockAjustado { get; set; }
+        public int CategoriasNuevas { get; set; }
+        public List<string> Errores { get; set; } = new();
     }
 
     public class OrdenCompraItem

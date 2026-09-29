@@ -1,0 +1,82 @@
+@model CapaEntidad.ReporteCaja
+@{
+    Layout = null;
+    var k = Model.Caja;
+    var c = Model.Configuracion;
+    string M(decimal n) => c.SimboloMoneda + " " + n.ToString("N0", new System.Globalization.CultureInfo("es-CO"));
+    var cerrada = k.Estado == "CERRADA";
+}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>Cierre de caja @k.IdCaja</title>
+    <style>
+        @@page { size: 80mm auto; margin: 3mm; }
+        body { font-family: "Courier New", monospace; font-size: 12px; width: 72mm; margin: 0 auto; color: #000; }
+        .c { text-align: center; } .r { text-align: right; } .b { font-weight: bold; }
+        hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+        table { width: 100%; border-collapse: collapse; } td { vertical-align: top; padding: 1px 0; }
+        .grande td { font-size: 14px; font-weight: bold; }
+        .aviso { border: 1px solid #000; padding: 4px; text-align: center; font-weight: bold; margin: 6px 0; }
+        .acciones { text-align: center; margin: 12px 0; }
+        @@media print { .acciones { display: none; } }
+    </style>
+</head>
+<body>
+    <div class="c b" style="font-size:15px">@c.NombreNegocio</div>
+    <div class="c b">@(cerrada ? "CIERRE DE CAJA" : "VISTA PREVIA DEL CIERRE")</div>
+    <div class="c">Sede @k.Sede · Caja N° @k.IdCaja</div>
+    <hr />
+    <div>Apertura: @k.FechaApertura</div>
+    <div>Abrió: @k.UsuarioApertura</div>
+    @if (cerrada)
+    {
+        <div>Cierre: @k.FechaCierre</div>
+        <div>Cerró: @k.UsuarioCierre</div>
+    }
+    else
+    {
+        <div class="aviso">CAJA AÚN ABIERTA</div>
+    }
+    <hr />
+    <div class="b">VENTAS (@k.NumeroVentas pedidos)</div>
+    <table>
+        <tr><td>Efectivo</td><td class="r">@M(k.VentasEfectivo)</td></tr>
+        <tr><td>Tarjeta</td><td class="r">@M(k.VentasTarjeta)</td></tr>
+        <tr><td>Transferencia</td><td class="r">@M(k.VentasTransferencia)</td></tr>
+        <tr class="grande"><td>TOTAL VENTAS</td><td class="r">@M(k.VentasEfectivo + k.VentasTarjeta + k.VentasTransferencia)</td></tr>
+        @if (k.Domicilios > 0) { <tr><td>&nbsp;incluye domicilios</td><td class="r">@M(k.Domicilios)</td></tr> }
+    </table>
+    <hr />
+    <div class="b">EFECTIVO EN CAJA</div>
+    <table>
+        <tr><td>Base inicial</td><td class="r">@M(k.BaseInicial)</td></tr>
+        <tr><td>+ Ventas en efectivo</td><td class="r">@M(k.VentasEfectivo)</td></tr>
+        <tr class="b"><td>= Esperado</td><td class="r">@M(k.EfectivoEsperado)</td></tr>
+        @if (cerrada)
+        {
+            <tr><td>Contado</td><td class="r">@M(k.EfectivoContado)</td></tr>
+            <tr class="grande"><td>@(k.Diferencia == 0 ? "CUADRA" : k.Diferencia < 0 ? "FALTANTE" : "SOBRANTE")</td><td class="r">@M(Math.Abs(k.Diferencia))</td></tr>
+        }
+    </table>
+    @if (!string.IsNullOrEmpty(k.Observacion)) { <div>Obs: @k.Observacion</div> }
+    <hr />
+    <div class="b">PRODUCTOS VENDIDOS</div>
+    <table>
+        @foreach (var p in Model.Productos) { <tr><td>@p.Cantidad x @p.Etiqueta</td><td class="r">@M(p.Total)</td></tr> }
+        @if (Model.Productos.Count == 0) { <tr><td>Sin ventas</td></tr> }
+    </table>
+    @if (Model.Anuladas.Count > 0)
+    {
+        <hr />
+        <div class="b">ANULADOS (@k.NumeroAnuladas · @M(k.TotalAnulado))</div>
+        <table>
+            @foreach (var a in Model.Anuladas) { <tr><td>N° @a.IdVenta @a.Usuario: @a.MotivoAnulacion</td><td class="r">@M(a.Total)</td></tr> }
+        </table>
+    }
+    <hr />
+    <div style="margin-top:28px" class="c">______________________<br />Firma cajero</div>
+    <div class="acciones"><button onclick="window.print()">Imprimir</button> <button onclick="window.close()">Cerrar</button></div>
+</body>
+</html>

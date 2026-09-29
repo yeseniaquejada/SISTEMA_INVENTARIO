@@ -31,15 +31,26 @@
         inicio.value = fin.value = hoy();
         async function buscar() {
             const lista = (await api.get(`/Venta/Listar?inicio=${inicio.value}&fin=${fin.value}`)).filter(v => !tipo.value || v.tipoPedido === tipo.value);
-            renderTabla(document.getElementById('tablaVentas'), lista, v => `<tr>
+            renderTabla(document.getElementById('tablaVentas'), lista, v => `<tr class="${v.anulada ? 'text-decoration-line-through text-muted' : ''}">
                 <td>${v.idVenta}</td><td class="text-nowrap">${esc(v.fecha)}</td><td>${esc(etiquetaPedido[v.tipoPedido])}</td>
-                <td>${esc(v.clienteNombre)}</td><td>${esc(v.detalle)}</td><td>${esc(etiquetaPago[v.metodoPago])}</td>
+                <td>${esc(v.clienteNombre)}</td><td>${esc(v.detalle)}${v.anulada ? `<br><span class="badge text-bg-danger">Anulada</span> <small>${esc(v.motivoAnulacion)}</small>` : ''}</td>
+                <td>${esc(etiquetaPago[v.metodoPago])}</td>
                 <td>${esc(v.usuario)}</td><td class="text-end">${moneda(v.total)}</td>
-                <td class="no-imprimir"><a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${v.idVenta}" target="_blank" title="Ticket"><i class="bi bi-printer"></i></a></td></tr>`, 9);
+                <td class="no-imprimir text-nowrap">
+                    <a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${v.idVenta}" target="_blank" title="Ticket"><i class="bi bi-printer"></i></a>
+                    ${v.segundosEdicion > 0 ? `<a class="btn btn-sm btn-outline-primary" href="/Venta?editar=${v.idVenta}" title="Editar (quedan ${mmss(v.segundosEdicion)})"><i class="bi bi-pencil"></i></a>` : ''}
+                    ${!v.anulada && v.cajaAbierta && (v.segundosEdicion > 0 || APP.esAdmin) ? `<button class="btn btn-sm btn-outline-danger" data-anular="${v.idVenta}" title="Anular"><i class="bi bi-x-circle"></i></button>` : ''}
+                </td></tr>`, 9);
+            const validas = lista.filter(v => !v.anulada);
             document.getElementById('lblTotal').textContent =
-                `${lista.length} ventas · ${moneda(lista.reduce((s, v) => s + v.total, 0))} (${inicio.value} a ${fin.value})`;
+                `${validas.length} ventas · ${moneda(validas.reduce((s, v) => s + v.total, 0))} (${inicio.value} a ${fin.value})` +
+                (validas.length < lista.length ? ` · ${lista.length - validas.length} anuladas` : '');
         }
         document.getElementById('btnBuscar').addEventListener('click', () => buscar().catch(errorAlerta));
+        document.getElementById('tablaVentas').addEventListener('click', async ev => {
+            const b = ev.target.closest('[data-anular]');
+            if (b && await anularPedido(b.dataset.anular)) buscar().catch(errorAlerta);
+        });
         document.getElementById('btnExcel').addEventListener('click', () => location.href = `/Venta/Exportar?inicio=${inicio.value}&fin=${fin.value}`);
         buscar().catch(errorAlerta);
     })();

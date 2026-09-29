@@ -82,6 +82,31 @@ public class InsumoController : Controller
             ("Unidad", i => i.UnidadMedida), ("Stock", i => i.Stock), ("Mínimo", i => i.StockMinimo),
             ("Costo unitario", i => i.CostoUnitario), ("Valor", i => i.Stock * i.CostoUnitario),
             ("Próximo vencimiento", i => i.ProximoVencimiento), ("Activo", i => i.Activo ? "Sí" : "No"));
+
+    /// <summary>Plantilla de Excel con los insumos actuales para llenar y volver a cargar.</summary>
+    [HttpGet, Authorize(Roles = Claves.Admin)]
+    public IActionResult Plantilla() =>
+        Excel.PlantillaInventario("plantilla-inventario-" + User.Sede(), _negocio.Listar(User.IdSede()),
+            new CN_Categoria().Listar().Where(c => c.Activo).Select(c => c.Descripcion), CN_Insumo.Unidades);
+
+    [HttpPost, Authorize(Roles = Claves.Admin), RequestSizeLimit(5_000_000)]
+    public JsonResult Importar(IFormFile? archivo)
+    {
+        if (archivo == null || archivo.Length == 0) return Json(new ResultadoImportacion { Errores = { "Seleccione el archivo de Excel" } });
+        if (!archivo.FileName.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase))
+            return Json(new ResultadoImportacion { Errores = { "El archivo debe ser de Excel (.xlsx)" } });
+        List<FilaImportacion> filas;
+        try
+        {
+            using var s = archivo.OpenReadStream();
+            filas = Excel.LeerInventario(s);
+        }
+        catch (Exception ex)
+        {
+            return Json(new ResultadoImportacion { Errores = { "No se pudo leer el archivo: " + ex.Message } });
+        }
+        return Json(_negocio.Importar(filas, User.IdSede(), User.Id()));
+    }
 }
 
 [Authorize(Roles = Claves.Admin)]

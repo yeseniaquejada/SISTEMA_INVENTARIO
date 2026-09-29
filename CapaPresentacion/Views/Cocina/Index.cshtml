@@ -1,0 +1,127 @@
+@{
+    ViewData["Title"] = "Cocina";
+    ViewData["OcultarTitulo"] = true;
+}
+<div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+    <h4 class="mb-0 titulo-pagina me-auto"><i class="bi bi-fire text-danger"></i> Comandas</h4>
+    <span class="small text-muted" id="lblResumen"></span>
+    <button class="btn btn-sm btn-outline-secondary" id="btnSonido" title="Sonar cuando llega un pedido nuevo"><i class="bi bi-volume-mute"></i> Sonido</button>
+    <button class="btn btn-sm btn-outline-secondary" id="btnPantalla" title="Pantalla completa"><i class="bi bi-arrows-fullscreen"></i></button>
+</div>
+
+<div class="tablero cocina">
+    <div class="tablero-col"><h6>En cola <span class="badge text-bg-secondary" id="nPENDIENTE">0</span></h6><div id="colPENDIENTE"></div></div>
+    <div class="tablero-col"><h6>Preparando <span class="badge text-bg-warning" id="nPREPARANDO">0</span></h6><div id="colPREPARANDO"></div></div>
+    <div class="tablero-col"><h6>Listos para entregar <span class="badge text-bg-success" id="nLISTO">0</span></h6><div id="colLISTO"></div></div>
+</div>
+
+@section Scripts {
+<script>
+(function () {
+    const $ = id => document.getElementById(id);
+    const COLUMNAS = ['PENDIENTE', 'PREPARANDO', 'LISTO'];
+    const SIGUIENTE = {
+        PENDIENTE: ['PREPARANDO', 'Empezar', 'bi-play-fill', 'btn-warning'],
+        PREPARANDO: ['LISTO', 'Listo', 'bi-check2', 'btn-success'],
+        LISTO: ['ENTREGADO', 'Entregado', 'bi-box-arrow-right', 'btn-outline-secondary']
+    };
+    const ANTERIOR = { PREPARANDO: 'PENDIENTE', LISTO: 'PREPARANDO' };
+    let comandas = [], cargadoEn = Date.now(), conocidos = null, sonido = false;
+    try { sonido = localStorage.getItem('cocina-sonido') === '1'; } catch { }
+
+    const segundos = c => c.segundos + (Date.now() - cargadoEn) / 1000;
+    function color(c) {
+        const min = segundos(c) / 60, limite = APP.minutosAlertaCocina;
+        return c.estadoCocina === 'LISTO' ? '' : min >= limite ? 'tarde' : min >= limite / 2 ? 'medio' : '';
+    }
+
+    async function cargar() {
+        try {
+            comandas = await api.get('/Cocina/Listar');
+            cargadoEn = Date.now();
+            const ids = new Set(comandas.map(c => c.idVenta));
+            if (conocidos && comandas.some(c => !conocidos.has(c.idVenta))) avisar();
+            conocidos = ids;
+            pintar();
+        } catch (e) { errorAlerta(e); }
+    }
+
+    function pintar() {
+        for (const col of COLUMNAS) {
+            const lista = comandas.filter(c => c.estadoCocina === col);
+            $('n' + col).textContent = lista.length;
+            $('col' + col).innerHTML = lista.length ? lista.map(c => {
+                const s = SIGUIENTE[c.estadoCocina];
+                return `<div class="card comanda shadow-sm ${color(c)}" data-venta="${c.idVenta}"><div class="card-body p-3">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div><div class="fw-bold fs-5">N° ${c.idVenta}</div>
+                            <div class="small">${esc(etiquetaPedido[c.tipoPedido])}${c.clienteNombre ? ' · ' + esc(c.clienteNombre) : ''}
+                            ${c.editada ? ' <span class="badge text-bg-info">Editado</span>' : ''}</div></div>
+                        <div class="text-end"><div class="reloj" data-seg="${c.idVenta}">${mmss(segundos(c))}</div>
+                            ${c.segundosEdicion > 0 ? `<div class="editable text-muted" title="El cajero aún puede cambiar este pedido">puede cambiar ${mmss(c.segundosEdicion)}</div>` : ''}</div>
+                    </div>
+                    <div class="mt-2">${c.lineas.map(l => `<div class="item"><span class="cant">${l.cantidad}×</span>${esc(l.nombre)}
+                        ${l.adiciones.length ? `<div class="opciones">${l.adiciones.map(esc).join(' · ')}</div>` : ''}
+                        ${l.notas ? `<div class="nota"><i class="bi bi-chat-left-text"></i> ${esc(l.notas)}</div>` : ''}</div>`).join('')}</div>
+                    <div class="d-flex gap-2 mt-3">
+                        ${ANTERIOR[c.estadoCocina] ? `<button class="btn btn-sm btn-outline-secondary" data-id="${c.idVenta}" data-estado="${ANTERIOR[c.estadoCocina]}" title="Devolver"><i class="bi bi-arrow-left"></i></button>` : ''}
+                        <a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${c.idVenta}?comanda=true" target="_blank" title="Imprimir comanda"><i class="bi bi-printer"></i></a>
+                        <button class="btn ${s[3]} flex-grow-1" data-id="${c.idVenta}" data-estado="${s[0]}"><i class="bi ${s[2]}"></i> ${s[1]}</button>
+                    </div>
+                </div></div>`;
+            }).join('') : '<p class="text-muted small text-center mt-4">Sin pedidos</p>';
+        }
+        const tarde = comandas.filter(c => color(c) === 'tarde').length;
+        $('lblResumen').textContent = `${comandas.length} en proceso` + (tarde ? ` · ${tarde} con más de ${APP.minutosAlertaCocina} min` : '');
+    }
+
+    // Relojes en vivo sin volver a consultar al servidor
+    setInterval(() => {
+        document.querySelectorAll('[data-seg]').forEach(el => {
+            const c = comandas.find(x => x.idVenta === Number(el.dataset.seg));
+            if (!c) return;
+            el.textContent = mmss(segundos(c));
+            const card = el.closest('.comanda');
+            card.classList.remove('medio', 'tarde');
+            const k = color(c); if (k) card.classList.add(k);
+        });
+    }, 1000);
+
+    document.querySelector('.cocina').addEventListener('click', async ev => {
+        const b = ev.target.closest('[data-estado]');
+        if (!b) return;
+        b.disabled = true;
+        try {
+            const r = await api.post(`/Cocina/Estado?id=${b.dataset.id}&estado=${b.dataset.estado}`);
+            if (!r.resultado) alerta(r.mensaje, 'warning');
+            await cargar();
+        } catch (e) { errorAlerta(e); b.disabled = false; }
+    });
+
+    function pintarSonido() { $('btnSonido').innerHTML = sonido ? '<i class="bi bi-volume-up"></i> Sonido' : '<i class="bi bi-volume-mute"></i> Sonido'; }
+    $('btnSonido').addEventListener('click', () => {
+        sonido = !sonido;
+        try { localStorage.setItem('cocina-sonido', sonido ? '1' : '0'); } catch { }
+        pintarSonido();
+        if (sonido) avisar();
+    });
+    function avisar() {
+        if (!sonido) return;
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            [0, .18].forEach(t => {
+                const o = ctx.createOscillator(), g = ctx.createGain();
+                o.frequency.value = 880; o.connect(g); g.connect(ctx.destination);
+                g.gain.setValueAtTime(.25, ctx.currentTime + t); g.gain.exponentialRampToValueAtTime(.001, ctx.currentTime + t + .15);
+                o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + .16);
+            });
+        } catch { }
+    }
+    $('btnPantalla').addEventListener('click', () => document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.());
+
+    pintarSonido();
+    cargar();
+    setInterval(cargar, 10000);
+})();
+</script>
+}

@@ -19,14 +19,20 @@ namespace CapaDatos
                 LogoUrl = dr.Texto("LogoUrl"),
                 SimboloMoneda = dr.Texto("SimboloMoneda"),
                 MensajeTicket = dr.Texto("MensajeTicket"),
-                DiasAlertaVencimiento = dr.Entero("DiasAlertaVencimiento")
+                DiasAlertaVencimiento = dr.Entero("DiasAlertaVencimiento"),
+                MinutosEdicion = dr.Entero("MinutosEdicion"),
+                MinutosAlertaCocina = dr.Entero("MinutosAlertaCocina"),
+                MinutosAlertaDomicilio = dr.Entero("MinutosAlertaDomicilio"),
+                CostoDomicilio = dr.Decimal("CostoDomicilio")
             }).FirstOrDefault() ?? new Configuracion();
 
         public Respuesta Guardar(Configuracion c) =>
             Ejecutar("SP_CONFIGURACION_GUARDAR", P("@NombreNegocio", c.NombreNegocio), P("@Nit", c.Nit),
                 P("@Direccion", c.Direccion), P("@Telefono", c.Telefono), P("@ColorPrimario", c.ColorPrimario),
                 P("@ColorSecundario", c.ColorSecundario), P("@LogoUrl", c.LogoUrl), P("@SimboloMoneda", c.SimboloMoneda),
-                P("@MensajeTicket", c.MensajeTicket), P("@DiasAlertaVencimiento", c.DiasAlertaVencimiento));
+                P("@MensajeTicket", c.MensajeTicket), P("@DiasAlertaVencimiento", c.DiasAlertaVencimiento),
+                P("@MinutosEdicion", c.MinutosEdicion), P("@MinutosAlertaCocina", c.MinutosAlertaCocina),
+                P("@MinutosAlertaDomicilio", c.MinutosAlertaDomicilio), P("@CostoDomicilio", c.CostoDomicilio));
     }
 
     public class CD_Sede
@@ -262,12 +268,18 @@ namespace CapaDatos
 
         public Respuesta Eliminar(int id) => Ejecutar("SP_PRODUCTO_ELIMINAR", P("@IdProducto", id));
 
-        public CatalogoPos Catalogo()
+        public CatalogoPos Catalogo(int idSede)
         {
             var c = new CatalogoPos();
             Leer("SP_POS_CATALOGO", dr =>
             {
-                while (dr.Read()) c.Productos.Add(Mapear(dr));
+                while (dr.Read())
+                {
+                    var p = Mapear(dr);
+                    p.Vendidos = dr.Entero("Vendidos");
+                    p.Disponibles = dr["Disponibles"] == DBNull.Value ? null : dr.Entero("Disponibles");
+                    c.Productos.Add(p);
+                }
                 dr.NextResult();
                 while (dr.Read())
                     c.Modificadores.Add(new ProductoModificador
@@ -275,9 +287,10 @@ namespace CapaDatos
                         IdProducto = dr.Entero("IdProducto"),
                         IdModificador = dr.Entero("IdModificador"),
                         Nombre = dr.Texto("Nombre"),
-                        Precio = dr.Decimal("Precio")
+                        Precio = dr.Decimal("Precio"),
+                        Grupo = dr.Texto("Grupo")
                     });
-            });
+            }, P("@IdSede", idSede));
             return c;
         }
     }
@@ -294,12 +307,14 @@ namespace CapaDatos
                 Insumo = dr.Texto("Insumo"),
                 UnidadMedida = dr.Texto("UnidadMedida"),
                 Cantidad = dr.Decimal("Cantidad"),
-                Activo = dr.Bool("Activo")
+                Activo = dr.Bool("Activo"),
+                Grupo = dr.Texto("Grupo")
             });
 
         public Respuesta Guardar(Modificador m) =>
             Ejecutar("SP_MODIFICADOR_GUARDAR", P("@IdModificador", m.IdModificador), P("@Nombre", m.Nombre),
-                P("@Precio", m.Precio), P("@IdInsumo", m.IdInsumo), P("@Cantidad", m.Cantidad), P("@Activo", m.Activo));
+                P("@Precio", m.Precio), P("@IdInsumo", m.IdInsumo), P("@Cantidad", m.Cantidad), P("@Activo", m.Activo),
+                P("@Grupo", m.Grupo));
 
         public Respuesta Eliminar(int id) => Ejecutar("SP_MODIFICADOR_ELIMINAR", P("@IdModificador", id));
     }
@@ -316,7 +331,10 @@ namespace CapaDatos
                 VentasEfectivo = dr.Decimal("VentasEfectivo"),
                 VentasTarjeta = dr.Decimal("VentasTarjeta"),
                 VentasTransferencia = dr.Decimal("VentasTransferencia"),
-                NumeroVentas = dr.Entero("NumeroVentas")
+                NumeroVentas = dr.Entero("NumeroVentas"),
+                NumeroAnuladas = dr.Entero("NumeroAnuladas"),
+                TotalAnulado = dr.Decimal("TotalAnulado"),
+                EfectivoEnDomicilios = dr.Decimal("EfectivoEnDomicilios")
             }, P("@IdSede", idSede)).FirstOrDefault();
 
         public Respuesta Abrir(int idSede, int idUsuario, decimal baseInicial) =>
@@ -342,6 +360,53 @@ namespace CapaDatos
                 UsuarioCierre = dr.Texto("UsuarioCierre"),
                 Observacion = dr.Texto("Observacion")
             }, P("@IdSede", idSede));
+
+        public ReporteCaja? Reporte(int idSede, int idCaja)
+        {
+            ReporteCaja? r = null;
+            Leer("SP_CAJA_REPORTE", dr =>
+            {
+                if (!dr.Read()) return;
+                r = new ReporteCaja
+                {
+                    Caja = new Caja
+                    {
+                        IdCaja = dr.Entero("IdCaja"),
+                        FechaApertura = dr.Texto("FechaApertura"),
+                        FechaCierre = dr.Texto("FechaCierre"),
+                        Estado = dr.Texto("Estado"),
+                        BaseInicial = dr.Decimal("BaseInicial"),
+                        UsuarioApertura = dr.Texto("UsuarioApertura"),
+                        UsuarioCierre = dr.Texto("UsuarioCierre"),
+                        EfectivoContado = dr.Decimal("EfectivoContado"),
+                        Diferencia = dr.Decimal("Diferencia"),
+                        Observacion = dr.Texto("Observacion"),
+                        Sede = dr.Texto("Sede"),
+                        VentasEfectivo = dr.Decimal("VentasEfectivo"),
+                        VentasTarjeta = dr.Decimal("VentasTarjeta"),
+                        VentasTransferencia = dr.Decimal("VentasTransferencia"),
+                        Domicilios = dr.Decimal("Domicilios"),
+                        NumeroVentas = dr.Entero("NumeroVentas"),
+                        NumeroAnuladas = dr.Entero("NumeroAnuladas"),
+                        TotalAnulado = dr.Decimal("TotalAnulado")
+                    }
+                };
+                r.Caja.EfectivoEsperado = r.Caja.BaseInicial + r.Caja.VentasEfectivo;
+                dr.NextResult();
+                while (dr.Read())
+                    r.Productos.Add(new PuntoReporte { Etiqueta = dr.Texto("Nombre"), Cantidad = dr.Entero("Cantidad"), Total = dr.Decimal("Total") });
+                dr.NextResult();
+                while (dr.Read())
+                    r.Anuladas.Add(new Venta
+                    {
+                        IdVenta = dr.Entero("IdVenta"),
+                        Total = dr.Decimal("Total"),
+                        MotivoAnulacion = dr.Texto("MotivoAnulacion"),
+                        Usuario = dr.Texto("Usuario")
+                    });
+            }, P("@IdSede", idSede), P("@IdCaja", idCaja));
+            return r;
+        }
     }
 
     public class CD_Venta
@@ -366,8 +431,13 @@ namespace CapaDatos
             return Ejecutar("SP_VENTA_REGISTRAR", P("@IdSede", idSede), P("@IdUsuario", idUsuario), P("@TipoPedido", v.TipoPedido),
                 P("@ClienteNombre", v.ClienteNombre), P("@ClienteTelefono", v.ClienteTelefono), P("@Direccion", v.Direccion),
                 P("@CostoDomicilio", v.CostoDomicilio), P("@MetodoPago", v.MetodoPago), P("@MontoRecibido", v.MontoRecibido),
-                Tabla("@Lineas", "ELineaVenta", lineas), Tabla("@Modificadores", "ELineaModificador", mods));
+                Tabla("@Lineas", "ELineaVenta", lineas), Tabla("@Modificadores", "ELineaModificador", mods),
+                P("@IdVenta", v.IdVenta));
         }
+
+        public Respuesta Anular(int idSede, int idVenta, int idUsuario, bool esAdmin, string motivo) =>
+            Ejecutar("SP_VENTA_ANULAR", P("@IdSede", idSede), P("@IdVenta", idVenta), P("@IdUsuario", idUsuario),
+                P("@EsAdmin", esAdmin), P("@Motivo", motivo));
 
         public List<Venta> Listar(int idSede, DateTime inicio, DateTime fin) =>
             Conexion.Listar("SP_VENTA_LISTAR", dr => new Venta
@@ -380,7 +450,12 @@ namespace CapaDatos
                 EstadoPedido = dr.Texto("EstadoPedido"),
                 ClienteNombre = dr.Texto("ClienteNombre"),
                 Usuario = dr.Texto("Usuario"),
-                Detalle = dr.Texto("Detalle")
+                Detalle = dr.Texto("Detalle"),
+                Anulada = dr.Bool("Anulada"),
+                MotivoAnulacion = dr.Texto("MotivoAnulacion"),
+                EstadoCocina = dr.Texto("EstadoCocina"),
+                SegundosEdicion = dr.Entero("SegundosEdicion"),
+                CajaAbierta = dr.Bool("CajaAbierta")
             }, P("@IdSede", idSede), P("@FechaInicio", inicio.Date), P("@FechaFin", fin.Date));
 
         /// <summary>Devuelve el ticket y el Id de la sede de la venta (para validar acceso).</summary>
@@ -411,7 +486,11 @@ namespace CapaDatos
                         Direccion = dr.Texto("Direccion"),
                         Usuario = dr.Texto("Usuario"),
                         Sede = dr.Texto("Sede"),
-                        SedeDireccion = dr.Texto("SedeDireccion")
+                        SedeDireccion = dr.Texto("SedeDireccion"),
+                        Anulada = dr.Bool("Anulada"),
+                        MotivoAnulacion = dr.Texto("MotivoAnulacion"),
+                        EstadoCocina = dr.Texto("EstadoCocina"),
+                        SegundosEdicion = dr.Entero("SegundosEdicion")
                     }
                 };
                 dr.NextResult();
@@ -419,6 +498,7 @@ namespace CapaDatos
                     t.Lineas.Add(new TicketLinea
                     {
                         IdDetalle = dr.Entero("IdDetalle"),
+                        IdProducto = dr.Entero("IdProducto"),
                         Nombre = dr.Texto("Nombre"),
                         Cantidad = dr.Entero("Cantidad"),
                         PrecioUnitario = dr.Decimal("PrecioUnitario"),
@@ -430,6 +510,7 @@ namespace CapaDatos
                 {
                     var linea = t.Lineas.FirstOrDefault(x => x.IdDetalle == dr.Entero("IdDetalle"));
                     linea?.Adiciones.Add(dr.Texto("Nombre"));
+                    linea?.Modificadores.Add(dr.Entero("IdModificador"));
                 }
             }, P("@IdVenta", idVenta));
             return (t, idSede);
@@ -445,13 +526,77 @@ namespace CapaDatos
                 Direccion = dr.Texto("Direccion"),
                 Total = dr.Decimal("Total"),
                 MetodoPago = dr.Texto("MetodoPago"),
+                MontoRecibido = dr.Decimal("MontoRecibido"),
+                Cambio = dr.Decimal("Cambio"),
                 EstadoPedido = dr.Texto("EstadoPedido"),
+                EstadoCocina = dr.Texto("EstadoCocina"),
+                Repartidor = dr.Texto("Repartidor"),
                 Minutos = dr.Entero("Minutos"),
+                MinutosEnCamino = dr.Entero("MinutosEnCamino"),
+                HoraDespacho = dr.Texto("HoraDespacho"),
+                HoraEntrega = dr.Texto("HoraEntrega"),
                 Detalle = dr.Texto("Detalle")
             }, P("@IdSede", idSede), P("@SoloPendientes", soloPendientes));
 
-        public Respuesta CambiarEstado(int idSede, int idVenta, string estado) =>
-            Ejecutar("SP_DOMICILIO_ESTADO", P("@IdSede", idSede), P("@IdVenta", idVenta), P("@Estado", estado));
+        public Respuesta CambiarEstado(int idSede, int idVenta, string estado, string? repartidor) =>
+            Ejecutar("SP_DOMICILIO_ESTADO", P("@IdSede", idSede), P("@IdVenta", idVenta), P("@Estado", estado), P("@Repartidor", repartidor));
+
+        public List<string> Repartidores(int idSede) =>
+            Conexion.Listar("SP_REPARTIDOR_LISTAR", dr => dr.Texto("Repartidor"), P("@IdSede", idSede));
+
+        public ClienteFrecuente? Cliente(string telefono) =>
+            Conexion.Listar("SP_CLIENTE_BUSCAR", dr => new ClienteFrecuente
+            {
+                ClienteNombre = dr.Texto("ClienteNombre"),
+                Direccion = dr.Texto("Direccion"),
+                Pedidos = dr.Entero("Pedidos"),
+                UltimoPedido = dr.Texto("UltimoPedido")
+            }, P("@Telefono", telefono)).FirstOrDefault();
+
+        /// <summary>Comandas activas para la pantalla de cocina.</summary>
+        public List<Comanda> Cocina(int idSede)
+        {
+            var lista = new List<Comanda>();
+            Leer("SP_COCINA_LISTAR", dr =>
+            {
+                while (dr.Read())
+                    lista.Add(new Comanda
+                    {
+                        IdVenta = dr.Entero("IdVenta"),
+                        Fecha = dr.Texto("Fecha"),
+                        TipoPedido = dr.Texto("TipoPedido"),
+                        ClienteNombre = dr.Texto("ClienteNombre"),
+                        EstadoCocina = dr.Texto("EstadoCocina"),
+                        EstadoPedido = dr.Texto("EstadoPedido"),
+                        Segundos = dr.Entero("Segundos"),
+                        SegundosEdicion = dr.Entero("SegundosEdicion"),
+                        Total = dr.Decimal("Total"),
+                        Editada = dr.Bool("Editada")
+                    });
+                var porId = lista.ToDictionary(c => c.IdVenta);
+                var lineas = new Dictionary<int, TicketLinea>();
+                dr.NextResult();
+                while (dr.Read())
+                {
+                    var l = new TicketLinea
+                    {
+                        IdDetalle = dr.Entero("IdDetalle"),
+                        Nombre = dr.Texto("Nombre"),
+                        Cantidad = dr.Entero("Cantidad"),
+                        Notas = dr.Texto("Notas")
+                    };
+                    lineas[l.IdDetalle] = l;
+                    if (porId.TryGetValue(dr.Entero("IdVenta"), out var c)) c.Lineas.Add(l);
+                }
+                dr.NextResult();
+                while (dr.Read())
+                    if (lineas.TryGetValue(dr.Entero("IdDetalle"), out var l)) l.Adiciones.Add(dr.Texto("Nombre"));
+            }, P("@IdSede", idSede));
+            return lista;
+        }
+
+        public Respuesta EstadoCocina(int idSede, int idVenta, string estado) =>
+            Ejecutar("SP_COCINA_ESTADO", P("@IdSede", idSede), P("@IdVenta", idVenta), P("@Estado", estado));
     }
 
     public class CD_Compra

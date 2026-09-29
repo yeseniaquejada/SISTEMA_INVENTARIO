@@ -165,3 +165,25 @@ const fechaHace = dias => { const d = new Date(); d.setDate(d.getDate() - dias);
 const etiquetaPago = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA: 'Transferencia' };
 const etiquetaPedido = { MESA: 'En mesa', LLEVAR: 'Para llevar', DOMICILIO: 'Domicilio' };
 const etiquetaEstado = { PENDIENTE: 'Pendiente', EN_CAMINO: 'En camino', ENTREGADO: 'Entregado' };
+const etiquetaCocina = { PENDIENTE: 'En cola', PREPARANDO: 'Preparando', LISTO: 'Listo', ENTREGADO: 'Entregado' };
+const claseCocina = { PENDIENTE: 'text-bg-secondary', PREPARANDO: 'text-bg-warning', LISTO: 'text-bg-success', ENTREGADO: 'text-bg-light' };
+
+/* Segundos a mm:ss (o h:mm:ss) */
+function mmss(seg) {
+    seg = Math.max(0, Math.round(seg));
+    const h = Math.floor(seg / 3600), m = Math.floor(seg % 3600 / 60), s = seg % 60;
+    return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
+}
+
+/* Pide el motivo y anula un pedido (devuelve los insumos). Devuelve true si se anuló. */
+async function anularPedido(id) {
+    const motivo = prompt(`Motivo para anular el pedido N° ${id}:`);
+    if (motivo === null) return false;
+    if (!motivo.trim()) { alerta('Indique el motivo de la anulación', 'warning'); return false; }
+    try {
+        const r = await api.post(`/Venta/Anular?id=${id}&motivo=${encodeURIComponent(motivo.trim())}`);
+        if (r.resultado) { alerta(`Pedido N° ${id} anulado. Los insumos volvieron al inventario.`); return true; }
+        alerta(r.mensaje, 'warning');
+    } catch (e) { errorAlerta(e); }
+    return false;
+}

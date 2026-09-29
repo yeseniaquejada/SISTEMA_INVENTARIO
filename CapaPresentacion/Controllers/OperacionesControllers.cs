@@ -14,7 +14,18 @@ public class VentaController : Controller
     public IActionResult Index() => View();
     public IActionResult Historial() => View();
 
-    [HttpGet] public JsonResult Catalogo() => Json(new CN_Producto().Catalogo());
+    [HttpGet] public JsonResult Catalogo() => Json(new CN_Producto().Catalogo(User.IdSede()));
+
+    /// <summary>Pedido completo para editarlo desde la pantalla de venta.</summary>
+    [HttpGet]
+    public JsonResult Obtener(int id) => Json(_negocio.Ticket(id, User.IdSede(), false));
+
+    [HttpPost]
+    public JsonResult Anular(int id, string? motivo) => Json(_negocio.Anular(User.IdSede(), id, User.Id(), User.EsAdmin(), motivo));
+
+    /// <summary>Cliente frecuente por teléfono (nombre y última dirección).</summary>
+    [HttpGet]
+    public JsonResult Cliente(string? telefono) => Json(_negocio.Cliente(telefono));
 
     [HttpGet]
     public JsonResult Listar(DateTime inicio, DateTime fin) => Json(_negocio.Listar(User.IdSede(), inicio, fin));
@@ -22,9 +33,11 @@ public class VentaController : Controller
     [HttpPost]
     public JsonResult Registrar([FromBody] NuevaVenta venta) => Json(_negocio.Registrar(User.IdSede(), User.Id(), venta));
 
-    public IActionResult Ticket(int id)
+    /// <summary>Ticket del cliente; con comanda=true sale la comanda de cocina (sin precios).</summary>
+    public IActionResult Ticket(int id, bool comanda = false)
     {
         var t = _negocio.Ticket(id, User.IdSede(), User.EsAdmin());
+        ViewData["Comanda"] = comanda;
         return t == null ? NotFound() : View(t);
     }
 
@@ -32,7 +45,20 @@ public class VentaController : Controller
     public IActionResult Exportar(DateTime inicio, DateTime fin) =>
         Excel.Archivo("ventas-" + User.Sede(), "Ventas", _negocio.Listar(User.IdSede(), inicio, fin),
             ("N°", v => v.IdVenta), ("Fecha", v => v.Fecha), ("Tipo", v => v.TipoPedido), ("Cliente", v => v.ClienteNombre),
-            ("Detalle", v => v.Detalle), ("Pago", v => v.MetodoPago), ("Total", v => v.Total), ("Usuario", v => v.Usuario));
+            ("Detalle", v => v.Detalle), ("Pago", v => v.MetodoPago), ("Total", v => v.Total), ("Usuario", v => v.Usuario),
+            ("Estado", v => v.Anulada ? "ANULADA: " + v.MotivoAnulacion : "Válida"));
+}
+
+/// <summary>Pantalla de cocina: comandas en cola, en preparación y listas.</summary>
+public class CocinaController : Controller
+{
+    private readonly CN_Venta _negocio = new();
+    public IActionResult Index() => View();
+
+    [HttpGet] public JsonResult Listar() => Json(_negocio.Cocina(User.IdSede()));
+
+    [HttpPost]
+    public JsonResult Estado(int id, string estado) => Json(_negocio.EstadoCocina(User.IdSede(), id, estado));
 }
 
 public class DomicilioController : Controller
@@ -44,7 +70,9 @@ public class DomicilioController : Controller
     public JsonResult Listar(bool soloPendientes = true) => Json(_negocio.Domicilios(User.IdSede(), soloPendientes));
 
     [HttpPost]
-    public JsonResult Estado(int id, string estado) => Json(_negocio.CambiarEstado(User.IdSede(), id, estado));
+    public JsonResult Estado(int id, string estado, string? repartidor) => Json(_negocio.CambiarEstado(User.IdSede(), id, estado, repartidor));
+
+    [HttpGet] public JsonResult Repartidores() => Json(_negocio.Repartidores(User.IdSede()));
 }
 
 public class CajaController : Controller
@@ -59,6 +87,13 @@ public class CajaController : Controller
     [HttpPost]
     public JsonResult Cerrar(decimal efectivoContado, string? observacion) =>
         Json(_negocio.Cerrar(User.IdSede(), User.Id(), efectivoContado, observacion));
+
+    /// <summary>Reporte de cierre para imprimir en la impresora de tickets.</summary>
+    public IActionResult Reporte(int id)
+    {
+        var r = _negocio.Reporte(User.IdSede(), id);
+        return r == null ? NotFound() : View(r);
+    }
 }
 
 /// <summary>Entradas, salidas, mermas y kardex.</summary>

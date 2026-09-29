@@ -26,6 +26,11 @@ namespace CapaNegocio
                 return Respuesta.Error("Los colores deben tener el formato #RRGGBB");
             if (c.DiasAlertaVencimiento < 0 || c.DiasAlertaVencimiento > 60)
                 return Respuesta.Error("Los días de alerta deben estar entre 0 y 60");
+            if (c.MinutosEdicion < 0 || c.MinutosEdicion > 60)
+                return Respuesta.Error("El tiempo para editar pedidos debe estar entre 0 y 60 minutos");
+            if (c.MinutosAlertaCocina < 1 || c.MinutosAlertaDomicilio < 1)
+                return Respuesta.Error("Los tiempos de alerta deben ser de al menos 1 minuto");
+            if (c.CostoDomicilio < 0) return Respuesta.Error("El valor del domicilio no puede ser negativo");
             if (string.IsNullOrWhiteSpace(c.SimboloMoneda)) c.SimboloMoneda = "$";
             var r = _datos.Guardar(c);
             lock (_bloqueo) _cache = null;
@@ -146,6 +151,78 @@ namespace CapaNegocio
         }
 
         public Respuesta Eliminar(int id) => _datos.Eliminar(id);
+
+        /// <summary>
+        /// Carga masiva desde la plantilla de Excel: crea o actualiza insumos por código (y sus categorías)
+        /// y, si la fila trae stock, lo deja igual al contado con un ajuste de conteo físico.
+        /// Primero valida todo; si hay errores no guarda nada.
+        /// </summary>
+        public ResultadoImportacion Importar(List<FilaImportacion> filas, int idSede, int idUsuario)
+        {
+            var res = new ResultadoImportacion();
+            filas = filas.Where(f => !(string.IsNullOrWhiteSpace(f.Codigo) && string.IsNullOrWhiteSpace(f.Nombre))).ToList();
+            if (filas.Count == 0) { res.Errores.Add("La plantilla no tiene filas con datos"); return res; }
+
+            foreach (var f in filas)
+            {
+                f.Codigo = f.Codigo.Trim().ToUpper();
+                f.Nombre = f.Nombre.Trim();
+                f.Categoria = f.Categoria.Trim();
+                f.UnidadMedida = f.UnidadMedida.Trim().ToUpper();
+                if (f.Codigo == "") res.Errores.Add($"Fila {f.Fila}: falta el código");
+                else if (f.Codigo.Length > 30) res.Errores.Add($"Fila {f.Fila}: el código tiene más de 30 caracteres");
+                if (f.Nombre == "") res.Errores.Add($"Fila {f.Fila}: falta el nombre");
+                else if (f.Nombre.Length > 100) res.Errores.Add($"Fila {f.Fila}: el nombre tiene más de 100 caracteres");
+                if (f.Categoria == "") res.Errores.Add($"Fila {f.Fila}: falta la categoría");
+                if (!Unidades.Contains(f.UnidadMedida)) res.Errores.Add($"Fila {f.Fila}: unidad \"{f.UnidadMedida}\" no válida (use {string.Join(", ", Unidades)})");
+                if (f.StockMinimo < 0 || f.CostoUnitario < 0 || f.Stock < 0) res.Errores.Add($"Fila {f.Fila}: hay valores negativos");
+            }
+            foreach (var g in filas.Where(f => f.Codigo != "").GroupBy(f => f.Codigo).Where(g => g.Count() > 1))
+                res.Errores.Add($"El código {g.Key} está repetido en las filas {string.Join(", ", g.Select(f => f.Fila))}");
+            if (res.Errores.Count > 0) return res;
+
+            // Categorías que no existen se crean
+            var cnCategoria = new CN_Categoria();
+            var categorias = cnCategoria.Listar().ToDictionary(c => c.Descripcion.Trim(), c => c.IdCategoria, StringComparer.OrdinalIgnoreCase);
+            foreach (var nombre in filas.Select(f => f.Categoria).Distinct(StringComparer.OrdinalIgnoreCase).Where(n => !categorias.ContainsKey(n)))
+            {
+                var r = cnCategoria.Guardar(new Categoria { Descripcion = nombre, Activo = true });
+                if (!r.Resultado) { res.Errores.Add($"Categoría {nombre}: {r.Mensaje}"); return res; }
+                categorias[nombre] = r.Id;
+                res.CategoriasNuevas++;
+            }
+
+            var existentes = _datos.Listar(idSede).ToDictionary(i => i.Codigo, StringComparer.OrdinalIgnoreCase);
+            var conteo = new Conteo { Observacion = "Carga de inventario desde Excel" };
+            foreach (var f in filas)
+            {
+                existentes.TryGetValue(f.Codigo, out var actual);
+                var r = _datos.Guardar(new Insumo
+                {
+                    IdInsumo = actual?.IdInsumo ?? 0,
+                    Codigo = f.Codigo,
+                    Nombre = f.Nombre,
+                    IdCategoria = categorias[f.Categoria],
+                    UnidadMedida = f.UnidadMedida,
+                    StockMinimo = f.StockMinimo,
+                    CostoUnitario = f.CostoUnitario,
+                    Activo = actual?.Activo ?? true
+                });
+                if (!r.Resultado) { res.Errores.Add($"Fila {f.Fila} ({f.Codigo}): {r.Mensaje}"); continue; }
+                if (actual == null) res.Creados++; else res.Actualizados++;
+                if (f.Stock.HasValue && f.Stock.Value != (actual?.Stock ?? 0))
+                    conteo.Detalle.Add(new ConteoItem { IdInsumo = r.Id, StockContado = f.Stock.Value });
+            }
+
+            if (conteo.Detalle.Count > 0)
+            {
+                var r = new CN_Conteo().Registrar(idSede, idUsuario, conteo);
+                if (r.Resultado) res.StockAjustado = conteo.Detalle.Count;
+                else res.Errores.Add("Los insumos se guardaron pero el stock no se ajustó: " + r.Mensaje);
+            }
+            res.Resultado = res.Errores.Count == 0;
+            return res;
+        }
     }
 
     public class CN_Movimiento
@@ -207,7 +284,7 @@ namespace CapaNegocio
         public List<ProductoMenu> Listar() => _datos.Listar();
         public List<RecetaItem> ListarReceta(int idProducto) => _datos.ListarReceta(idProducto);
         public List<int> ListarModificadores(int idProducto) => _datos.ListarModificadores(idProducto);
-        public CatalogoPos Catalogo() => _datos.Catalogo();
+        public CatalogoPos Catalogo(int idSede) => _datos.Catalogo(idSede);
         public Respuesta GuardarImagen(int idProducto, string? url) => _datos.GuardarImagen(idProducto, url);
 
         public Respuesta Guardar(ProductoMenu p)
@@ -236,6 +313,8 @@ namespace CapaNegocio
             if (m.Nombre == "") return Respuesta.Error("El nombre es obligatorio");
             if (m.Precio < 0) return Respuesta.Error("El precio no puede ser negativo");
             if (m.IdInsumo > 0 && m.Cantidad == 0) return Respuesta.Error("Indique cuánto insumo suma o resta");
+            m.Grupo = string.IsNullOrWhiteSpace(m.Grupo) ? "Adiciones" : m.Grupo.Trim();
+            if (m.Grupo.Length > 40) return Respuesta.Error("El grupo puede tener máximo 40 caracteres");
             return _datos.Guardar(m);
         }
 
@@ -253,6 +332,13 @@ namespace CapaNegocio
 
         public Respuesta Cerrar(int idSede, int idUsuario, decimal efectivoContado, string? observacion) =>
             efectivoContado < 0 ? Respuesta.Error("El efectivo contado no puede ser negativo") : _datos.Cerrar(idSede, idUsuario, efectivoContado, observacion);
+
+        public ReporteCaja? Reporte(int idSede, int idCaja)
+        {
+            var r = _datos.Reporte(idSede, idCaja);
+            if (r != null) r.Configuracion = new CN_Configuracion().Obtener();
+            return r;
+        }
     }
 
     public class CN_Venta
@@ -260,6 +346,7 @@ namespace CapaNegocio
         private static readonly string[] TiposPedido = { "MESA", "LLEVAR", "DOMICILIO" };
         private static readonly string[] Metodos = { "EFECTIVO", "TARJETA", "TRANSFERENCIA" };
         private static readonly string[] Estados = { "PENDIENTE", "EN_CAMINO", "ENTREGADO" };
+        private static readonly string[] EstadosCocina = { "PENDIENTE", "PREPARANDO", "LISTO", "ENTREGADO" };
         private readonly CD_Venta _datos = new();
 
         public Respuesta Registrar(int idSede, int idUsuario, NuevaVenta v)
@@ -269,6 +356,8 @@ namespace CapaNegocio
             if (!TiposPedido.Contains(v.TipoPedido)) return Respuesta.Error("Tipo de pedido no válido");
             if (!Metodos.Contains(v.MetodoPago)) return Respuesta.Error("Forma de pago no válida");
             if (v.CostoDomicilio < 0 || v.MontoRecibido < 0) return Respuesta.Error("Los valores no pueden ser negativos");
+            if (v.IdVenta < 0) return Respuesta.Error("Pedido no válido");
+            v.ClienteTelefono = SoloDigitos(v.ClienteTelefono);
             if (v.TipoPedido == "DOMICILIO" &&
                 (string.IsNullOrWhiteSpace(v.ClienteNombre) || string.IsNullOrWhiteSpace(v.ClienteTelefono) || string.IsNullOrWhiteSpace(v.Direccion)))
                 return Respuesta.Error("Para domicilio indique nombre, teléfono y dirección del cliente");
@@ -286,8 +375,32 @@ namespace CapaNegocio
             return t;
         }
 
-        public Respuesta CambiarEstado(int idSede, int idVenta, string estado) =>
-            Estados.Contains(estado) ? _datos.CambiarEstado(idSede, idVenta, estado) : Respuesta.Error("Estado no válido");
+        public Respuesta Anular(int idSede, int idVenta, int idUsuario, bool esAdmin, string? motivo) =>
+            string.IsNullOrWhiteSpace(motivo) ? Respuesta.Error("Indique el motivo de la anulación")
+                : _datos.Anular(idSede, idVenta, idUsuario, esAdmin, motivo.Trim());
+
+        public Respuesta CambiarEstado(int idSede, int idVenta, string estado, string? repartidor = null)
+        {
+            if (!Estados.Contains(estado)) return Respuesta.Error("Estado no válido");
+            if (estado == "EN_CAMINO" && string.IsNullOrWhiteSpace(repartidor)) return Respuesta.Error("Indique quién lleva el domicilio");
+            return _datos.CambiarEstado(idSede, idVenta, estado, repartidor?.Trim());
+        }
+
+        public List<string> Repartidores(int idSede) => _datos.Repartidores(idSede);
+
+        public ClienteFrecuente? Cliente(string? telefono)
+        {
+            var t = SoloDigitos(telefono);
+            return t.Length < 7 ? null : _datos.Cliente(t);
+        }
+
+        public List<Comanda> Cocina(int idSede) => _datos.Cocina(idSede);
+
+        public Respuesta EstadoCocina(int idSede, int idVenta, string estado) =>
+            EstadosCocina.Contains(estado) ? _datos.EstadoCocina(idSede, idVenta, estado) : Respuesta.Error("Estado no válido");
+
+        /// <summary>Deja solo los números del teléfono para poder reconocer al cliente la próxima vez.</summary>
+        private static string SoloDigitos(string? telefono) => new((telefono ?? "").Where(char.IsDigit).ToArray());
     }
 
     public class CN_Compra

@@ -38,6 +38,11 @@
             <h6 class="col-12 mb-0 mt-4">Operación</h6>
             <div class="col-sm-6"><label class="form-label" for="simboloMoneda">Símbolo de moneda</label><input id="simboloMoneda" name="simboloMoneda" class="form-control" maxlength="5" /></div>
             <div class="col-sm-6"><label class="form-label" for="diasAlertaVencimiento">Avisar vencimientos con (días)</label><input id="diasAlertaVencimiento" name="diasAlertaVencimiento" type="number" min="0" max="60" class="form-control" data-tipo="numero" /></div>
+            <div class="col-sm-6"><label class="form-label" for="costoDomicilio">Valor del domicilio por defecto</label><input id="costoDomicilio" name="costoDomicilio" type="number" min="0" step="500" class="form-control" data-tipo="numero" /></div>
+            <div class="col-sm-6"><label class="form-label" for="minutosEdicion">Minutos para editar o anular un pedido</label><input id="minutosEdicion" name="minutosEdicion" type="number" min="0" max="60" class="form-control" data-tipo="numero" />
+                <div class="form-text">Solo mientras cocina no lo haya empezado. 0 = no se permite editar.</div></div>
+            <div class="col-sm-6"><label class="form-label" for="minutosAlertaCocina">Alerta en cocina después de (min)</label><input id="minutosAlertaCocina" name="minutosAlertaCocina" type="number" min="1" max="240" class="form-control" data-tipo="numero" /></div>
+            <div class="col-sm-6"><label class="form-label" for="minutosAlertaDomicilio">Alerta de domicilio demorado (min)</label><input id="minutosAlertaDomicilio" name="minutosAlertaDomicilio" type="number" min="1" max="240" class="form-control" data-tipo="numero" /></div>
             <div class="col-12"><button class="btn btn-marca px-4">Guardar configuración</button></div>
         </div></form>
     </div>
