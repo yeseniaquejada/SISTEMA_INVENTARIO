@@ -25,7 +25,8 @@ function esc(texto) {
     return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-const moneda = n => (window.APP?.moneda ?? '$') + ' ' + Number(n ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+// Yesenia Quejada Rojas - Claude — 19/10/2026: espacio que no se parte, para que el "$" no quede en una línea y el valor en otra.
+const moneda = n => (window.APP?.moneda ?? '$') + ' ' + Number(n ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 0 });
 const num = n => Number(n ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 3 });
 const hoy = () => new Date().toLocaleDateString('en-CA'); // yyyy-mm-dd
 

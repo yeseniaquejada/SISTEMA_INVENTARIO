@@ -2,6 +2,7 @@
 @{
     var cfg = new CapaNegocio.CN_Configuracion().Obtener();
     var esAdmin = User.IsInRole(Claves.Admin);
+    var esDomiciliario = User.IsInRole(Claves.Domiciliario);
     var controlador = ViewContext.RouteData.Values["controller"]?.ToString();
     string Activo(params string[] c) => c.Contains(controlador) ? "active" : "";
 }
@@ -36,7 +37,15 @@
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menu"><span class="navbar-toggler-icon"></span><span class="visually-hidden">Abrir menú</span></button>
             <div class="collapse navbar-collapse" id="menu">
+                @* Yesenia Quejada Rojas - Claude — 19/10/2026: menú por perfil. "Mantenimiento" pasa a "Configuración" con los pasos en orden
+                   y el inventario adentro; el domiciliario solo ve sus domicilios. *@
                 <ul class="navbar-nav me-auto">
+                    @if (esDomiciliario)
+                    {
+                        <li class="nav-item"><a class="nav-link @Activo("Domicilio")" asp-controller="Domicilio" asp-action="Index"><i class="bi bi-bicycle"></i> Mis domicilios</a></li>
+                    }
+                    else
+                    {
                     <li class="nav-item"><a class="nav-link @Activo("Home")" asp-controller="Home" asp-action="Index"><i class="bi bi-speedometer2"></i> Inicio</a></li>
                     <li class="nav-item"><a class="nav-link @Activo("Venta")" asp-controller="Venta" asp-action="Index"><i class="bi bi-cart3"></i> Vender</a></li>
                     @if(cfg.MostrarCocina){ <li class="nav-item"><a class="nav-link @Activo("Cocina")" asp-controller="Cocina" asp-action="Index"><i class="bi bi-fire"></i> Cocina</a></li> }
@@ -45,42 +54,39 @@
                     @if (esAdmin)
                     {
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle @Activo("Movimiento", "Conteo", "Compra", "Insumo")" href="#" data-bs-toggle="dropdown"><i class="bi bi-box-seam"></i> Inventario</a>
+                            <a class="nav-link dropdown-toggle @Activo("Reporte")" href="#" data-bs-toggle="dropdown"><i class="bi bi-graph-up"></i> Reportes</a>
                             <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" asp-controller="Insumo" asp-action="Index">Insumos y stock</a></li>
-                                <li><a class="dropdown-item" asp-controller="Movimiento" asp-action="Index">Entradas, salidas y kardex</a></li>
-                                @if(cfg.MostrarAvanzado){ <li><a class="dropdown-item" asp-controller="Conteo" asp-action="Index">Conteo físico</a></li> }
-                                @if(cfg.MostrarAvanzado){ <li><a class="dropdown-item" asp-controller="Compra" asp-action="Index">Orden de compra sugerida</a></li> }
+                                <li><a class="dropdown-item" asp-controller="Reporte" asp-action="Index"><i class="bi bi-bar-chart"></i> Ventas y ganancias</a></li>
+                                <li><a class="dropdown-item" asp-controller="Venta" asp-action="Historial"><i class="bi bi-receipt"></i> Historial de ventas</a></li>
+                                <li><a class="dropdown-item" asp-controller="Reporte" asp-action="Actividad"><i class="bi bi-clock-history"></i> Quién hizo qué</a></li>
                             </ul>
                         </li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle @Activo("Reporte", "Auditoria")" href="#" data-bs-toggle="dropdown"><i class="bi bi-graph-up"></i> Reportes</a>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" asp-controller="Auditoria" asp-action="Index">Auditoría y verificación</a></li>
-                                <li><a class="dropdown-item" asp-controller="Reporte" asp-action="Index">Ventas y ganancias</a></li>
-                                <li><a class="dropdown-item" asp-controller="Venta" asp-action="Historial">Historial de ventas</a></li>
-                            </ul>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle @Activo("Producto", "Modificador", "CategoriaMenu", "Categoria", "Proveedor", "Usuario", "Sede", "Configuracion")" href="#" data-bs-toggle="dropdown"><i class="bi bi-gear"></i> Mantenimiento</a>
-                            <ul class="dropdown-menu">
-                                <li><h6 class="dropdown-header">Menú</h6></li>
-                                <li><a class="dropdown-item" asp-controller="Producto" asp-action="Index">Productos y recetas</a></li>
-                                @if(cfg.MostrarAvanzado){ <li><a class="dropdown-item" asp-controller="Modificador" asp-action="Index">Adiciones y modificadores</a></li> }
-                                <li><a class="dropdown-item" asp-controller="CategoriaMenu" asp-action="Index">Categorías del menú</a></li>
-                                <li><h6 class="dropdown-header">Inventario</h6></li>
-                                <li><a class="dropdown-item" asp-controller="Categoria" asp-action="Index">Categorías de insumos</a></li>
-                                <li><a class="dropdown-item" asp-controller="Proveedor" asp-action="Index">Proveedores</a></li>
-                                <li><h6 class="dropdown-header">Negocio</h6></li>
-                                <li><a class="dropdown-item" asp-controller="Usuario" asp-action="Index">Usuarios</a></li>
-                                @if(cfg.MostrarMultisede){ <li><a class="dropdown-item" asp-controller="Sede" asp-action="Index">Sedes</a></li> }
-                                <li><a class="dropdown-item" asp-controller="Configuracion" asp-action="Index">Configuración y apariencia</a></li>
+                            <a class="nav-link dropdown-toggle @Activo("Producto", "Modificador", "CategoriaMenu", "Proveedor", "Usuario", "Sede", "Configuracion", "Insumo", "Movimiento", "Conteo", "Compra")" href="#" data-bs-toggle="dropdown"><i class="bi bi-gear"></i> Configuración</a>
+                            <ul class="dropdown-menu menu-config">
+                                <li><a class="dropdown-item fw-semibold" asp-controller="Configuracion" asp-action="Guia"><i class="bi bi-signpost-split"></i> Guía: por dónde empezar</a></li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li><h6 class="dropdown-header">Primero, en este orden</h6></li>
+                                <li><a class="dropdown-item" asp-controller="Configuracion" asp-action="Index"><span class="paso-menu">1</span> Datos del negocio</a></li>
+                                <li><a class="dropdown-item" asp-controller="Insumo" asp-action="Index"><span class="paso-menu">2</span> Insumos (lo que compras)</a></li>
+                                <li><a class="dropdown-item" asp-controller="CategoriaMenu" asp-action="Index"><span class="paso-menu">3</span> Categorías del menú</a></li>
+                                <li><a class="dropdown-item" asp-controller="Producto" asp-action="Index"><span class="paso-menu">4</span> Productos y recetas</a></li>
+                                <li><a class="dropdown-item" asp-controller="Modificador" asp-action="Index"><span class="paso-menu">5</span> Adiciones y salsas</a></li>
+                                <li><a class="dropdown-item" asp-controller="Usuario" asp-action="Index"><span class="paso-menu">6</span> Usuarios</a></li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li><h6 class="dropdown-header">Inventario del día a día</h6></li>
+                                <li><a class="dropdown-item" asp-controller="Movimiento" asp-action="Index"><i class="bi bi-box-arrow-in-down"></i> Registrar compras y salidas</a></li>
+                                @if(cfg.MostrarAvanzado){ <li><a class="dropdown-item" asp-controller="Conteo" asp-action="Index"><i class="bi bi-clipboard-check"></i> Contar inventario</a></li> }
+                                @if(cfg.MostrarAvanzado){ <li><a class="dropdown-item" asp-controller="Compra" asp-action="Index"><i class="bi bi-cart-check"></i> Qué debo comprar</a></li> }
+                                <li><a class="dropdown-item" asp-controller="Proveedor" asp-action="Index"><i class="bi bi-truck"></i> Proveedores</a></li>
+                                @if(cfg.MostrarMultisede){ <li><a class="dropdown-item" asp-controller="Sede" asp-action="Index"><i class="bi bi-shop"></i> Sedes</a></li> }
                             </ul>
                         </li>
                     }
                     else
                     {
                         <li class="nav-item"><a class="nav-link @Activo("Venta")" asp-controller="Venta" asp-action="Historial"><i class="bi bi-receipt"></i> Mis ventas</a></li>
+                    }
                     }
                 </ul>
                 <div class="d-flex flex-wrap align-items-center gap-2">
@@ -94,7 +100,7 @@
                             </select>
                         </form>
                     }
-                    else
+                    else if (cfg.MostrarMultisede)
                     {
                         <span class="badge rounded-pill text-bg-light"><i class="bi bi-shop"></i> @User.Sede()</span>
                     }
@@ -127,7 +133,7 @@
 
     <script>window.APP = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new {
         mostrarCocina=cfg.MostrarCocina, mostrarDomicilios=cfg.MostrarDomicilios,
-        moneda = cfg.SimboloMoneda, esAdmin, negocio = cfg.NombreNegocio, costoDomicilio = cfg.CostoDomicilio,
+        moneda = cfg.SimboloMoneda, esAdmin, esDomiciliario, negocio = cfg.NombreNegocio, telefonoNegocio = cfg.Telefono, costoDomicilio = cfg.CostoDomicilio,
         minutosEdicion = cfg.MinutosEdicion, minutosAlertaCocina = cfg.MinutosAlertaCocina, minutosAlertaDomicilio = cfg.MinutosAlertaDomicilio }));</script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>

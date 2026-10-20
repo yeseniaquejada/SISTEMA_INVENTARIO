@@ -35,7 +35,7 @@
                 <td>${v.idVenta}</td><td class="text-nowrap">${esc(v.fecha)}</td><td>${esc(etiquetaPedido[v.tipoPedido])}</td>
                 <td>${esc(v.clienteNombre)}</td><td>${esc(v.detalle)}${v.anulada ? `<br><span class="badge text-bg-danger">Anulada</span> <small>${esc(v.motivoAnulacion)}</small>` : ''}</td>
                 <td>${esc(etiquetaPago[v.metodoPago])}</td>
-                <td>${esc(v.usuario)}</td><td class="text-end">${moneda(v.total)}</td>
+                <td>${esc(v.usuario)}</td><td class="text-end text-nowrap">${moneda(v.total)}</td>
                 <td class="no-imprimir text-nowrap">
                     <a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${v.idVenta}" target="_blank" title="Ticket"><i class="bi bi-printer"></i></a>
                     ${v.segundosEdicion > 0 ? `<a class="btn btn-sm btn-outline-primary" href="/Venta?editar=${v.idVenta}" title="Editar (quedan ${mmss(v.segundosEdicion)})"><i class="bi bi-pencil"></i></a>` : ''}

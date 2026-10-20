@@ -14,17 +14,19 @@
     <a href="/Venta" class="btn btn-sm btn-outline-secondary">Cancelar edición</a>
 </div>
 
-<div class="d-flex justify-content-between align-items-center mb-3"><div><span class="eyebrow">Punto de venta</span><h1 class="titulo-pagina mb-0">Nuevo pedido</h1></div><span class="badge text-bg-light"><i class="bi bi-shop"></i> @CapaPresentacion.Infraestructura.UsuarioActual.Sede(User)</span></div>
+<div class="d-flex justify-content-between align-items-center mb-3"><div><span class="eyebrow">Punto de venta</span><h1 class="titulo-pagina mb-0">Nuevo pedido</h1></div>
+    @if (cfg.MostrarMultisede) { <span class="badge text-bg-light"><i class="bi bi-shop"></i> @CapaPresentacion.Infraestructura.UsuarioActual.Sede(User)</span> }</div>
 <div class="pos">
     <section>
         <div class="pos-toolbar d-flex flex-wrap gap-2 align-items-center mb-3">
             <div class="input-group" style="max-width:320px">
                 <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
-                <input id="txtBuscar" class="form-control" placeholder="Buscar producto... (F2)" autocomplete="off" />
+                <input id="txtBuscar" class="form-control" placeholder="Buscar producto... (F2)" autocomplete="off" aria-label="Buscar producto" />
             </div>
+            @* Yesenia Quejada Rojas - Claude — 19/10/2026: aquí se retoman los pedidos guardados sin cobrar; el botón se resalta cuando hay alguno. *@
             <div class="dropdown">
-                <button class="btn btn-outline-secondary bg-white" data-bs-toggle="dropdown" id="btnEspera" title="Pedidos guardados sin cobrar">
-                    <i class="bi bi-pause-circle"></i> En espera <span class="badge rounded-pill text-bg-secondary" id="lblEspera">0</span>
+                <button class="btn btn-outline-secondary bg-white" data-bs-toggle="dropdown" id="btnEspera" title="Pedidos guardados sin cobrar en este equipo">
+                    <i class="bi bi-pause-circle"></i> Por cobrar <span class="badge rounded-pill text-bg-secondary" id="lblEspera">0</span>
                 </button>
                 <ul class="dropdown-menu" id="listaEspera"></ul>
             </div>
@@ -36,67 +38,72 @@
         <div id="productos" class="pos-grid"></div>
     </section>
 
+    @* Yesenia Quejada Rojas - Claude — 19/10/2026: el panel ocupa el alto de la pantalla; solo la lista del pedido hace scroll
+       y el total y "Cobrar" quedan siempre a la vista. *@
     <aside class="card pedido shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="bi bi-bag"></i> <span id="lblTituloPedido">Pedido</span></h5>
             <button class="btn btn-sm btn-link text-danger" id="btnVaciar">Vaciar</button>
         </div>
-        <div class="card-body">
-            <div class="btn-group segmentado w-100 mb-3" role="group" id="tipoPedido">
+        <div class="card-body pedido-cuerpo">
+            <div class="btn-group btn-group-sm segmentado w-100 mb-2" role="group" id="tipoPedido" aria-label="Tipo de pedido">
                 <button type="button" class="btn btn-outline-marca active" data-valor="MESA"><i class="bi bi-cup-hot"></i> Mesa</button>
                 <button type="button" class="btn btn-outline-marca" data-valor="LLEVAR"><i class="bi bi-bag-check"></i> Llevar</button>
                 <button type="button" class="btn btn-outline-marca" data-valor="DOMICILIO" hidden="@(!cfg.MostrarDomicilios)"><i class="bi bi-bicycle"></i> Domicilio</button>
             </div>
 
             <div id="datosCliente" class="row g-2 mb-3" hidden>
-                <div class="col-5"><input id="txtTelefono" class="form-control form-control-sm" placeholder="Teléfono" maxlength="20" inputmode="tel" autocomplete="off" /></div>
-                <div class="col-7"><input id="txtCliente" class="form-control form-control-sm" placeholder="Nombre del cliente" maxlength="100" /></div>
-                <div class="col-8"><input id="txtDireccion" class="form-control form-control-sm" placeholder="Dirección y barrio" maxlength="200" /></div>
-                <div class="col-4"><input id="txtCostoDomicilio" type="number" min="0" step="500" class="form-control form-control-sm" placeholder="Envío" title="Valor del domicilio" /></div>
+                <div class="col-5"><input id="txtTelefono" class="form-control form-control-sm" placeholder="Teléfono" maxlength="20" inputmode="tel" autocomplete="off" aria-label="Teléfono del cliente" /></div>
+                <div class="col-7"><input id="txtCliente" class="form-control form-control-sm" placeholder="Nombre del cliente" maxlength="100" aria-label="Nombre del cliente" /></div>
+                <div class="col-8"><input id="txtDireccion" class="form-control form-control-sm" placeholder="Dirección y barrio" maxlength="200" aria-label="Dirección" /></div>
+                <div class="col-4"><input id="txtCostoDomicilio" type="number" min="0" step="500" class="form-control form-control-sm" placeholder="Envío" title="Valor del domicilio" aria-label="Valor del domicilio" /></div>
                 <div class="col-12 small text-success" id="lblClienteFrecuente" hidden></div>
             </div>
             <div id="datosNombre" class="mb-3">
-                <input id="txtNombreMesa" class="form-control form-control-sm" placeholder="Nombre o mesa (opcional)" maxlength="100" />
+                <input id="txtNombreMesa" class="form-control form-control-sm" placeholder="Nombre o mesa (opcional)" maxlength="100" aria-label="Nombre o mesa" />
             </div>
 
             <div class="small text-muted mb-2" id="resumenPedido" aria-live="polite"></div>
             <div class="lineas" id="lineas"></div>
-
-            <hr />
-            <div class="d-flex justify-content-between small"><span>Subtotal</span><span id="lblSubtotal">$ 0</span></div>
+        </div>
+        <div class="card-footer pedido-pie">
+            <div class="d-flex justify-content-between small" id="filaSubtotal" hidden><span>Subtotal</span><span id="lblSubtotal">$ 0</span></div>
             <div class="d-flex justify-content-between small" id="filaEnvio" hidden><span>Domicilio</span><span id="lblEnvio">$ 0</span></div>
-            <div class="d-flex justify-content-between fs-4 fw-bold"><span>Total</span><span class="text-marca" id="lblTotal">$ 0</span></div>
+            <div class="d-flex justify-content-between fs-5 fw-bold"><span>Total</span><span class="text-marca text-nowrap" id="lblTotal">$ 0</span></div>
 
-            <div class="btn-group segmentado w-100 my-3" role="group" id="metodoPago">
+            <div class="btn-group btn-group-sm segmentado w-100 my-2" role="group" id="metodoPago" aria-label="Forma de pago">
                 <button type="button" class="btn btn-outline-secondary active" data-valor="EFECTIVO"><i class="bi bi-cash"></i> Efectivo</button>
                 <button type="button" class="btn btn-outline-secondary" data-valor="TARJETA"><i class="bi bi-credit-card"></i> Tarjeta</button>
                 <button type="button" class="btn btn-outline-secondary" data-valor="TRANSFERENCIA"><i class="bi bi-phone"></i> Transf.</button>
             </div>
-            <div id="datosEfectivo" class="row g-2 align-items-center mb-3">
-                <div class="col-6"><label for="txtRecibido" class="small text-muted">Dinero recibido</label><input id="txtRecibido" type="number" min="0" step="1000" class="form-control" placeholder="Valor exacto" /></div>
-                <div class="col-6 text-end">Cambio: <strong id="lblCambio">$ 0</strong></div>
+            <div id="datosEfectivo" class="row g-2 align-items-end mb-2">
+                <div class="col-6"><label for="txtRecibido" class="small text-muted">Dinero recibido</label><input id="txtRecibido" type="number" min="0" step="1000" class="form-control form-control-sm" placeholder="Valor exacto" /></div>
+                <div class="col-6 text-end pb-1">Cambio: <strong id="lblCambio" class="text-nowrap">$ 0</strong></div>
                 <div class="col-12 d-flex gap-1 flex-wrap" id="billetes"></div>
             </div>
 
             <div class="d-flex gap-2">
-                <button class="btn btn-outline-secondary" id="btnPonerEspera" title="Guardar el pedido sin cobrar"><i class="bi bi-pause-circle"></i> En espera</button>
+                <button class="btn btn-outline-secondary" id="btnPonerEspera" title="Guardar el pedido para cobrarlo después"><i class="bi bi-pause-circle"></i> Cobrar después</button>
                 <button class="btn btn-marca btn-lg flex-grow-1" id="btnCobrar" disabled><i class="bi bi-check2-circle"></i> <span id="lblCobrar">Cobrar</span></button>
             </div>
-            <p class="small text-muted mt-2 mb-0" id="ayudaCobro" aria-live="polite"></p>
-            <div class="text-muted text-center small mt-2 d-none d-lg-block">F2 buscar · Enter agregar · F9 cobrar</div>
+            <p class="small text-warning mt-1 mb-0" id="ayudaCobro" aria-live="polite"></p>
+            <div class="text-muted text-center small mt-1 d-none d-xxl-block">F2 buscar · Enter agregar · F9 cobrar</div>
         </div>
     </aside>
 </div>
 
-<!-- Adiciones, salsas y notas del producto -->
+<!-- Salsas, adiciones, ingredientes que se quitan y notas del producto -->
 <div class="modal fade" id="modalProducto" tabindex="-1" aria-labelledby="tituloProducto">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title" id="tituloProducto"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header"><h5 class="modal-title" id="tituloProducto"></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
         <div class="modal-body">
-            <p class="small text-muted">Personaliza el producto y revisa tus opciones antes de agregarlo.</p>
             <div id="modificadores"></div>
-            <div class="resumen-opciones small p-3 rounded mb-2" id="resumenOpciones" aria-live="polite"></div>
-            <label class="form-label mt-2" for="txtNotas">Notas para cocina</label>
+            <div id="seccionQuitar" class="mb-3" hidden>
+                <div class="fw-semibold mb-2">¿Le quitamos algo? <small class="text-muted fw-normal">Toque lo que el cliente no quiere</small></div>
+                <div class="d-flex flex-wrap gap-2" id="quitar"></div>
+            </div>
+            <div class="resumen-opciones small p-2 rounded mb-2" id="resumenOpciones" aria-live="polite" hidden></div>
+            <label class="form-label mt-1" for="txtNotas">Notas para cocina <small class="text-muted">(opcional)</small></label>
             <input id="txtNotas" class="form-control" maxlength="150" placeholder="Ej: bien asada, salsas aparte" />
         </div>
         <div class="modal-footer d-flex flex-nowrap">
@@ -118,8 +125,8 @@
             <h5 class="mt-2" id="lblListoTitulo">Venta registrada</h5>
             <p class="mb-1" id="lblListoTotal"></p>
             <p class="text-muted small" id="lblListoCambio"></p>
+            @* Yesenia Quejada Rojas - Claude — 19/10/2026: se quitó "Ver comprobante"; con imprimir ticket basta. *@
             <div class="d-grid gap-2">
-                <a class="btn btn-outline-secondary" id="lnkVistaTicket" target="_blank"><i class="bi bi-eye"></i> Ver comprobante</a>
                 <a class="btn btn-marca" id="lnkTicket" target="_blank"><i class="bi bi-printer"></i> Imprimir ticket</a>
                 <a class="btn btn-outline-secondary" id="lnkComanda" hidden="@(!cfg.MostrarCocina)" target="_blank"><i class="bi bi-fire"></i> Comanda para cocina</a>
                 <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Nueva venta</button>
@@ -132,7 +139,7 @@
 <div class="offcanvas offcanvas-end" tabindex="-1" id="panelComandas" style="width:420px">
     <div class="offcanvas-header border-bottom">
         <h5 class="offcanvas-title"><i class="bi bi-fire text-danger"></i> Comandas en proceso</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="offcanvas"></button>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
     </div>
     <div class="offcanvas-body">
         <p class="small text-muted" id="lblReglaEdicion"></p>

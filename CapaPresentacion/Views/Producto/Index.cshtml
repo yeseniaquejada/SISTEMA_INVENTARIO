@@ -15,7 +15,8 @@
         <div class="modal-body">
             <div class="row g-4">
                 <div class="col-lg-4">
-                    <div class="producto-card mb-2" style="cursor:default">
+                    @* Yesenia Quejada Rojas - Claude — 19/10/2026: vista previa más pequeña y sin recortar la foto. *@
+                    <div class="producto-card foto-editor mb-2" style="cursor:default">
                         <img id="imgProducto" class="producto-foto" alt="" hidden />
                         <div id="sinFoto" class="producto-foto sin-foto">🍽️</div>
                     </div>
@@ -40,7 +41,7 @@
             <hr />
             <div class="row g-4">
                 <div class="col-lg-7">
-                    <h6>Receta <small class="text-muted">(lo que se descuenta por cada unidad vendida)</small></h6>
+                    <h6>Receta <small class="text-muted">(lo que se descuenta del inventario al cobrar cada unidad)</small></h6>
                     <div class="row g-2 mb-2">
                         <div class="col-md-7"><select id="cboInsumo" class="form-select"></select></div>
                         <div class="col-md-3"><input id="txtCantidad" type="number" min="0.001" step="0.001" class="form-control" placeholder="Cantidad" /></div>
@@ -54,8 +55,8 @@
                     </div>
                 </div>
                 <div class="col-lg-5">
-                    <h6>Adiciones que se pueden elegir</h6>
-                    <div id="listaModificadores" class="d-grid gap-1" style="max-height:340px;overflow-y:auto"></div>
+                    <h6>Adiciones y salsas de este producto <small class="text-muted fw-normal">(toque para elegir)</small></h6>
+                    <div id="listaModificadores" class="d-grid gap-1 lista-adiciones" style="max-height:340px;overflow-y:auto"></div>
                 </div>
             </div>
         </div>

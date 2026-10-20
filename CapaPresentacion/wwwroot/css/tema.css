@@ -289,3 +289,60 @@
         outline: 3px solid var(--marca); outline-offset: 3px;
     }
 }
+
+/* Yesenia Quejada Rojas - Claude — 19/10/2026. Versión 5: panel del pedido con "Cobrar" siempre visible, scroll discreto,
+   pastillas de opciones con colores, fotos sin recorte y pasos numerados en Configuración. */
+@media screen {
+    /* El panel ocupa el alto disponible; solo el cuerpo hace scroll y el pie (total y Cobrar) queda fijo. */
+    .pedido { display: flex; flex-direction: column; max-height: max(26rem, calc(100vh - 13.5rem)); }
+    .pedido .pedido-cuerpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 1.1rem; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--texto-suave) 35%, transparent) transparent; scrollbar-gutter: stable; }
+    .pedido .pedido-cuerpo::-webkit-scrollbar { width: 6px; }
+    .pedido .pedido-cuerpo::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--texto-suave) 35%, transparent); border-radius: 6px; }
+    .pedido .pedido-cuerpo::-webkit-scrollbar-track { background: transparent; }
+    .pedido .lineas { max-height: none; overflow: visible; }
+    #ayudaCobro:empty { display: none; }
+    @media (max-height: 820px) { .pedido .pedido-pie #billetes { display: none !important; } .pedido .pedido-cuerpo { padding-top: .75rem; } }
+    .pedido .pedido-pie #billetes .btn { padding: .1rem .45rem; font-size: .78rem; }
+    .pedido .pedido-pie { flex-shrink: 0; background: var(--superficie); border-top: 1px solid var(--borde); padding: .8rem 1.2rem 1rem; border-radius: 0 0 18px 18px; }
+    @media (max-width: 991px) {
+        .pedido { max-height: none; }
+        .pedido .pedido-pie { position: sticky; bottom: 0; z-index: 5; box-shadow: 0 -8px 24px #0003; }
+    }
+
+    /* Pastillas de opciones (salsas, adiciones y "Sin ...") */
+    .opcion-pastilla { display: inline-flex; align-items: center; gap: .35rem; padding: .35rem .8rem; border-radius: 999px; cursor: pointer; user-select: none;
+        border: 1.5px solid var(--borde); background: var(--superficie-alta); color: var(--texto); font-size: .88rem; line-height: 1.2; transition: background .12s, border-color .12s; }
+    .opcion-pastilla:hover { border-color: color-mix(in srgb, var(--marca) 55%, var(--borde)); }
+    .opcion-pastilla .marca-elegida { display: none; }
+    .opcion-pastilla .precio-opcion { color: var(--texto-suave); font-weight: 600; }
+    .opcion-pastilla.es-salsa { --color-opcion: var(--marca); border-color: color-mix(in srgb, var(--color-opcion) 55%, var(--borde)); }
+    .opcion-pastilla .punto-color { width: .7rem; height: .7rem; border-radius: 50%; background: var(--color-opcion); box-shadow: 0 0 0 2px #fff3; }
+    .btn-check:checked + .opcion-pastilla { background: color-mix(in srgb, var(--marca) 85%, black); border-color: var(--marca); color: #fff; font-weight: 600; }
+    .btn-check:checked + .opcion-pastilla.es-salsa { background: color-mix(in srgb, var(--color-opcion) 80%, black); border-color: var(--color-opcion); }
+    .btn-check:checked + .opcion-pastilla .marca-elegida { display: inline; }
+    .btn-check:checked + .opcion-pastilla .precio-opcion { color: #fff; }
+    .opcion-pastilla.es-quitar { border-style: dashed; }
+    .btn-check:checked + .opcion-pastilla.es-quitar { background: #b3261e; border-color: #b3261e; border-style: solid; text-decoration: line-through; text-decoration-thickness: 1.5px; }
+    .btn-check:focus-visible + .opcion-pastilla { outline: 3px solid var(--marca); outline-offset: 2px; }
+
+    /* Fotos completas: se ajustan sin recortar (antes "cover" cortaba parte de la foto). */
+    .producto-foto { object-fit: contain; background: var(--superficie-alta); }
+    .foto-editor { max-width: 220px; margin-inline: auto; }
+    .foto-editor .producto-foto { aspect-ratio: 4 / 3; max-height: 160px; }
+
+    /* Adiciones del producto (Configuración > Productos): la elegida se nota claramente. */
+    .lista-adiciones .opcion-producto { display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: .45rem .7rem; border: 1.5px solid var(--borde); border-radius: 10px; cursor: pointer; margin: 0; }
+    .lista-adiciones .opcion-producto:has(input:checked) { border-color: var(--marca); background: color-mix(in srgb, var(--marca) 16%, transparent); font-weight: 600; }
+    .lista-adiciones .opcion-producto:has(input:checked) .estado-opcion::before { content: "Elegida"; }
+    .lista-adiciones .estado-opcion { font-size: .72rem; color: var(--acento-texto); }
+
+    /* Pasos numerados del menú Configuración y de la guía */
+    .paso-menu { display: inline-grid; place-items: center; width: 1.35rem; height: 1.35rem; margin-right: .35rem; border-radius: 50%; font-size: .72rem; font-weight: 700; background: var(--marca); color: var(--marca-texto); }
+    .guia-paso { display: flex; gap: 1rem; align-items: flex-start; padding: 1rem 1.2rem; border: 1px solid var(--borde); border-radius: 16px; background: var(--superficie); text-decoration: none; color: var(--texto); }
+    .guia-paso:hover { border-color: color-mix(in srgb, var(--marca) 55%, var(--borde)); color: var(--texto); }
+    .guia-paso .paso-menu { width: 2rem; height: 2rem; font-size: .95rem; flex-shrink: 0; }
+    .guia-paso.listo .paso-menu { background: #198754; color: #fff; }
+
+    /* Montos en una sola línea ("$" y el valor juntos) */
+    .monto { white-space: nowrap; }
+}

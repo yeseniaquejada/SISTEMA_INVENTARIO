@@ -1,14 +1,16 @@
-/* Punto de venta: tarjetas de productos (más vendidos primero), salsas y adiciones,
-   pedidos en espera, edición de pedidos dentro del tiempo permitido y comandas en proceso. */
+/* Punto de venta: tarjetas de productos (más vendidos primero), salsas y adiciones, ingredientes que se quitan,
+   pedidos por cobrar, edición de pedidos dentro del tiempo permitido y comandas en proceso. */
 (function () {
     const $ = id => document.getElementById(id);
     const modalProducto = new bootstrap.Modal($('modalProducto'));
     const modalListo = new bootstrap.Modal($('modalListo'));
     const ORDEN_GRUPOS = ['Salsas', 'Adiciones', 'Preferencias'];
     const CLAVE_ESPERA = 'pos-espera';
+    /* Yesenia Quejada Rojas - Claude — 19/10/2026. Colores de las pastillas de salsas para reconocerlas rápido sin fotos. */
+    const COLORES_SALSA = ['#e53935', '#fb8c00', '#fdd835', '#43a047', '#00897b', '#1e88e5', '#8e24aa', '#6d4c41', '#d81b60', '#546e7a'];
 
-    let productos = [], modificadores = [], categoria = 0, top = new Map();
-    let pedido = [];            // { clave, idProducto, nombre, precio, cantidad, notas, mods:[{idModificador,nombre,precio,grupo}] }
+    let productos = [], modificadores = [], ingredientes = [], categoria = 0, top = new Map();
+    let pedido = [];            // { clave, idProducto, nombre, precio, cantidad, notas, mods:[{idModificador,nombre,precio,grupo}], sin:[{idInsumo,nombre}] }
     let actual = null, cantidad = 1;
     let tipo = 'MESA', pago = 'EFECTIVO', cajaAbierta = true;
     let edicion = null;         // { idVenta, vence (ms) } cuando se edita un pedido ya cobrado
@@ -19,6 +21,12 @@
     const envio = () => tipo === 'DOMICILIO' ? Number($('txtCostoDomicilio').value || 0) : 0;
     const total = () => subtotal() + envio();
     const enPedido = idProducto => pedido.filter(l => l.idProducto === idProducto).reduce((s, l) => s + l.cantidad, 0);
+    // "Queso mozzarella (tajada)" se muestra como "queso mozzarella" en "Sin ..."
+    const nombreCorto = n => n.replace(/\s*\(.*\)\s*$/, '').toLowerCase();
+    const opcionesDe = idProducto => ({
+        mods: modificadores.filter(m => m.idProducto === idProducto),
+        sin: ingredientes.filter(i => i.idProducto === idProducto)
+    });
 
     /* ---------- Catálogo ---------- */
     async function cargar() {
@@ -26,6 +34,7 @@
             const [cat, caja] = await Promise.all([api.get('/Venta/Catalogo'), api.get('/Caja/Actual')]);
             productos = cat.productos;       // ya vienen ordenados: más vendidos primero
             modificadores = cat.modificadores;
+            ingredientes = cat.ingredientes || [];
             top = new Map(productos.filter(p => p.vendidos > 0).slice(0, 5).map((p, i) => [p.idProducto, i + 1]));
             cajaAbierta = !!caja;
             $('avisoCaja').hidden = cajaAbierta;
@@ -64,12 +73,13 @@
         $('productos').innerHTML = lista.length ? lista.map(p => {
             const rank = top.get(p.idProducto);
             const agotado = p.disponibles !== null && p.disponibles !== undefined && p.disponibles - enPedido(p.idProducto) <= 0;
-            const tieneMods = modificadores.some(m => m.idProducto === p.idProducto);
+            const o = opcionesDe(p.idProducto);
+            const tieneOpciones = o.mods.length || o.sin.length;
             return `<div class="producto-card ${agotado ? 'agotado' : ''}" data-id="${p.idProducto}" role="button" tabindex="0">
                 ${p.imagenUrl ? `<img class="producto-foto" src="${esc(p.imagenUrl)}" alt="" loading="lazy" />`
                               : `<div class="producto-foto sin-foto">${esc(p.icono || '🍽️')}</div>`}
                 ${rank ? `<span class="producto-top" title="${p.vendidos} vendidos en 30 días">🔥 Top ${rank}</span>` : ''}
-                ${tieneMods ? `<button class="producto-rapido" data-rapido="${p.idProducto}" title="Agregar 1 sin opciones"><i class="bi bi-plus-lg"></i></button>` : ''}
+                ${tieneOpciones ? `<button class="producto-rapido" data-rapido="${p.idProducto}" title="Agregar 1 tal como viene" aria-label="Agregar 1 ${esc(p.nombre)} tal como viene"><i class="bi bi-plus-lg"></i></button>` : ''}
                 <div class="producto-info">
                     <span class="producto-nombre">${esc(p.nombre)}</span>
                     ${p.descripcion ? `<small class="producto-desc">${esc(p.descripcion)}</small>` : ''}
@@ -78,7 +88,7 @@
                     </span>
                 </div>
             </div>`;
-        }).join('') : '<div class="pos-empty"><i class="bi bi-grid"></i><strong>No hay productos para mostrar</strong><span>Prueba otra búsqueda o agrega productos desde Mantenimiento.</span></div>';
+        }).join('') : '<div class="pos-empty"><i class="bi bi-grid"></i><strong>No hay productos para mostrar</strong><span>Prueba otra búsqueda o agrega productos desde Configuración.</span></div>';
     }
 
     $('categorias').addEventListener('click', ev => {
@@ -94,10 +104,10 @@
         if (ev.key === 'Escape') { $('txtBuscar').value = ''; pintarProductos(); }
     });
 
-    /* ---------- Modal de salsas y adiciones ---------- */
+    /* ---------- Modal de salsas, adiciones e ingredientes ---------- */
     $('productos').addEventListener('click', ev => {
         const rapido = ev.target.closest('[data-rapido]');
-        if (rapido) { agregar(productos.find(p => p.idProducto === Number(rapido.dataset.rapido)), 1, '', []); return; }
+        if (rapido) { agregar(productos.find(p => p.idProducto === Number(rapido.dataset.rapido)), 1, '', [], []); return; }
         const card = ev.target.closest('[data-id]');
         if (card) abrirProducto(productos.find(p => p.idProducto === Number(card.dataset.id)), ev.shiftKey);
     });
@@ -105,59 +115,71 @@
         if (ev.key === 'Enter' && ev.target.matches('[data-id]')) ev.target.click();
     });
 
+    /* Yesenia Quejada Rojas - Claude — 19/10/2026. Todas las opciones son pastillas que se tocan (sin fotos para que ocupe menos):
+       salsas con su color, adiciones con su precio y, aparte, los ingredientes de la receta para pedir "Sin ...". */
     function abrirProducto(p, forzar = false) {
         actual = p;
-        const mods = modificadores.filter(m => m.idProducto === p.idProducto);
-        if (!mods.length && !forzar) { agregar(p, 1, '', []); return; } // sin opciones: directo al pedido
+        const { mods, sin } = opcionesDe(p.idProducto);
+        if (!mods.length && !sin.length && !forzar) { agregar(p, 1, '', [], []); return; } // sin opciones: directo al pedido
         cantidad = 1;
         $('tituloProducto').textContent = `${p.nombre} · ${moneda(p.precio)}`;
         $('txtNotas').value = '';
         $('lblCantidad').textContent = 1;
         const grupos = [...new Set(mods.map(m => m.grupo))]
             .sort((a, b) => (ORDEN_GRUPOS.indexOf(a) + 1 || 99) - (ORDEN_GRUPOS.indexOf(b) + 1 || 99) || a.localeCompare(b));
-        $('modificadores').innerHTML = mods.length ? grupos.map(g => {
+        $('modificadores').innerHTML = grupos.map(g => {
             const items = mods.filter(m => m.grupo === g);
-            const chips = items.every(m => !m.precio);   // opciones gratis (salsas, preferencias) como botones
-            return `<div class="mb-3"><div class="fw-semibold mb-2">${esc(g)}${g === 'Salsas' ? ' <small class="text-muted fw-normal">(elija las que quiera)</small>' : ''}</div>
-                ${chips ? `<div class="d-flex flex-wrap gap-2">${items.map(m => `
+            const esSalsa = g.toLowerCase().startsWith('salsa');
+            return `<div class="mb-3"><div class="fw-semibold mb-2">${esc(g)}</div>
+                <div class="d-flex flex-wrap gap-2">${items.map((m, i) => `
                     <input type="checkbox" class="btn-check" id="mod${m.idModificador}" value="${m.idModificador}" autocomplete="off" />
-                    <label class="btn btn-sm btn-outline-marca rounded-pill opcion-modificador" for="mod${m.idModificador}"><i class="bi bi-check-circle-fill seleccion-marca" aria-hidden="true"></i>${esc(m.nombre)}</label>`).join('')}</div>`
-                : `<div class="d-grid gap-2">${items.map(m => `
-                    <label class="form-check border rounded p-2 ps-5 d-flex justify-content-between mb-0">
-                        <span><input type="checkbox" class="form-check-input" value="${m.idModificador}" /> ${esc(m.nombre)}</span>
-                        <span class="text-muted">${m.precio ? '+ ' + moneda(m.precio) : ''}</span>
-                    </label>`).join('')}</div>`}
+                    <label class="opcion-pastilla ${esSalsa ? 'es-salsa' : ''}" for="mod${m.idModificador}" ${esSalsa ? `style="--color-opcion:${COLORES_SALSA[i % COLORES_SALSA.length]}"` : ''}>
+                        <i class="bi bi-check-lg marca-elegida" aria-hidden="true"></i>${esSalsa ? '<span class="punto-color" aria-hidden="true"></span>' : ''}${esc(m.nombre)}${m.precio ? ` <small class="precio-opcion">+${moneda(m.precio)}</small>` : ''}
+                    </label>`).join('')}</div>
             </div>`;
-        }).join('') : '<p class="text-muted small mb-0">Este producto no tiene adiciones.</p>';
+        }).join('');
+        $('seccionQuitar').hidden = !sin.length;
+        $('quitar').innerHTML = sin.map(i => `
+            <input type="checkbox" class="btn-check" id="sin${i.idInsumo}" value="${i.idInsumo}" autocomplete="off" />
+            <label class="opcion-pastilla es-quitar" for="sin${i.idInsumo}"><i class="bi bi-x-lg marca-elegida" aria-hidden="true"></i>Sin ${esc(nombreCorto(i.nombre))}</label>`).join('');
         actualizarOpciones();
         modalProducto.show();
     }
-    function actualizarOpciones() {
+    function elegidas() {
         const ids = [...$('modificadores').querySelectorAll('input:checked')].map(i => Number(i.value));
-        const elegidas = modificadores.filter(m => m.idProducto === actual.idProducto && ids.includes(m.idModificador));
-        $('resumenOpciones').textContent = elegidas.length
-            ? `Seleccionado: ${elegidas.map(m => m.nombre).join(' · ')}`
-            : 'Sin opciones adicionales. Puedes elegir varias.';
-        const importe = (actual.precio + elegidas.reduce((s, m) => s + m.precio, 0)) * cantidad;
+        const sinIds = [...$('quitar').querySelectorAll('input:checked')].map(i => Number(i.value));
+        return {
+            mods: modificadores.filter(m => m.idProducto === actual.idProducto && ids.includes(m.idModificador)),
+            sin: ingredientes.filter(i => i.idProducto === actual.idProducto && sinIds.includes(i.idInsumo))
+        };
+    }
+    function actualizarOpciones() {
+        const e = elegidas();
+        const partes = [];
+        if (e.mods.length) partes.push(`<strong>Con:</strong> ${e.mods.map(m => esc(m.nombre)).join(', ')}`);
+        if (e.sin.length) partes.push(`<strong class="text-danger">Sin:</strong> ${e.sin.map(i => esc(nombreCorto(i.nombre))).join(', ')}`);
+        $('resumenOpciones').innerHTML = partes.join(' · ');
+        $('resumenOpciones').hidden = !partes.length;
+        const importe = (actual.precio + e.mods.reduce((s, m) => s + m.precio, 0)) * cantidad;
         $('btnAgregarPedido').textContent = `Agregar ${cantidad} · ${moneda(importe)}`;
         $('btnMenos').disabled = cantidad <= 1;
     }
     $('modificadores').addEventListener('change', actualizarOpciones);
+    $('quitar').addEventListener('change', actualizarOpciones);
     $('modalProducto').addEventListener('shown.bs.modal', () => $('btnAgregarPedido').focus());
     $('btnMenos').addEventListener('click', () => { cantidad = Math.max(1, cantidad - 1); $('lblCantidad').textContent = cantidad; actualizarOpciones(); });
     $('btnMas').addEventListener('click', () => { cantidad++; $('lblCantidad').textContent = cantidad; actualizarOpciones(); });
     $('btnAgregarPedido').addEventListener('click', () => {
-        const ids = [...$('modificadores').querySelectorAll('input:checked')].map(i => Number(i.value));
-        const mods = modificadores.filter(m => m.idProducto === actual.idProducto && ids.includes(m.idModificador));
-        agregar(actual, cantidad, $('txtNotas').value.trim(), mods);
+        const e = elegidas();
+        agregar(actual, cantidad, $('txtNotas').value.trim(), e.mods, e.sin);
         modalProducto.hide();
     });
 
-    function agregar(p, cant, notas, mods) {
-        const clave = JSON.stringify([p.idProducto, notas, mods.map(m => m.idModificador).sort()]);
+    function agregar(p, cant, notas, mods, sin) {
+        const clave = JSON.stringify([p.idProducto, notas, mods.map(m => m.idModificador).sort(), sin.map(i => i.idInsumo).sort()]);
         const existente = pedido.find(l => l.clave === clave);
         if (existente) existente.cantidad += cant;
-        else pedido.push({ clave, idProducto: p.idProducto, nombre: p.nombre, precio: p.precio, cantidad: cant, notas, mods });
+        else pedido.push({ clave, idProducto: p.idProducto, nombre: p.nombre, precio: p.precio, cantidad: cant, notas, mods, sin });
         if (p.disponibles !== null && p.disponibles !== undefined && enPedido(p.idProducto) > p.disponibles)
             alerta(`Ojo: con el inventario actual solo alcanzan ${p.disponibles} de ${p.nombre}`, 'warning');
         pintarPedido();
@@ -174,16 +196,17 @@
                 <div class="flex-grow-1">
                     <div class="fw-semibold">${esc(l.nombre)}</div>
                     ${l.mods.length ? `<small class="d-block">${l.mods.map(m => (m.precio ? '+ ' : '') + esc(m.nombre)).join(' · ')}</small>` : ''}
+                    ${(l.sin || []).length ? `<small class="d-block text-danger">Sin ${l.sin.map(s => esc(nombreCorto(s.nombre))).join(', ')}</small>` : ''}
                     ${l.notas ? `<small class="d-block fst-italic">“${esc(l.notas)}”</small>` : ''}
                     <div class="btn-group btn-group-sm mt-1">
-                        <button class="btn btn-outline-secondary" data-menos="${i}"><i class="bi bi-dash"></i></button>
+                        <button class="btn btn-outline-secondary" data-menos="${i}" aria-label="Uno menos"><i class="bi bi-dash"></i></button>
                         <span class="btn btn-light disabled">${l.cantidad}</span>
-                        <button class="btn btn-outline-secondary" data-mas="${i}"><i class="bi bi-plus"></i></button>
+                        <button class="btn btn-outline-secondary" data-mas="${i}" aria-label="Uno más"><i class="bi bi-plus"></i></button>
                     </div>
                 </div>
                 <div class="text-end">
-                    <div class="fw-semibold">${moneda(precioLinea(l))}</div>
-                    <button class="btn btn-sm btn-link text-danger p-0" data-quitar="${i}" title="Quitar"><i class="bi bi-trash"></i></button>
+                    <div class="fw-semibold text-nowrap">${moneda(precioLinea(l))}</div>
+                    <button class="btn btn-sm btn-link text-danger p-0" data-quitar="${i}" title="Quitar" aria-label="Quitar ${esc(l.nombre)}"><i class="bi bi-trash"></i></button>
                 </div>
             </div>`).join('')
             : '<p class="text-muted text-center my-4"><i class="bi bi-hand-index"></i> Toque un producto para agregarlo</p>';
@@ -206,6 +229,7 @@
         $('lblSubtotal').textContent = moneda(subtotal());
         $('lblEnvio').textContent = moneda(envio());
         $('filaEnvio').hidden = tipo !== 'DOMICILIO';
+        $('filaSubtotal').hidden = tipo !== 'DOMICILIO';   // sin domicilio el subtotal es igual al total
         $('lblTotal').textContent = moneda(t);
         const recibido = Number($('txtRecibido').value || 0);
         $('lblCambio').textContent = moneda(Math.max(0, recibido - t));
@@ -220,10 +244,9 @@
         $('ayudaCobro').textContent = procesando ? 'Espera mientras registramos el pedido.'
             : !cajaAbierta ? 'Abre la caja para registrar la venta.'
             : vencida ? 'Terminó el tiempo para editar este pedido.'
-            : !pedido.length ? 'Elige productos del catálogo.'
+            : !pedido.length ? ''
             : insuficiente ? `Faltan ${moneda(t - recibido)} para completar el pago.`
-            : pago === 'EFECTIVO' && $('txtRecibido').value === '' ? 'Si paga el valor exacto, puedes dejar el dinero recibido vacío.'
-            : 'Revisa el pedido y el método de pago antes de confirmar.';
+            : '';  // Yesenia Quejada Rojas - Claude — 19/10/2026: solo se muestra cuando algo impide cobrar, para que el pie ocupe menos.
         $('btnPonerEspera').disabled = !pedido.length || !!edicion;
     }
     $('billetes').addEventListener('click', ev => {
@@ -291,7 +314,8 @@
             costoDomicilio: envio(),
             metodoPago: pago,
             montoRecibido: recibido,
-            lineas: pedido.map(l => ({ idProducto: l.idProducto, cantidad: l.cantidad, notas: l.notas, modificadores: l.mods.map(m => m.idModificador) }))
+            lineas: pedido.map(l => ({ idProducto: l.idProducto, cantidad: l.cantidad, notas: l.notas,
+                modificadores: l.mods.map(m => m.idModificador), quitados: (l.sin || []).map(s => s.idInsumo) }))
         };
         procesando = true;
         $('btnCobrar').setAttribute('aria-busy', 'true');
@@ -303,7 +327,6 @@
             $('lblListoTotal').textContent = `Pedido N° ${r.id} · ${moneda(t)}`;
             $('lblListoCambio').textContent = pago === 'EFECTIVO' ? `Cambio: ${moneda(recibido - t)}` : etiquetaPago[pago];
             $('lnkTicket').href = `/Venta/Ticket/${r.id}`;
-            $('lnkVistaTicket').href = `/Venta/Ticket/${r.id}?vista=1`;
             $('lnkComanda').href = `/Venta/Ticket/${r.id}?comanda=true`;
             if (edicion) { history.replaceState(null, '', '/Venta'); salirEdicion(); }
             limpiar();
@@ -329,19 +352,23 @@
         pintarPedido();
     }
 
-    /* ---------- Pedidos en espera (se guardan en este equipo) ---------- */
+    /* ---------- Pedidos por cobrar (se guardan en este equipo) ----------
+       Yesenia Quejada Rojas - Claude — 19/10/2026. Guardar sin cobrar NO registra la venta, no la manda a cocina
+       ni descuenta inventario: solo la aparta en este navegador para cobrarla después desde "Por cobrar". */
     function leerEspera() { try { return JSON.parse(localStorage.getItem(CLAVE_ESPERA) || '[]'); } catch { return []; } }
     function guardarEspera(lista) { try { localStorage.setItem(CLAVE_ESPERA, JSON.stringify(lista)); } catch { /* sin almacenamiento */ } }
     function pintarEspera() {
         const lista = leerEspera();
         $('lblEspera').textContent = lista.length;
+        $('lblEspera').className = `badge rounded-pill ${lista.length ? 'text-bg-warning' : 'text-bg-secondary'}`;
+        $('btnEspera').classList.toggle('borde-marca', lista.length > 0);
         $('listaEspera').innerHTML = lista.length ? lista.map(e => `
             <li><div class="dropdown-item d-flex justify-content-between align-items-center gap-3">
                 <a href="#" class="text-reset text-decoration-none" data-retomar="${e.id}">
                     <strong>${esc(e.nombre || etiquetaPedido[e.tipo])}</strong><br>
                     <small class="text-muted">${e.hora} · ${e.pedido.reduce((s, l) => s + l.cantidad, 0)} productos</small></a>
                 <button class="btn btn-sm btn-link text-danger" data-descartar="${e.id}" title="Descartar"><i class="bi bi-x-lg"></i></button>
-            </div></li>`).join('') : '<li><span class="dropdown-item-text text-muted small">No hay pedidos en espera</span></li>';
+            </div></li>`).join('') : '<li><span class="dropdown-item-text text-muted small">No hay pedidos por cobrar.<br>Use "Cobrar después" para apartar uno.</span></li>';
     }
     $('btnPonerEspera').addEventListener('click', () => {
         if (!pedido.length) return;
@@ -354,7 +381,7 @@
         guardarEspera(lista);
         limpiar();
         pintarEspera();
-        alerta(`Pedido ${nombre ? 'de ' + nombre + ' ' : ''}guardado en espera`, 'info');
+        alerta(`Pedido ${nombre ? 'de ' + nombre + ' ' : ''}apartado. Aún no está cobrado ni enviado a cocina: búsquelo en "Por cobrar" para cobrarlo.`, 'info');
     });
     $('listaEspera').addEventListener('click', ev => {
         const r = ev.target.closest('[data-retomar]'), d = ev.target.closest('[data-descartar]');
@@ -373,7 +400,7 @@
             $('txtDireccion').value = e.direccion || ''; $('txtCostoDomicilio').value = e.envio || '';
             pintarPedido(); pintarProductos();
         }
-        if (d && !confirm('¿Descartar este pedido en espera?')) return;
+        if (d && !confirm('¿Descartar este pedido por cobrar?')) return;
         guardarEspera(lista.filter(x => x.id !== id));
         pintarEspera();
     });
@@ -392,8 +419,9 @@
             const p = productos.find(x => x.idProducto === l.idProducto);
             if (!p) { alerta(`${l.nombre} ya no está activo y se quitó del pedido`, 'warning'); continue; }
             const mods = modificadores.filter(m => m.idProducto === p.idProducto && l.modificadores.includes(m.idModificador));
-            pedido.push({ clave: JSON.stringify([p.idProducto, l.notas, mods.map(m => m.idModificador).sort()]),
-                idProducto: p.idProducto, nombre: p.nombre, precio: p.precio, cantidad: l.cantidad, notas: l.notas, mods });
+            const sin = ingredientes.filter(i => i.idProducto === p.idProducto && (l.quitados || []).includes(i.idInsumo));
+            pedido.push({ clave: JSON.stringify([p.idProducto, l.notas, mods.map(m => m.idModificador).sort(), sin.map(i => i.idInsumo).sort()]),
+                idProducto: p.idProducto, nombre: p.nombre, precio: p.precio, cantidad: l.cantidad, notas: l.notas, mods, sin });
         }
         seleccionar($('tipoPedido'), v.tipoPedido, alCambiarTipo);
         seleccionar($('metodoPago'), v.metodoPago, alCambiarPago);

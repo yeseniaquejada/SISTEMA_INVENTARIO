@@ -7,6 +7,8 @@ using Microsoft.AspNetCore.Mvc;
 namespace CapaPresentacion.Controllers;
 
 /// <summary>Punto de venta: cada venta descuenta los insumos según la receta y las adiciones.</summary>
+// Yesenia Quejada Rojas - Claude — 19/10/2026: el domiciliario solo usa la pantalla de domicilios.
+[Authorize(Roles = Claves.Local)]
 public class VentaController : Controller
 {
     private readonly CN_Venta _negocio = new();
@@ -50,6 +52,7 @@ public class VentaController : Controller
 }
 
 /// <summary>Pantalla de cocina: comandas en cola, en preparación y listas.</summary>
+[Authorize(Roles = Claves.Local)]
 public class CocinaController : Controller
 {
     private readonly CN_Venta _negocio = new();
@@ -75,6 +78,7 @@ public class DomicilioController : Controller
     [HttpGet] public JsonResult Repartidores() => Json(_negocio.Repartidores(User.IdSede()));
 }
 
+[Authorize(Roles = Claves.Local)]
 public class CajaController : Controller
 {
     private readonly CN_Caja _negocio = new();
@@ -157,4 +161,10 @@ public class ReporteController : Controller
 
     [HttpGet]
     public JsonResult Datos(DateTime inicio, DateTime fin) => Json(new CN_Reporte().Obtener(User.IdSede(), inicio, fin));
+
+    // Yesenia Quejada Rojas - Claude — 19/10/2026: reemplaza "Auditoría y verificación" por quién hizo qué y cuándo.
+    public IActionResult Actividad() => View();
+
+    [HttpGet]
+    public JsonResult ListarActividad(DateTime inicio, DateTime fin) => Json(new CN_Reporte().Actividad(User.IdSede(), inicio, fin));
 }

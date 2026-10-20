@@ -1,7 +1,7 @@
 @{
-    ViewData["Title"] = "Configuración y apariencia";
+    ViewData["Title"] = "Datos del negocio";
 }
-<p class="text-muted">Personalice el sistema para cada negocio: nombre, logo, colores y datos que salen en el ticket.</p>
+<p class="text-muted">Paso 1 de la configuración: nombre, logo, colores y los datos que salen en el ticket. <a asp-action="Guia">Ver todos los pasos</a></p>
 <div class="row g-4">
     <div class="col-lg-7">
         <form id="formulario" class="card"><div class="card-body row g-3">
@@ -35,24 +35,24 @@
                 <div class="d-flex flex-wrap gap-2" id="paletas"></div>
             </div>
 
-            <h6 class="col-12 mb-0 mt-4">Pantallas del negocio</h6>
-            <div class="col-12"><button type="button" id="btnModoSimple" class="btn btn-outline-secondary">Usar vista para local pequeño</button><div class="form-text">Oculta cocina, domicilios, multisede y opciones avanzadas. Puede volver a activar cada opción. No borra información ni cambia permisos.</div></div>
-            <div class="col-sm-6"><div class="form-check form-switch"><input type="checkbox" class="form-check-input" id="mostrarCocina" name="mostrarCocina" /><label class="form-check-label" for="mostrarCocina">Cocina y comandas</label></div></div>
-<div class="col-sm-6"><div class="form-check form-switch"><input type="checkbox" class="form-check-input" id="mostrarDomicilios" name="mostrarDomicilios" /><label class="form-check-label" for="mostrarDomicilios">Domicilios</label></div></div>
-<div class="col-sm-6"><div class="form-check form-switch"><input type="checkbox" class="form-check-input" id="mostrarMultisede" name="mostrarMultisede" /><label class="form-check-label" for="mostrarMultisede">Selector y mantenimiento de sedes</label></div></div>
-<div class="col-sm-6"><div class="form-check form-switch"><input type="checkbox" class="form-check-input" id="mostrarAvanzado" name="mostrarAvanzado" /><label class="form-check-label" for="mostrarAvanzado">Conteo físico, compras sugeridas, modificadores y vencimientos</label></div></div>
-            <h6 class="col-12 mb-0 mt-4">Impresión</h6>
-            <div class="col-sm-6"><label for="anchoTicket" class="form-label">Papel de la impresora</label><select class="form-select" id="anchoTicket" name="anchoTicket" data-tipo="numero"><option value="80">80 mm</option><option value="58">58 mm</option></select></div>
-            <div class="col-sm-6"><div class="form-check form-switch mt-4"><input type="checkbox" class="form-check-input" id="imprimirAutomatico" name="imprimirAutomatico" /><label class="form-check-label" for="imprimirAutomatico">Abrir impresión al abrir ticket</label></div></div>
-            <div class="col-12 small text-muted">En el diálogo de impresión elija la impresora y el mismo ancho de papel, escala 100 % y quite encabezados y pies del navegador.</div>
-            <h6 class="col-12 mb-0 mt-4">Operación</h6>
-            <div class="col-sm-6"><label class="form-label" for="simboloMoneda">Símbolo de moneda</label><input id="simboloMoneda" name="simboloMoneda" class="form-control" maxlength="5" /></div>
-            <div class="col-sm-6"><label class="form-label" for="diasAlertaVencimiento">Avisar vencimientos con (días)</label><input id="diasAlertaVencimiento" name="diasAlertaVencimiento" type="number" min="0" max="60" class="form-control" data-tipo="numero" /></div>
+            @* Yesenia Quejada Rojas - Claude — 19/10/2026: solo queda lo que el negocio maneja. Tiempos de alerta, moneda,
+               sedes y opciones técnicas siguen guardados pero ya no se muestran aquí. *@
+            <h6 class="col-12 mb-0 mt-4">¿Qué usa el negocio?</h6>
+            <div class="col-sm-6"><div class="form-check form-switch"><input type="checkbox" class="form-check-input" id="mostrarCocina" name="mostrarCocina" /><label class="form-check-label" for="mostrarCocina">Pantalla de cocina</label></div></div>
+            <div class="col-sm-6"><div class="form-check form-switch"><input type="checkbox" class="form-check-input" id="mostrarDomicilios" name="mostrarDomicilios" /><label class="form-check-label" for="mostrarDomicilios">Domicilios</label></div></div>
             <div class="col-sm-6"><label class="form-label" for="costoDomicilio">Valor del domicilio por defecto</label><input id="costoDomicilio" name="costoDomicilio" type="number" min="0" step="500" class="form-control" data-tipo="numero" /></div>
-            <div class="col-sm-6"><label class="form-label" for="minutosEdicion">Minutos para editar o anular un pedido</label><input id="minutosEdicion" name="minutosEdicion" type="number" min="0" max="60" class="form-control" data-tipo="numero" />
-                <div class="form-text">Solo mientras cocina no lo haya empezado. 0 = no se permite editar.</div></div>
-            <div class="col-sm-6"><label class="form-label" for="minutosAlertaCocina">Alerta en cocina después de (min)</label><input id="minutosAlertaCocina" name="minutosAlertaCocina" type="number" min="1" max="240" class="form-control" data-tipo="numero" /></div>
-            <div class="col-sm-6"><label class="form-label" for="minutosAlertaDomicilio">Alerta de domicilio demorado (min)</label><input id="minutosAlertaDomicilio" name="minutosAlertaDomicilio" type="number" min="1" max="240" class="form-control" data-tipo="numero" /></div>
+
+            <h6 class="col-12 mb-0 mt-4">Impresora de tickets</h6>
+            <div class="col-sm-6"><label for="anchoTicket" class="form-label">Ancho del papel</label><select class="form-select" id="anchoTicket" name="anchoTicket" data-tipo="numero"><option value="80">80 mm</option><option value="58">58 mm</option></select></div>
+            <div class="col-sm-6"><div class="form-check form-switch mt-4"><input type="checkbox" class="form-check-input" id="imprimirAutomatico" name="imprimirAutomatico" /><label class="form-check-label" for="imprimirAutomatico">Imprimir apenas se abra el ticket</label></div></div>
+
+            <input type="hidden" name="mostrarMultisede" data-tipo="bool" />
+            <input type="hidden" name="mostrarAvanzado" data-tipo="bool" />
+            <input type="hidden" name="simboloMoneda" />
+            <input type="hidden" name="diasAlertaVencimiento" data-tipo="numero" />
+            <input type="hidden" name="minutosEdicion" data-tipo="numero" />
+            <input type="hidden" name="minutosAlertaCocina" data-tipo="numero" />
+            <input type="hidden" name="minutosAlertaDomicilio" data-tipo="numero" />
             <div class="col-12"><button class="btn btn-marca px-4">Guardar configuración</button></div>
         </div></form>
     </div>
@@ -114,7 +114,6 @@
     });
     $('btnQuitarLogo').addEventListener('click', () => { $('logoUrl').value = ''; $('archivoLogo').value = ''; previa(); });
 
-    $('btnModoSimple').addEventListener('click',()=>{['mostrarCocina','mostrarDomicilios','mostrarMultisede','mostrarAvanzado'].forEach(id=>$(id).checked=false);alerta('Vista sencilla seleccionada. Guarde para aplicarla.','info');});
     f.addEventListener('submit', async ev => {
         ev.preventDefault();
         if (!f.reportValidity()) return;
