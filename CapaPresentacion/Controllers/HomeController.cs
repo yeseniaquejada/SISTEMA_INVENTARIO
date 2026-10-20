@@ -9,9 +9,10 @@ namespace CapaPresentacion.Controllers;
 
 public class HomeController : Controller
 {
-    public IActionResult Index() => View();
+    // Yesenia Quejada Rojas - Claude — 19/10/2026: el domiciliario entra directo a sus domicilios.
+    public IActionResult Index() => User.EsDomiciliario() ? RedirectToAction("Index", "Domicilio") : View();
 
-    [HttpGet]
+    [HttpGet, Authorize(Roles = Claves.Local)]
     public JsonResult Dashboard() => Json(new CN_Dashboard().Obtener(User.IdSede()));
 
     [AllowAnonymous]

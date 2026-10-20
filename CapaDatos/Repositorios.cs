@@ -23,6 +23,9 @@ namespace CapaDatos
                 MinutosEdicion = dr.Entero("MinutosEdicion"),
                 MinutosAlertaCocina = dr.Entero("MinutosAlertaCocina"),
                 MinutosAlertaDomicilio = dr.Entero("MinutosAlertaDomicilio"),
+                MostrarCocina=dr.Bool("MostrarCocina"), MostrarDomicilios=dr.Bool("MostrarDomicilios"),
+                MostrarMultisede=dr.Bool("MostrarMultisede"), MostrarAvanzado=dr.Bool("MostrarAvanzado"),
+                AnchoTicket=dr.Entero("AnchoTicket"), ImprimirAutomatico=dr.Bool("ImprimirAutomatico"),
                 CostoDomicilio = dr.Decimal("CostoDomicilio")
             }).FirstOrDefault() ?? new Configuracion();
 
@@ -32,7 +35,8 @@ namespace CapaDatos
                 P("@ColorSecundario", c.ColorSecundario), P("@LogoUrl", c.LogoUrl), P("@SimboloMoneda", c.SimboloMoneda),
                 P("@MensajeTicket", c.MensajeTicket), P("@DiasAlertaVencimiento", c.DiasAlertaVencimiento),
                 P("@MinutosEdicion", c.MinutosEdicion), P("@MinutosAlertaCocina", c.MinutosAlertaCocina),
-                P("@MinutosAlertaDomicilio", c.MinutosAlertaDomicilio), P("@CostoDomicilio", c.CostoDomicilio));
+                P("@MinutosAlertaDomicilio", c.MinutosAlertaDomicilio), P("@CostoDomicilio", c.CostoDomicilio),P("@MostrarCocina",c.MostrarCocina),P("@MostrarDomicilios",c.MostrarDomicilios),
+                P("@MostrarMultisede",c.MostrarMultisede),P("@MostrarAvanzado",c.MostrarAvanzado),P("@AnchoTicket",c.AnchoTicket),P("@ImprimirAutomatico",c.ImprimirAutomatico));
     }
 
     public class CD_Sede
@@ -290,6 +294,14 @@ namespace CapaDatos
                         Precio = dr.Decimal("Precio"),
                         Grupo = dr.Texto("Grupo")
                     });
+                dr.NextResult();
+                while (dr.Read())
+                    c.Ingredientes.Add(new IngredienteReceta
+                    {
+                        IdProducto = dr.Entero("IdProducto"),
+                        IdInsumo = dr.Entero("IdInsumo"),
+                        Nombre = dr.Texto("Nombre")
+                    });
             }, P("@IdSede", idSede));
             return c;
         }
@@ -334,6 +346,7 @@ namespace CapaDatos
                 NumeroVentas = dr.Entero("NumeroVentas"),
                 NumeroAnuladas = dr.Entero("NumeroAnuladas"),
                 TotalAnulado = dr.Decimal("TotalAnulado"),
+                IngresosEfectivo=dr.Decimal("IngresosEfectivo"), EgresosEfectivo=dr.Decimal("EgresosEfectivo"),
                 EfectivoEnDomicilios = dr.Decimal("EfectivoEnDomicilios")
             }, P("@IdSede", idSede)).FirstOrDefault();
 
@@ -388,10 +401,11 @@ namespace CapaDatos
                         Domicilios = dr.Decimal("Domicilios"),
                         NumeroVentas = dr.Entero("NumeroVentas"),
                         NumeroAnuladas = dr.Entero("NumeroAnuladas"),
-                        TotalAnulado = dr.Decimal("TotalAnulado")
+                        TotalAnulado = dr.Decimal("TotalAnulado"),
+                        IngresosEfectivo=dr.Decimal("IngresosEfectivo"), EgresosEfectivo=dr.Decimal("EgresosEfectivo")
                     }
                 };
-                r.Caja.EfectivoEsperado = r.Caja.BaseInicial + r.Caja.VentasEfectivo;
+                r.Caja.EfectivoEsperado = r.Caja.Estado == "CERRADA" ? dr.Decimal("EfectivoEsperadoGuardado") : r.Caja.BaseInicial + r.Caja.VentasEfectivo + r.Caja.IngresosEfectivo - r.Caja.EgresosEfectivo;
                 dr.NextResult();
                 while (dr.Read())
                     r.Productos.Add(new PuntoReporte { Etiqueta = dr.Texto("Nombre"), Cantidad = dr.Entero("Cantidad"), Total = dr.Decimal("Total") });
@@ -405,8 +419,10 @@ namespace CapaDatos
                         Usuario = dr.Texto("Usuario")
                     });
             }, P("@IdSede", idSede), P("@IdCaja", idCaja));
+            if (r != null) r.Movimientos = Movimientos(idSede, idCaja);
             return r;
         }
+        public List<MovimientoCaja> Movimientos(int sede,int caja) => new CD_ControlOperacion().Movimientos(sede,caja);
     }
 
     public class CD_Venta
@@ -421,18 +437,23 @@ namespace CapaDatos
             var mods = new DataTable();
             mods.Columns.Add("Linea", typeof(int));
             mods.Columns.Add("IdModificador", typeof(int));
+            // Yesenia Quejada Rojas - Claude — 19/10/2026: ingredientes quitados por línea ("Sin lechuga"), no se descuentan del inventario.
+            var quitados = new DataTable();
+            quitados.Columns.Add("Linea", typeof(int));
+            quitados.Columns.Add("IdInsumo", typeof(int));
             for (int i = 0; i < v.Lineas.Count; i++)
             {
                 var l = v.Lineas[i];
                 lineas.Rows.Add(i + 1, l.IdProducto, l.Cantidad, l.Notas ?? "");
                 foreach (var m in l.Modificadores.Distinct()) mods.Rows.Add(i + 1, m);
+                foreach (var q in (l.Quitados ?? new()).Distinct()) quitados.Rows.Add(i + 1, q);
             }
 
             return Ejecutar("SP_VENTA_REGISTRAR", P("@IdSede", idSede), P("@IdUsuario", idUsuario), P("@TipoPedido", v.TipoPedido),
                 P("@ClienteNombre", v.ClienteNombre), P("@ClienteTelefono", v.ClienteTelefono), P("@Direccion", v.Direccion),
                 P("@CostoDomicilio", v.CostoDomicilio), P("@MetodoPago", v.MetodoPago), P("@MontoRecibido", v.MontoRecibido),
                 Tabla("@Lineas", "ELineaVenta", lineas), Tabla("@Modificadores", "ELineaModificador", mods),
-                P("@IdVenta", v.IdVenta));
+                P("@IdVenta", v.IdVenta), Tabla("@Quitados", "ELineaQuitado", quitados));
         }
 
         public Respuesta Anular(int idSede, int idVenta, int idUsuario, bool esAdmin, string motivo) =>
@@ -511,6 +532,13 @@ namespace CapaDatos
                     var linea = t.Lineas.FirstOrDefault(x => x.IdDetalle == dr.Entero("IdDetalle"));
                     linea?.Adiciones.Add(dr.Texto("Nombre"));
                     linea?.Modificadores.Add(dr.Entero("IdModificador"));
+                }
+                dr.NextResult();
+                while (dr.Read())
+                {
+                    var linea = t.Lineas.FirstOrDefault(x => x.IdDetalle == dr.Entero("IdDetalle"));
+                    linea?.SinIngredientes.Add(dr.Texto("Nombre"));
+                    linea?.Quitados.Add(dr.Entero("IdInsumo"));
                 }
             }, P("@IdVenta", idVenta));
             return (t, idSede);
@@ -591,6 +619,9 @@ namespace CapaDatos
                 dr.NextResult();
                 while (dr.Read())
                     if (lineas.TryGetValue(dr.Entero("IdDetalle"), out var l)) l.Adiciones.Add(dr.Texto("Nombre"));
+                dr.NextResult();
+                while (dr.Read())
+                    if (lineas.TryGetValue(dr.Entero("IdDetalle"), out var l)) l.SinIngredientes.Add(dr.Texto("Nombre"));
             }, P("@IdSede", idSede));
             return lista;
         }
@@ -645,8 +676,21 @@ namespace CapaDatos
             { Etiqueta = dr.Texto("Dia"), Cantidad = dr.Entero("Pedidos"), Total = dr.Decimal("Total") }, ps());
             r.TopProductos = Conexion.Listar("SP_REPORTE_TOP_PRODUCTOS", dr => new PuntoReporte
             { Etiqueta = dr.Texto("Nombre"), Cantidad = dr.Entero("Cantidad"), Total = dr.Decimal("Total") }, ps());
+            r.MenosVendidos = Conexion.Listar("SP_REPORTE_MENOS_VENDIDOS", dr => new PuntoReporte
+            { Etiqueta = dr.Texto("Nombre"), Cantidad = dr.Entero("Cantidad"), Total = dr.Decimal("Total") }, ps());
             return r;
         }
+
+        // Yesenia Quejada Rojas - Claude — 19/10/2026: reemplaza la auditoría técnica por un registro que el dueño entiende.
+        public List<Actividad> Actividad(int idSede, DateTime inicio, DateTime fin) =>
+            Conexion.Listar("SP_ACTIVIDAD_LISTAR", dr => new Actividad
+            {
+                Fecha = dr.Texto("Fecha"),
+                Usuario = dr.Texto("Usuario"),
+                Tipo = dr.Texto("Tipo"),
+                Descripcion = dr.Texto("Descripcion"),
+                Monto = dr["Monto"] == DBNull.Value ? null : dr.Decimal("Monto")
+            }, P("@IdSede", idSede), P("@FechaInicio", inicio.Date), P("@FechaFin", fin.Date));
     }
 
     public class CD_Dashboard

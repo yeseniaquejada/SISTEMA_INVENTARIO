@@ -1,17 +1,19 @@
 @{
-    ViewData["Title"] = "Movimientos de inventario";
+    ViewData["Title"] = "Registrar compras y salidas";
 }
+@* Yesenia Quejada Rojas - Claude — 19/10/2026: lenguaje sencillo; las ventas descuentan solas, aquí solo lo que pasa fuera de una venta. *@
+<p class="text-muted small">Las ventas descuentan los insumos solas. Aquí registre solo lo demás: cuando <b>llega una compra</b>, cuando algo <b>se usa sin venderse</b> o cuando <b>se daña</b>. A la derecha queda el historial de todo lo que entró y salió.</p>
 <div class="row g-3">
     <div class="col-lg-4 no-imprimir">
         <div class="card">
-            <div class="card-header bg-white fw-semibold">Registrar movimiento</div>
+            <div class="card-header bg-white fw-semibold">¿Qué pasó con el insumo?</div>
             <div class="card-body">
                 <form id="formulario" class="row g-3">
                     <div class="col-12"><label class="form-label">Tipo</label>
                         <select name="tipo" id="cboTipo" class="form-select">
-                            <option value="ENTRADA">Entrada (compra a proveedor)</option>
-                            <option value="SALIDA">Salida (consumo interno)</option>
-                            <option value="MERMA">Merma (daño o vencimiento)</option>
+                            <option value="ENTRADA">Llegó una compra (suma)</option>
+                            <option value="SALIDA">Se usó fuera de una venta (resta)</option>
+                            <option value="MERMA">Se dañó o venció (resta)</option>
                         </select></div>
                     <div class="col-12"><label class="form-label">Insumo</label><select name="idInsumo" id="cboInsumo" class="form-select" data-tipo="numero"></select>
                         <div class="form-text" id="lblStock"></div></div>
@@ -32,7 +34,7 @@
                     <div class="col-sm-3"><label class="form-label small mb-0">Desde</label><input type="date" id="txtInicio" class="form-control form-control-sm" /></div>
                     <div class="col-sm-3"><label class="form-label small mb-0">Hasta</label><input type="date" id="txtFin" class="form-control form-control-sm" /></div>
                     <div class="col-sm-3"><label class="form-label small mb-0">Insumo</label><select id="cboFiltroInsumo" class="form-select form-select-sm"></select></div>
-                    <div class="col-sm-3 d-flex gap-1"><button class="btn btn-sm btn-marca flex-fill" id="btnBuscar"><i class="bi bi-search"></i> Kardex</button>
+                    <div class="col-sm-3 d-flex gap-1"><button class="btn btn-sm btn-marca flex-fill" id="btnBuscar"><i class="bi bi-search"></i> Ver historial</button>
                         <button class="btn btn-sm btn-outline-success" id="btnExcel" title="Exportar a Excel"><i class="bi bi-file-earmark-excel"></i></button>
                         <button class="btn btn-sm btn-outline-secondary" onclick="window.print()" title="Imprimir / PDF"><i class="bi bi-printer"></i></button></div>
                 </div>

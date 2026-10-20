@@ -12,11 +12,20 @@ namespace CapaDatos
     {
         public static string Cadena { get; set; } = "";
 
+        public static readonly AsyncLocal<int?> UsuarioAuditoria = new();
+        public static readonly AsyncLocal<int?> SedeAuditoria = new();
+
         public static SqlConnection Abrir()
         {
             var cn = new SqlConnection(Cadena);
             cn.Open();
-            return cn;
+            try {
+                using var actor = cn.CreateCommand();
+                actor.CommandText = "EXEC sys.sp_set_session_context @key=N'IdUsuario', @value=@usuario; EXEC sys.sp_set_session_context @key=N'IdSede', @value=@sede;";
+                actor.Parameters.AddWithValue("@usuario", (object?)UsuarioAuditoria.Value ?? DBNull.Value);
+                actor.Parameters.AddWithValue("@sede", (object?)SedeAuditoria.Value ?? DBNull.Value);
+                actor.ExecuteNonQuery(); return cn;
+            } catch { cn.Dispose(); throw; }
         }
 
         /// <summary>Ejecuta un SP de consulta y convierte cada fila con <paramref name="mapear"/>.</summary>

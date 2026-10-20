@@ -62,6 +62,7 @@
                     </div>
                     <div class="mt-2">${c.lineas.map(l => `<div class="item"><span class="cant">${l.cantidad}×</span>${esc(l.nombre)}
                         ${l.adiciones.length ? `<div class="opciones">${l.adiciones.map(esc).join(' · ')}</div>` : ''}
+                        ${(l.sinIngredientes || []).length ? `<div class="nota"><i class="bi bi-x-octagon"></i> SIN ${l.sinIngredientes.map(n => esc(n.replace(/\s*\(.*\)\s*$/, '').toLowerCase())).join(', ')}</div>` : ''}
                         ${l.notas ? `<div class="nota"><i class="bi bi-chat-left-text"></i> ${esc(l.notas)}</div>` : ''}</div>`).join('')}</div>
                     <div class="d-flex gap-2 mt-3">
                         ${ANTERIOR[c.estadoCocina] ? `<button class="btn btn-sm btn-outline-secondary" data-id="${c.idVenta}" data-estado="${ANTERIOR[c.estadoCocina]}" title="Devolver"><i class="bi bi-arrow-left"></i></button>` : ''}

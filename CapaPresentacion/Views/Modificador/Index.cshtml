@@ -1,28 +1,41 @@
 @{
-    ViewData["Title"] = "Adiciones y modificadores";
+    ViewData["Title"] = "Adiciones y salsas";
 }
-<p class="text-muted">Opciones que el cajero elige al vender, agrupadas en <b>Salsas</b>, <b>Adiciones</b> y <b>Preferencias</b> (o el grupo que usted quiera): <b>Extra queso</b> suma precio y descuenta insumo; <b>Sin ensalada</b> no cobra y deja de descontar ese insumo (cantidad negativa); las <b>salsas</b> son gratis y salen como botones para marcar. Se asignan a cada producto en <a asp-controller="Producto" asp-action="Index">Productos y recetas</a>.</p>
+@* Yesenia Quejada Rojas - Claude — 19/10/2026: nombre y textos más claros. Ya no se crean "Sin ensalada" con cantidad negativa:
+   al vender se ofrece quitar cualquier ingrediente de la receta. La cantidad se elige con "gasta más / gasta menos". *@
+<p class="text-muted">Opciones que el cajero puede elegir al vender: <b>salsas</b> (gratis, salen como pastillas de colores) y <b>adiciones</b> que cobran
+    (por ejemplo <b>Extra queso</b>). Para pedir un producto <b>sin</b> algún ingrediente no hace falta crear nada: al vender aparecen solos los ingredientes de la receta.
+    Después de crearlas, elija en <a asp-controller="Producto" asp-action="Index">Productos y recetas</a> a qué productos aplican.</p>
 <partial name="_Barra" />
 <div class="card"><div class="card-body p-0 table-responsive">
     <table class="table table-hover mb-0" id="tabla">
-        <thead class="table-light"><tr><th>Grupo</th><th>Nombre</th><th class="text-end">Precio</th><th>Insumo afectado</th><th class="text-end">Cantidad</th><th>Estado</th><th></th></tr></thead>
+        <thead class="table-light"><tr><th>Grupo</th><th>Nombre</th><th class="text-end">Precio</th><th>Qué hace con el inventario</th><th>Estado</th><th></th></tr></thead>
         <tbody></tbody>
     </table>
 </div></div>
 
 <div class="modal fade" id="modal" tabindex="-1">
     <div class="modal-dialog"><div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header"><h5 class="modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
         <div class="modal-body">
             <form id="formulario" class="row g-3">
                 <input type="hidden" name="idModificador" data-tipo="numero" />
-                <div class="col-md-8"><label class="form-label">Nombre</label><input name="nombre" class="form-control" maxlength="80" required placeholder="Ej: Adición de queso" /></div>
-                <div class="col-md-4"><label class="form-label">Grupo</label><input name="grupo" class="form-control" maxlength="40" list="grupos" required />
-                    <datalist id="grupos"><option value="Salsas"></option><option value="Adiciones"></option><option value="Preferencias"></option></datalist></div>
-                <div class="col-md-4"><label class="form-label">Precio</label><input name="precio" type="number" min="0" step="100" class="form-control" data-tipo="numero" /></div>
-                <div class="col-md-8"><label class="form-label">Insumo que afecta (opcional)</label><select name="idInsumo" id="cboInsumo" class="form-select" data-tipo="numero"></select></div>
-                <div class="col-md-4"><label class="form-label">Cantidad</label><input name="cantidad" type="number" step="0.001" class="form-control" data-tipo="numero" /></div>
-                <div class="col-12 form-text mt-0">Positiva = descuenta más insumo. Negativa = descuenta menos (por ejemplo "Sin ensalada" = −1).</div>
+                <input type="hidden" name="cantidad" id="txtCantidadReal" data-tipo="numero" />
+                <div class="col-md-8"><label class="form-label" for="txtNombreMod">Nombre</label><input id="txtNombreMod" name="nombre" class="form-control" maxlength="80" required placeholder="Ej: Salsa de ajo, Extra queso" /></div>
+                <div class="col-md-4"><label class="form-label" for="cboGrupo">Grupo</label>
+                    <select id="cboGrupo" name="grupo" class="form-select"><option value="Salsas">Salsas</option><option value="Adiciones">Adiciones</option><option value="Preferencias">Preferencias</option></select></div>
+                <div class="col-md-4"><label class="form-label" for="txtPrecioMod">Precio</label><input id="txtPrecioMod" name="precio" type="number" min="0" step="100" class="form-control" data-tipo="numero" />
+                    <div class="form-text">0 = gratis</div></div>
+                <div class="col-md-8"><label class="form-label" for="cboInsumo">¿Usa algún insumo del inventario?</label><select name="idInsumo" id="cboInsumo" class="form-select" data-tipo="numero"></select></div>
+                <div class="col-12" id="bloqueCantidad" hidden>
+                    <div class="row g-2 align-items-end">
+                        <div class="col-sm-6"><label class="form-label" for="cboEfecto">Cada vez que se elige</label>
+                            <select id="cboEfecto" class="form-select"><option value="1">gasta más de este insumo</option><option value="-1">gasta menos de este insumo</option></select></div>
+                        <div class="col-sm-6"><label class="form-label" for="txtCantidadMod">¿Cuánto? <span class="text-muted" id="lblUnidad"></span></label>
+                            <input id="txtCantidadMod" type="number" min="0.001" step="0.001" class="form-control" placeholder="Ej: 1" /></div>
+                    </div>
+                    <div class="form-text" id="ayudaCantidad"></div>
+                </div>
                 <div class="col-12 form-check ms-2"><input type="checkbox" name="activo" class="form-check-input" id="chkActivo" /><label class="form-check-label" for="chkActivo">Activo</label></div>
             </form>
         </div>
@@ -33,14 +46,40 @@
 @section Scripts {
 <script>
     (async function () {
+        const $ = id => document.getElementById(id);
         const insumos = await api.get('/Insumo/Listar');
-        llenarSelect(document.getElementById('cboInsumo'), insumos.map(i => ({ ...i, t: `${i.nombre} (${i.unidadMedida})` })), 'idInsumo', 't', 'Ninguno (solo cambia el precio)');
+        llenarSelect($('cboInsumo'), insumos.map(i => ({ ...i, t: `${i.nombre} (${i.unidadMedida})` })), 'idInsumo', 't', 'No, solo cambia el precio');
+
+        // La cantidad se guarda con signo (+ gasta más, - gasta menos), pero en pantalla se elige con palabras.
+        function pintarCantidad() {
+            const ins = insumos.find(i => String(i.idInsumo) === $('cboInsumo').value);
+            $('bloqueCantidad').hidden = !ins;
+            $('txtCantidadMod').required = !!ins;
+            if (!ins) return;
+            $('lblUnidad').textContent = `(${ins.unidadMedida})`;
+            const cant = $('txtCantidadMod').value || '1';
+            $('ayudaCantidad').textContent = $('cboEfecto').value === '1'
+                ? `Ejemplo: al elegir "${$('txtNombreMod').value || 'Extra queso'}" se descuenta ${cant} ${ins.unidadMedida} más de ${ins.nombre}.`
+                : `Ejemplo: al elegirla se descuenta ${cant} ${ins.unidadMedida} menos de ${ins.nombre}.`;
+        }
+        ['cboInsumo', 'cboEfecto', 'txtCantidadMod', 'txtNombreMod'].forEach(id => $(id).addEventListener('input', pintarCantidad));
+
         Mantenimiento({
-            base: '/Modificador', id: 'idModificador', columnas: 7,
-            nuevo: () => ({ idModificador: 0, precio: 0, idInsumo: 0, cantidad: 0, activo: true, grupo: 'Adiciones' }),
-            fila: m => `<td><span class="badge text-bg-light border">${esc(m.grupo)}</span></td><td class="fw-semibold">${esc(m.nombre)}</td><td class="text-end">${m.precio ? moneda(m.precio) : 'Gratis'}</td>
-                <td>${esc(m.insumo) || '<span class="text-muted">—</span>'}</td>
-                <td class="text-end ${m.cantidad < 0 ? 'text-danger' : ''}">${m.idInsumo ? num(m.cantidad) + ' ' + esc(m.unidadMedida) : ''}</td>
+            base: '/Modificador', id: 'idModificador', columnas: 6,
+            nuevo: () => ({ idModificador: 0, precio: 0, idInsumo: 0, cantidad: 0, activo: true, grupo: 'Salsas' }),
+            alAbrir: m => {
+                $('cboEfecto').value = (m?.cantidad ?? 0) < 0 ? '-1' : '1';
+                $('txtCantidadMod').value = m?.cantidad ? Math.abs(m.cantidad) : '';
+                if (m && ![...$('cboGrupo').options].some(o => o.value === m.grupo)) $('cboGrupo').add(new Option(m.grupo, m.grupo));
+                $('cboGrupo').value = m?.grupo || 'Salsas';
+                pintarCantidad();
+            },
+            preparar: d => ({ ...d, cantidad: d.idInsumo ? Number($('cboEfecto').value) * Number($('txtCantidadMod').value || 0) : 0 }),
+            fila: m => `<td><span class="badge text-bg-light border">${esc(m.grupo)}</span></td><td class="fw-semibold">${esc(m.nombre)}</td>
+                <td class="text-end text-nowrap">${m.precio ? moneda(m.precio) : 'Gratis'}</td>
+                <td>${m.idInsumo
+                    ? `${m.cantidad < 0 ? '<span class="text-danger">Gasta menos</span>' : 'Gasta más'}: ${num(Math.abs(m.cantidad))} ${esc(m.unidadMedida)} de ${esc(m.insumo)}`
+                    : '<span class="text-muted">No usa inventario</span>'}</td>
                 <td>${badgeActivo(m.activo)}</td>`
         });
     })().catch(errorAlerta);

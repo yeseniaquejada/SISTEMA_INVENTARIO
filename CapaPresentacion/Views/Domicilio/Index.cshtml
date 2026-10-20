@@ -4,7 +4,10 @@
 }
 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
     <h4 class="mb-0 titulo-pagina me-auto"><i class="bi bi-bicycle"></i> Domicilios</h4>
-    <a asp-controller="Venta" asp-action="Index" class="btn btn-sm btn-marca"><i class="bi bi-plus-lg"></i> Nuevo domicilio</a>
+    @if (!User.IsInRole(CapaPresentacion.Infraestructura.Claves.Domiciliario))
+    {
+        <a asp-controller="Venta" asp-action="Index" class="btn btn-sm btn-marca"><i class="bi bi-plus-lg"></i> Nuevo domicilio</a>
+    }
 </div>
 
 <div class="row g-3 mb-3">
@@ -51,6 +54,22 @@
     const whatsapp = (d, texto) => `https://wa.me/${telefonoWa(d.clienteTelefono)}?text=${encodeURIComponent(texto)}`;
     const mapa = d => `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(d.direccion)}`;
 
+    /* Yesenia Quejada Rojas - Claude — 19/10/2026. Mensajes de WhatsApp con tono de negocio, cercanos y claros para el cliente. */
+    const primerNombre = d => (d.clienteNombre || '').trim().split(/\s+/)[0] || '';
+    const firma = () => `${APP.negocio}${APP.telefonoNegocio ? ' · ' + APP.telefonoNegocio : ''}`;
+    function mensajeCliente(d) {
+        const estado = d.estadoPedido === 'EN_CAMINO' ? 'ya va en camino 🛵'
+            : d.estadoPedido === 'ENTREGADO' ? 'ya fue entregado. ¡Esperamos que lo hayas disfrutado!'
+            : 'lo estamos preparando con mucho cuidado 👨‍🍳';
+        return `¡Hola ${primerNombre(d)}! 👋 Te saludamos de ${APP.negocio}.\n\nTu pedido N° ${d.idVenta} ${estado}\n\nSi necesitas algo, escríbenos por aquí. ¡Gracias por elegirnos!\n${firma()}`;
+    }
+    function mensajeEnCamino(d, repartidor) {
+        const cobro = d.metodoPago === 'EFECTIVO'
+            ? `💵 Total a pagar: ${moneda(d.total)}${d.cambio > 0 ? ` (pagas con ${moneda(d.montoRecibido)}, te llevamos ${moneda(d.cambio)} de cambio)` : ''}.`
+            : '✅ Tu pedido ya está pagado, solo recíbelo.';
+        return `¡Hola ${primerNombre(d)}! 😊\n\nTu pedido N° ${d.idVenta} de ${APP.negocio} ya va en camino 🛵 con ${repartidor}.\n${cobro}\n\nGracias por preferirnos, ¡que lo disfrutes! 🍔\n${firma()}`;
+    }
+
     async function cargar() {
         try {
             const [pend, hoyLista] = await Promise.all([api.get('/Domicilio/Listar?soloPendientes=true'), api.get('/Domicilio/Listar?soloPendientes=false')]);
@@ -70,8 +89,15 @@
             : `<span class="badge text-bg-success">Pagado · ${esc(etiquetaPago[d.metodoPago])}</span>`;
         let estado = '', acciones = '';
         if (d.estadoPedido === 'PENDIENTE') {
-            estado = `<span class="badge ${claseCocina[d.estadoCocina]}">Cocina: ${esc(etiquetaCocina[d.estadoCocina])}</span>`;
-            acciones = `<button class="btn btn-sm btn-marca" data-despachar="${d.idVenta}"><i class="bi bi-bicycle"></i> Despachar</button>`;
+            // Yesenia Quejada Rojas - Claude — 19/10/2026: no se despacha mientras cocina no termine; se dice en palabras simples qué falta.
+            const enCocina = APP.mostrarCocina && (d.estadoCocina === 'PENDIENTE' || d.estadoCocina === 'PREPARANDO');
+            estado = !APP.mostrarCocina ? ''
+                : enCocina
+                ? `<span class="small text-warning fw-semibold"><i class="bi bi-hourglass-split"></i> ${d.estadoCocina === 'PENDIENTE' ? 'En cola en cocina' : 'Cocina lo está preparando'}. Podrá despacharlo cuando esté listo.</span>`
+                : '<span class="badge text-bg-success"><i class="bi bi-check2"></i> Listo para despachar</span>';
+            acciones = enCocina
+                ? '<button class="btn btn-sm btn-outline-secondary" disabled title="Espere a que cocina lo marque como listo"><i class="bi bi-hourglass-split"></i> Esperando cocina</button>'
+                : `<button class="btn btn-sm btn-marca" data-despachar="${d.idVenta}"><i class="bi bi-bicycle"></i> Despachar</button>`;
         } else if (d.estadoPedido === 'EN_CAMINO') {
             estado = `<span class="badge text-bg-primary"><i class="bi bi-person"></i> ${esc(d.repartidor)} · salió ${esc(d.horaDespacho)} (${d.minutosEnCamino} min)</span>`;
             acciones = `<button class="btn btn-sm btn-outline-secondary" data-id="${d.idVenta}" data-estado="PENDIENTE" title="Devolver a por despachar"><i class="bi bi-arrow-left"></i></button>
@@ -93,9 +119,9 @@
             <div class="mt-1">${estado}</div>
             <div class="d-flex justify-content-between align-items-center mt-2">
                 <span class="d-flex gap-1">
-                    <a class="btn btn-sm btn-outline-success" href="${whatsapp(d, `Hola ${d.clienteNombre}, te escribimos de ${APP.negocio} por tu pedido N° ${d.idVenta}.`)}" target="_blank" rel="noopener" title="WhatsApp"><i class="bi bi-whatsapp"></i></a>
+                    <a class="btn btn-sm btn-outline-success" href="${whatsapp(d, mensajeCliente(d))}" target="_blank" rel="noopener" title="Escribir al cliente por WhatsApp"><i class="bi bi-whatsapp"></i></a>
                     <a class="btn btn-sm btn-outline-secondary" href="tel:${esc(d.clienteTelefono)}" title="Llamar ${esc(d.clienteTelefono)}"><i class="bi bi-telephone"></i></a>
-                    <a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${d.idVenta}" target="_blank" title="Ticket"><i class="bi bi-printer"></i></a>
+                    ${APP.esDomiciliario ? '' : `<a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${d.idVenta}" target="_blank" title="Ticket"><i class="bi bi-printer"></i></a>`}
                 </span>
                 <span class="d-flex gap-1">${acciones}</span>
             </div>
@@ -136,6 +162,7 @@
         despacho = datos.find(d => d.idVenta === id);
         $('lblDespachoId').textContent = `N° ${id}`;
         let ultimo = ''; try { ultimo = localStorage.getItem('ultimo-repartidor') || ''; } catch { }
+        if (APP.esDomiciliario) ultimo = @Json.Serialize(User.Identity?.Name ?? ""); // el domiciliario se asigna a sí mismo
         $('txtRepartidor').value = ultimo;
         try {
             const reps = await api.get('/Domicilio/Repartidores');
@@ -155,8 +182,7 @@
             if (await cambiarEstado(despacho.idVenta, 'EN_CAMINO', rep)) {
                 try { localStorage.setItem('ultimo-repartidor', rep); } catch { }
                 modal.hide();
-                const cobro = despacho.metodoPago === 'EFECTIVO' ? `Total a pagar: ${moneda(despacho.total)}.` : 'Tu pedido ya está pago.';
-                if (wa) wa.location = whatsapp(despacho, `Hola ${despacho.clienteNombre}, tu pedido N° ${despacho.idVenta} de ${APP.negocio} va en camino con ${rep}. ${cobro} ¡Gracias!`);
+                if (wa) wa.location = whatsapp(despacho, mensajeEnCamino(despacho, rep));
                 cargar();
             } else wa?.close();
         } catch (e) { wa?.close(); errorAlerta(e); }

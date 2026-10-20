@@ -71,14 +71,15 @@ public class InsumoController : Controller
     private readonly CN_Insumo _negocio = new();
 
     [Authorize(Roles = Claves.Admin)] public IActionResult Index() => View();
-    [HttpGet] public JsonResult Listar() => Json(_negocio.Listar(User.IdSede()));
+    // Yesenia Quejada Rojas - Claude — 19/10/2026: el domiciliario no necesita ver el inventario.
+    [HttpGet, Authorize(Roles = Claves.Local)] public JsonResult Listar() => Json(_negocio.Listar(User.IdSede()));
     [HttpPost, Authorize(Roles = Claves.Admin)] public JsonResult Guardar([FromBody] Insumo obj) => Json(_negocio.Guardar(obj));
     [HttpPost, Authorize(Roles = Claves.Admin)] public JsonResult Eliminar(int id) => Json(_negocio.Eliminar(id));
 
     [HttpGet, Authorize(Roles = Claves.Admin)]
     public IActionResult Exportar() =>
         Excel.Archivo("inventario-" + User.Sede(), "Inventario", _negocio.Listar(User.IdSede()),
-            ("Código", i => i.Codigo), ("Insumo", i => i.Nombre), ("Categoría", i => i.Categoria),
+            ("Código", i => i.Codigo), ("Insumo", i => i.Nombre),
             ("Unidad", i => i.UnidadMedida), ("Stock", i => i.Stock), ("Mínimo", i => i.StockMinimo),
             ("Costo unitario", i => i.CostoUnitario), ("Valor", i => i.Stock * i.CostoUnitario),
             ("Próximo vencimiento", i => i.ProximoVencimiento), ("Activo", i => i.Activo ? "Sí" : "No"));
@@ -86,8 +87,7 @@ public class InsumoController : Controller
     /// <summary>Plantilla de Excel con los insumos actuales para llenar y volver a cargar.</summary>
     [HttpGet, Authorize(Roles = Claves.Admin)]
     public IActionResult Plantilla() =>
-        Excel.PlantillaInventario("plantilla-inventario-" + User.Sede(), _negocio.Listar(User.IdSede()),
-            new CN_Categoria().Listar().Where(c => c.Activo).Select(c => c.Descripcion), CN_Insumo.Unidades);
+        Excel.PlantillaInventario("plantilla-inventario", _negocio.Listar(User.IdSede()));
 
     [HttpPost, Authorize(Roles = Claves.Admin), RequestSizeLimit(5_000_000)]
     public JsonResult Importar(IFormFile? archivo)
@@ -146,6 +146,24 @@ public class ConfiguracionController : Controller
     public ConfiguracionController(IWebHostEnvironment env) => _env = env;
 
     public IActionResult Index() => View();
+
+    /// <summary>Guía de configuración: los pasos en orden y cuáles ya están hechos.</summary>
+    // Yesenia Quejada Rojas - Claude — 19/10/2026: para que el negocio sepa qué hacer primero y qué le falta.
+    public IActionResult Guia()
+    {
+        var cfg = _negocio.Obtener();
+        var productos = new CN_Producto().Listar().Where(p => p.Activo).ToList();
+        ViewBag.Negocio = !string.IsNullOrWhiteSpace(cfg.NombreNegocio) && !string.IsNullOrWhiteSpace(cfg.Telefono);
+        ViewBag.Insumos = new CN_Insumo().Listar(User.IdSede()).Count(i => i.Activo);
+        ViewBag.Categorias = new CN_CategoriaMenu().Listar().Count(c => c.Activo);
+        ViewBag.Productos = productos.Count;
+        ViewBag.SinReceta = productos.Count(p => p.TotalInsumos == 0);
+        ViewBag.Adiciones = new CN_Modificador().Listar().Count(m => m.Activo);
+        ViewBag.Usuarios = new CN_Usuario().Listar().Count(u => u.Activo);
+        ViewBag.CajaAbierta = new CN_Caja().Actual(User.IdSede()) != null;
+        return View(cfg);
+    }
+
     [HttpGet] public JsonResult Obtener() => Json(_negocio.Obtener());
     [HttpPost] public JsonResult Guardar([FromBody] Configuracion obj) => Json(_negocio.Guardar(obj));
 

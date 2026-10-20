@@ -30,6 +30,7 @@ namespace CapaNegocio
                 return Respuesta.Error("El tiempo para editar pedidos debe estar entre 0 y 60 minutos");
             if (c.MinutosAlertaCocina < 1 || c.MinutosAlertaDomicilio < 1)
                 return Respuesta.Error("Los tiempos de alerta deben ser de al menos 1 minuto");
+            if (c.AnchoTicket != 58 && c.AnchoTicket != 80) return Respuesta.Error("El ancho del ticket debe ser 58 u 80 mm");
             if (c.CostoDomicilio < 0) return Respuesta.Error("El valor del domicilio no puede ser negativo");
             if (string.IsNullOrWhiteSpace(c.SimboloMoneda)) c.SimboloMoneda = "$";
             var r = _datos.Guardar(c);
@@ -134,6 +135,21 @@ namespace CapaNegocio
     public class CN_Insumo
     {
         public static readonly string[] Unidades = { "UND", "PORC", "KG", "GR", "LT", "ML" };
+        // Yesenia Quejada Rojas - Claude — 19/10/2026: en la plantilla de Excel la unidad se elige de una lista con nombre claro.
+        public static readonly string[] UnidadesTexto =
+            { "Unidad (UND)", "Porción (PORC)", "Kilogramo (KG)", "Gramo (GR)", "Litro (LT)", "Mililitro (ML)" };
+
+        /// <summary>Acepta "Kilogramo (KG)", "kg" o "Kilogramo" y devuelve el código de la unidad.</summary>
+        public static string UnidadDesdeTexto(string? texto)
+        {
+            var t = (texto ?? "").Trim();
+            var abre = t.LastIndexOf('(');
+            if (abre >= 0 && t.EndsWith(")")) t = t[(abre + 1)..^1];
+            t = t.Trim().ToUpperInvariant();
+            if (Unidades.Contains(t)) return t;
+            var i = Array.FindIndex(UnidadesTexto, u => u.StartsWith(t, StringComparison.OrdinalIgnoreCase) && t.Length >= 3);
+            return i >= 0 ? Unidades[i] : t;
+        }
         private readonly CD_Insumo _datos = new();
 
         public List<Insumo> Listar(int idSede) => _datos.Listar(idSede);
@@ -142,9 +158,11 @@ namespace CapaNegocio
         {
             i.Codigo = i.Codigo?.Trim().ToUpper() ?? "";
             i.Nombre = i.Nombre?.Trim() ?? "";
-            if (i.Codigo == "") return Respuesta.Error("El código es obligatorio");
             if (i.Nombre == "") return Respuesta.Error("El nombre es obligatorio");
-            if (i.IdCategoria <= 0) return Respuesta.Error("Seleccione una categoría");
+            // Yesenia Quejada Rojas - Claude — 19/10/2026: el código y la categoría ya no se piden; el código se arma con el nombre.
+            if (i.Codigo == "")
+                i.Codigo = GenerarCodigo(i.Nombre, _datos.Listar(1).Where(x => x.IdInsumo != i.IdInsumo).Select(x => x.Codigo));
+            if (i.Codigo.Length > 30) return Respuesta.Error("El código puede tener máximo 30 caracteres");
             if (!Unidades.Contains(i.UnidadMedida)) return Respuesta.Error("Unidad de medida no válida");
             if (i.StockMinimo < 0 || i.CostoUnitario < 0) return Respuesta.Error("Los valores no pueden ser negativos");
             return _datos.Guardar(i);
@@ -152,8 +170,22 @@ namespace CapaNegocio
 
         public Respuesta Eliminar(int id) => _datos.Eliminar(id);
 
+        /// <summary>Código corto a partir del nombre ("Queso mozzarella" = QUEMOZ); agrega un número si ya existe.</summary>
+        public static string GenerarCodigo(string nombre, IEnumerable<string> usados)
+        {
+            var limpio = new string(nombre.Normalize(System.Text.NormalizationForm.FormD)
+                .Where(c => char.IsLetterOrDigit(c) || c == ' ').ToArray()).ToUpperInvariant();
+            var palabras = limpio.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var baseCodigo = string.Concat(palabras.Take(3).Select(p => p.Length > 3 ? p[..3] : p));
+            if (baseCodigo == "") baseCodigo = "INS";
+            var ocupados = new HashSet<string>(usados, StringComparer.OrdinalIgnoreCase);
+            var codigo = baseCodigo;
+            for (int n = 2; ocupados.Contains(codigo); n++) codigo = baseCodigo + n;
+            return codigo;
+        }
+
         /// <summary>
-        /// Carga masiva desde la plantilla de Excel: crea o actualiza insumos por código (y sus categorías)
+        /// Carga masiva desde la plantilla de Excel: crea o actualiza insumos por código (o por nombre si no trae código)
         /// y, si la fila trae stock, lo deja igual al contado con un ajuste de conteo físico.
         /// Primero valida todo; si hay errores no guarda nada.
         /// </summary>
@@ -163,36 +195,31 @@ namespace CapaNegocio
             filas = filas.Where(f => !(string.IsNullOrWhiteSpace(f.Codigo) && string.IsNullOrWhiteSpace(f.Nombre))).ToList();
             if (filas.Count == 0) { res.Errores.Add("La plantilla no tiene filas con datos"); return res; }
 
+            var lista = _datos.Listar(idSede);
+            var porNombre = lista.GroupBy(i => i.Nombre.Trim(), StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
+            var usados = new HashSet<string>(lista.Select(i => i.Codigo), StringComparer.OrdinalIgnoreCase);
             foreach (var f in filas)
             {
                 f.Codigo = f.Codigo.Trim().ToUpper();
                 f.Nombre = f.Nombre.Trim();
-                f.Categoria = f.Categoria.Trim();
-                f.UnidadMedida = f.UnidadMedida.Trim().ToUpper();
-                if (f.Codigo == "") res.Errores.Add($"Fila {f.Fila}: falta el código");
-                else if (f.Codigo.Length > 30) res.Errores.Add($"Fila {f.Fila}: el código tiene más de 30 caracteres");
+                f.UnidadMedida = UnidadDesdeTexto(f.UnidadMedida);
                 if (f.Nombre == "") res.Errores.Add($"Fila {f.Fila}: falta el nombre");
                 else if (f.Nombre.Length > 100) res.Errores.Add($"Fila {f.Fila}: el nombre tiene más de 100 caracteres");
-                if (f.Categoria == "") res.Errores.Add($"Fila {f.Fila}: falta la categoría");
-                if (!Unidades.Contains(f.UnidadMedida)) res.Errores.Add($"Fila {f.Fila}: unidad \"{f.UnidadMedida}\" no válida (use {string.Join(", ", Unidades)})");
+                // Yesenia Quejada Rojas - Claude — 19/10/2026: el código es opcional; sin código se reconoce el insumo por su nombre o se crea uno.
+                if (f.Codigo == "" && f.Nombre != "")
+                {
+                    if (porNombre.TryGetValue(f.Nombre, out var mismo)) f.Codigo = mismo.Codigo;
+                    else { f.Codigo = GenerarCodigo(f.Nombre, usados); usados.Add(f.Codigo); }
+                }
+                if (f.Codigo.Length > 30) res.Errores.Add($"Fila {f.Fila}: el código tiene más de 30 caracteres");
+                if (!Unidades.Contains(f.UnidadMedida)) res.Errores.Add($"Fila {f.Fila}: elija la unidad de la lista ({string.Join(", ", Unidades)})");
                 if (f.StockMinimo < 0 || f.CostoUnitario < 0 || f.Stock < 0) res.Errores.Add($"Fila {f.Fila}: hay valores negativos");
             }
             foreach (var g in filas.Where(f => f.Codigo != "").GroupBy(f => f.Codigo).Where(g => g.Count() > 1))
-                res.Errores.Add($"El código {g.Key} está repetido en las filas {string.Join(", ", g.Select(f => f.Fila))}");
+                res.Errores.Add($"El insumo {g.Key} está repetido en las filas {string.Join(", ", g.Select(f => f.Fila))}");
             if (res.Errores.Count > 0) return res;
 
-            // Categorías que no existen se crean
-            var cnCategoria = new CN_Categoria();
-            var categorias = cnCategoria.Listar().ToDictionary(c => c.Descripcion.Trim(), c => c.IdCategoria, StringComparer.OrdinalIgnoreCase);
-            foreach (var nombre in filas.Select(f => f.Categoria).Distinct(StringComparer.OrdinalIgnoreCase).Where(n => !categorias.ContainsKey(n)))
-            {
-                var r = cnCategoria.Guardar(new Categoria { Descripcion = nombre, Activo = true });
-                if (!r.Resultado) { res.Errores.Add($"Categoría {nombre}: {r.Mensaje}"); return res; }
-                categorias[nombre] = r.Id;
-                res.CategoriasNuevas++;
-            }
-
-            var existentes = _datos.Listar(idSede).ToDictionary(i => i.Codigo, StringComparer.OrdinalIgnoreCase);
+            var existentes = lista.ToDictionary(i => i.Codigo, StringComparer.OrdinalIgnoreCase);
             var conteo = new Conteo { Observacion = "Carga de inventario desde Excel" };
             foreach (var f in filas)
             {
@@ -202,7 +229,7 @@ namespace CapaNegocio
                     IdInsumo = actual?.IdInsumo ?? 0,
                     Codigo = f.Codigo,
                     Nombre = f.Nombre,
-                    IdCategoria = categorias[f.Categoria],
+                    IdCategoria = actual?.IdCategoria ?? 0,
                     UnidadMedida = f.UnidadMedida,
                     StockMinimo = f.StockMinimo,
                     CostoUnitario = f.CostoUnitario,
@@ -312,7 +339,7 @@ namespace CapaNegocio
             m.Nombre = m.Nombre?.Trim() ?? "";
             if (m.Nombre == "") return Respuesta.Error("El nombre es obligatorio");
             if (m.Precio < 0) return Respuesta.Error("El precio no puede ser negativo");
-            if (m.IdInsumo > 0 && m.Cantidad == 0) return Respuesta.Error("Indique cuánto insumo suma o resta");
+            if (m.IdInsumo > 0 && m.Cantidad == 0) return Respuesta.Error("Indique cuánto insumo gasta cada vez que se elige");
             m.Grupo = string.IsNullOrWhiteSpace(m.Grupo) ? "Adiciones" : m.Grupo.Trim();
             if (m.Grupo.Length > 40) return Respuesta.Error("El grupo puede tener máximo 40 caracteres");
             return _datos.Guardar(m);
@@ -412,6 +439,9 @@ namespace CapaNegocio
     {
         public Reporte Obtener(int idSede, DateTime inicio, DateTime fin) =>
             new CD_Reporte().Obtener(idSede, inicio, fin <= inicio ? inicio : fin);
+
+        public List<Actividad> Actividad(int idSede, DateTime inicio, DateTime fin) =>
+            new CD_Reporte().Actividad(idSede, inicio, fin <= inicio ? inicio : fin);
     }
 
     public class CN_Dashboard

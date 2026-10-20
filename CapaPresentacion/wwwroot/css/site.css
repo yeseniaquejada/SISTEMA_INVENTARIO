@@ -121,3 +121,6 @@ body { background: var(--fondo); min-height: 100vh; }
 .text-bg-info      { color: #000 !important; background-color: #0dcaf0 !important; }
 .text-bg-light     { color: #000 !important; background-color: #f8f9fa !important; }
 .text-bg-dark      { color: #fff !important; background-color: #212529 !important; }
+
+/* Configurable modules must stay hidden even with Bootstrap display classes. */
+[hidden] { display: none !important; }

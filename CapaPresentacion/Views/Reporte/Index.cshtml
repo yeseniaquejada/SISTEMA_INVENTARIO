@@ -1,37 +1,46 @@
 @{
-    ViewData["Title"] = "Reportes de ventas y ganancias";
+    ViewData["Title"] = "Ventas y ganancias";
 }
+@* Yesenia Quejada Rojas - Claude — 19/10/2026: tablero con tarjetas como el Inicio, barras de colores,
+   productos más y menos vendidos (en rojo) y ganancia explicada en palabras. *@
 <div class="card shadow-sm mb-3 no-imprimir">
     <div class="card-body d-flex flex-wrap gap-2 align-items-end">
-        <div><label class="form-label small mb-0">Desde</label><input type="date" id="txtInicio" class="form-control form-control-sm" /></div>
-        <div><label class="form-label small mb-0">Hasta</label><input type="date" id="txtFin" class="form-control form-control-sm" /></div>
-        <div class="btn-group btn-group-sm" id="rapidos">
+        <div><label class="form-label small mb-0" for="txtInicio">Desde</label><input type="date" id="txtInicio" class="form-control form-control-sm" /></div>
+        <div><label class="form-label small mb-0" for="txtFin">Hasta</label><input type="date" id="txtFin" class="form-control form-control-sm" /></div>
+        <div class="btn-group btn-group-sm" id="rapidos" role="group" aria-label="Periodo rápido">
             <button class="btn btn-outline-secondary" data-dias="0">Hoy</button>
             <button class="btn btn-outline-secondary" data-dias="6">7 días</button>
             <button class="btn btn-outline-secondary" data-dias="29">30 días</button>
         </div>
         <button class="btn btn-sm btn-marca" id="btnVer"><i class="bi bi-bar-chart"></i> Ver</button>
-        <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="window.print()"><i class="bi bi-file-earmark-pdf"></i> Imprimir / PDF</button>
+        <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
     </div>
 </div>
 <p class="d-none d-print-block" id="lblPeriodo"></p>
 
 <div class="row g-3 mb-3">
-    <div class="col-6 col-lg-2"><div class="card kpi shadow-sm"><div class="card-body"><div class="small text-muted">Ventas</div><div class="valor" id="kVentas"></div></div></div></div>
-    <div class="col-6 col-lg-2"><div class="card kpi shadow-sm"><div class="card-body"><div class="small text-muted">Pedidos</div><div class="valor" id="kPedidos"></div></div></div></div>
-    <div class="col-6 col-lg-2"><div class="card kpi shadow-sm"><div class="card-body"><div class="small text-muted">Ticket promedio</div><div class="valor" id="kTicket"></div></div></div></div>
-    <div class="col-6 col-lg-2"><div class="card kpi alerta shadow-sm"><div class="card-body"><div class="small text-muted">Costo de insumos</div><div class="valor" id="kCosto"></div></div></div></div>
-    <div class="col-6 col-lg-2"><div class="card kpi ok shadow-sm"><div class="card-body"><div class="small text-muted">Ganancia bruta</div><div class="valor" id="kGanancia"></div></div></div></div>
-    <div class="col-6 col-lg-2"><div class="card kpi alerta shadow-sm"><div class="card-body"><div class="small text-muted">Mermas</div><div class="valor" id="kMermas"></div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card kpi kpi-principal shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-cash-coin"></i></span><div class="small text-muted">Ventas</div><div class="valor monto" id="kVentas">-</div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card kpi shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-receipt"></i></span><div class="small text-muted">Pedidos</div><div class="valor" id="kPedidos">-</div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card kpi shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-person-check"></i></span><div class="small text-muted">Gasto promedio por pedido</div><div class="valor monto" id="kTicket">-</div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card kpi alerta shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-basket"></i></span><div class="small text-muted">Costo de lo vendido</div><div class="valor monto" id="kCosto">-</div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card kpi ok shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-graph-up-arrow"></i></span><div class="small text-muted">Ganancia</div><div class="valor monto" id="kGanancia">-</div><div class="small text-muted" id="kMargen"></div></div></div></div>
+    <div class="col-6 col-xl-2"><div class="card kpi alerta shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-trash3"></i></span><div class="small text-muted">Pérdidas por daño</div><div class="valor monto" id="kMermas">-</div></div></div></div>
 </div>
 
 <div class="row g-3">
-    <div class="col-lg-8"><div class="card shadow-sm"><div class="card-header bg-white"><strong>Ventas por día</strong></div><div class="card-body"><canvas id="grDias" height="120"></canvas></div></div></div>
-    <div class="col-lg-4"><div class="card shadow-sm"><div class="card-header bg-white"><strong>Formas de pago</strong></div><div class="card-body"><canvas id="grMetodos" height="220"></canvas></div></div></div>
-    <div class="col-lg-7"><div class="card shadow-sm"><div class="card-header bg-white"><strong>Productos más vendidos</strong></div><div class="card-body"><canvas id="grTop" height="170"></canvas></div></div></div>
-    <div class="col-lg-5"><div class="card shadow-sm"><div class="card-header bg-white"><strong>Detalle de productos</strong></div>
+    <div class="col-lg-8"><div class="card shadow-sm h-100"><div class="card-header bg-white d-flex justify-content-between"><strong>Ventas por día</strong><small class="text-muted" id="lblMejorDia"></small></div>
+        <div class="card-body"><canvas id="grDias" height="120" aria-label="Ventas por día"></canvas></div></div></div>
+    <div class="col-lg-4"><div class="card shadow-sm h-100"><div class="card-header bg-white"><strong>Cómo pagaron</strong></div>
+        <div class="card-body"><canvas id="grMetodos" height="220" aria-label="Formas de pago"></canvas></div></div></div>
+
+    <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header bg-white"><strong><i class="bi bi-trophy text-warning"></i> Más vendidos</strong></div>
+        <div class="card-body"><canvas id="grTop" height="210" aria-label="Productos más vendidos"></canvas></div></div></div>
+    <div class="col-lg-6"><div class="card shadow-sm h-100"><div class="card-header bg-white d-flex justify-content-between"><strong><i class="bi bi-arrow-down-circle text-danger"></i> Menos vendidos</strong><small class="text-muted">Para promocionar o revisar</small></div>
+        <div class="card-body"><canvas id="grMenos" height="210" aria-label="Productos menos vendidos"></canvas></div></div></div>
+
+    <div class="col-12"><div class="card shadow-sm"><div class="card-header bg-white"><strong>Detalle de los más vendidos</strong></div>
         <div class="card-body p-0 table-responsive"><table class="table table-sm mb-0">
-            <thead class="table-light"><tr><th>Producto</th><th class="text-end">Unidades</th><th class="text-end">Total</th></tr></thead>
+            <thead class="table-light"><tr><th>#</th><th>Producto</th><th class="text-end">Unidades</th><th class="text-end">Vendido</th><th class="text-end">% de las ventas</th></tr></thead>
             <tbody id="tablaTop"></tbody></table></div></div></div>
 </div>
 
@@ -40,14 +49,26 @@
 <script>
 (function () {
     const $ = id => document.getElementById(id);
-    const marca = getComputedStyle(document.documentElement).getPropertyValue('--marca').trim() || '#C8322B';
-    const marca2 = getComputedStyle(document.documentElement).getPropertyValue('--marca-2').trim() || '#1F1A17';
+    const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+    const marca = css('--marca') || '#C8322B';
+    // Paleta variada para que las barras no sean de un solo color
+    const PALETA = [marca, '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6', '#ec4899', '#14b8a6', '#f97316', '#6366f1', '#84cc16'];
+    const ROJOS = ['#7f1d1d', '#991b1b', '#b91c1c', '#dc2626', '#ef4444', '#f87171', '#fca5a5', '#fecaca', '#fee2e2', '#fef2f2'];
     const graficas = {};
+    Chart.defaults.color = css('--texto-suave') || '#6b7280';
+    Chart.defaults.borderColor = css('--borde') || '#e5e7eb';
+    Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
 
     function grafica(id, config) {
         graficas[id]?.destroy();
         graficas[id] = new Chart($(id), config);
     }
+    const barrasHorizontales = (lista, colores, sinDatos) => ({
+        type: 'bar',
+        data: { labels: lista.length ? lista.map(p => p.etiqueta) : [sinDatos], datasets: [{ label: 'Unidades', data: lista.map(p => p.cantidad), backgroundColor: colores, borderRadius: 8, maxBarThickness: 26 }] },
+        options: { indexAxis: 'y', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.raw} unidades · ${moneda(lista[c.dataIndex]?.total)}` } } },
+            scales: { x: { beginAtZero: true, ticks: { precision: 0 } }, y: { grid: { display: false } } } }
+    });
 
     async function ver() {
         try {
@@ -58,28 +79,38 @@
             $('kTicket').textContent = moneda(r.ticketPromedio);
             $('kCosto').textContent = moneda(r.costoInsumos);
             $('kGanancia').textContent = moneda(r.ganancia);
+            $('kMargen').textContent = r.ventasProductos > 0 ? `Queda el ${Math.round(r.ganancia / r.ventasProductos * 100)} % de lo vendido` : '';
             $('kMermas').textContent = moneda(r.mermas);
 
+            const mejor = r.porDia.reduce((m, p) => !m || p.total > m.total ? p : m, null);
+            $('lblMejorDia').textContent = mejor ? `Mejor día: ${mejor.etiqueta} (${moneda(mejor.total)})` : '';
             grafica('grDias', {
                 type: 'bar',
-                data: { labels: r.porDia.map(p => p.etiqueta), datasets: [{ label: 'Ventas', data: r.porDia.map(p => p.total), backgroundColor: marca, borderRadius: 6 }] },
-                options: { plugins: { legend: { display: false } }, scales: { y: { ticks: { callback: v => moneda(v) } } } }
+                data: { labels: r.porDia.map(p => p.etiqueta), datasets: [{ label: 'Ventas', data: r.porDia.map(p => p.total),
+                    backgroundColor: r.porDia.map(p => p === mejor ? marca : PALETA[3] + 'cc'), borderRadius: 8, maxBarThickness: 48 }] },
+                options: { plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${moneda(c.raw)} · ${r.porDia[c.dataIndex].cantidad} pedidos` } } },
+                    scales: { y: { beginAtZero: true, ticks: { callback: v => moneda(v) } }, x: { grid: { display: false } } } }
             });
             grafica('grMetodos', {
                 type: 'doughnut',
-                data: { labels: r.porMetodo.map(p => etiquetaPago[p.etiqueta] ?? p.etiqueta), datasets: [{ data: r.porMetodo.map(p => p.total), backgroundColor: [marca, marca2, '#f0ad00'] }] },
-                options: { plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => `${c.label}: ${moneda(c.raw)}` } } } }
+                data: { labels: r.porMetodo.map(p => etiquetaPago[p.etiqueta] ?? p.etiqueta), datasets: [{ data: r.porMetodo.map(p => p.total), backgroundColor: [PALETA[2], PALETA[3], PALETA[1]], borderWidth: 0 }] },
+                options: { cutout: '62%', plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => `${c.label}: ${moneda(c.raw)}` } } } }
             });
-            grafica('grTop', {
-                type: 'bar',
-                data: { labels: r.topProductos.map(p => p.etiqueta), datasets: [{ label: 'Unidades', data: r.topProductos.map(p => p.cantidad), backgroundColor: marca2, borderRadius: 6 }] },
-                options: { indexAxis: 'y', plugins: { legend: { display: false } } }
-            });
-            renderTabla($('tablaTop'), r.topProductos, p => `<tr><td>${esc(p.etiqueta)}</td><td class="text-end">${p.cantidad}</td><td class="text-end">${moneda(p.total)}</td></tr>`, 3);
+            grafica('grTop', barrasHorizontales(r.topProductos, PALETA, 'Sin ventas en el periodo'));
+            grafica('grMenos', barrasHorizontales(r.menosVendidos, ROJOS, 'Sin productos'));
+
+            const totalProductos = r.topProductos.reduce((s, p) => s + p.total, 0) || 1;
+            renderTabla($('tablaTop'), r.topProductos, (p, i) => `<tr><td><span class="badge" style="background:${PALETA[i % PALETA.length]}">${i + 1}</span></td>
+                <td>${esc(p.etiqueta)}</td><td class="text-end">${p.cantidad}</td><td class="text-end text-nowrap">${moneda(p.total)}</td>
+                <td class="text-end">${Math.round(p.total / totalProductos * 100)} %</td></tr>`, 5);
         } catch (e) { errorAlerta(e); }
     }
 
-    function rango(dias) { $('txtInicio').value = fechaHace(dias); $('txtFin').value = hoy(); ver(); }
+    function rango(dias) {
+        $('txtInicio').value = fechaHace(dias); $('txtFin').value = hoy();
+        document.querySelectorAll('#rapidos .btn').forEach(b => b.classList.toggle('active', Number(b.dataset.dias) === dias));
+        ver();
+    }
     $('rapidos').addEventListener('click', ev => { const b = ev.target.closest('[data-dias]'); if (b) rango(Number(b.dataset.dias)); });
     $('btnVer').addEventListener('click', ver);
     rango(6);

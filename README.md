@@ -1,55 +1,39 @@
-# SISTEMA_INVENTARIO
+# Plantilla de sistema para negocios de comidas
 
-Sistema de Inventario para un Local de Comidas Rápidas
+ASP.NET Core MVC (.NET 10), C# y SQL Server. Incluye ventas, caja, cocina, domicilios, inventario, reportes, registro de actividad, impresión y temas claro/oscuro.
 
-ASP.NET Core MVC (.NET 10) · C# · JavaScript · SQL Server (ADO.NET + procedimientos almacenados)
+## Estructura
 
-## Estructura (N-capas)
+- CapaEntidad: modelos.
+- CapaDatos: conexión y repositorios SQL.
+- CapaNegocio: reglas y validaciones.
+- CapaPresentacion: controladores, vistas y recursos de interfaz.
 
-| Proyecto | Contenido |
-|---|---|
-| `BaseDatos/01_BaseDatos.sql` | Base de datos, tablas y procedimientos almacenados (borra y crea la base) |
-| `BaseDatos/02_DatosIniciales.sql` | Menú, insumos, recetas y adiciones de John Wick (tomados del Excel de costos) |
-| `BaseDatos/03_Actualizacion_v3.sql` | Versión 3: cocina, edición y anulación de pedidos, salsas, domicilios y cierre de caja. No borra datos |
-| `CapaEntidad` | Clases: Usuario, Categoria, Proveedor, Insumo, Movimiento, ProductoMenu, Venta... |
-| `CapaDatos` | `Conexion.cs` (ADO.NET) y repositorios `CD_*` que llaman a los SP |
-| `CapaNegocio` | Validaciones `CN_*` y `Seguridad.cs` (contraseñas con PBKDF2) |
-| `CapaPresentacion` | ASP.NET Core MVC: controladores, vistas Razor y JS (`wwwroot/js`) con `fetch` |
+## Preparar una copia para un cliente
 
-## Módulos
+1. Copiar las cuatro carpetas de código, InventarioComidas.sln, .gitignore y este README. No copiar .git para iniciar un proyecto independiente.
+2. Preparar una base SQL Server con el esquema y procedimientos compatibles del sistema. Esta carpeta no contiene SQL de instalación ni datos iniciales.
+3. En CapaPresentacion/appsettings.json reemplazar BASE_DATOS_DEL_CLIENTE por el nombre de la nueva base y configurar el servidor. No apuntar la copia a la base de otro negocio.
+4. Restaurar y compilar: dotnet restore InventarioComidas.sln y dotnet build InventarioComidas.sln.
+5. Ejecutar CapaPresentacion en Visual Studio o con dotnet run --project CapaPresentacion. El acceso requiere usuarios configurados en esa base.
+6. Entrar como administrador y seguir *Configuración > Guía: por dónde empezar*: datos del negocio, insumos (con la plantilla de Excel), categorías, productos y recetas, adiciones y salsas, y usuarios.
 
-- **Inicio**: ventas y pedidos del día, domicilios pendientes, estado de la caja, insumos por pedir y lotes por vencer.
-- **Vender**: tarjetas de productos con foto; los **más vendidos** (últimos 30 días) salen primero con su puesto (Top 1 a 5) y cada tarjeta avisa cuántas unidades alcanzan con el inventario ("Quedan 3", "Agotado"). Al tocar un producto se eligen **salsas**, adiciones y preferencias, y notas para cocina; el botón **+** agrega sin opciones. Pedido en mesa, para llevar o a domicilio, pago en efectivo (con cambio), tarjeta o transferencia, ticket de 80 mm y **comanda de cocina**. Pedidos **en espera** (guardar sin cobrar y retomar) y atajos de teclado (F2 buscar, Enter agregar, F9 cobrar).
-- **Editar o anular un pedido**: solo durante los minutos configurados (5 por defecto) y mientras cocina no lo haya empezado. Al editar o anular, los insumos vuelven al inventario (movimiento DEVOLUCION en el kardex). El administrador puede anular después, mientras la caja siga abierta.
-- **Cocina**: tablero de comandas En cola → Preparando → Listo → Entregado, con reloj por pedido que cambia a amarillo y rojo según el tiempo, aviso sonoro de pedidos nuevos y pantalla completa. Desde Vender, el botón **Comandas** muestra los pedidos en proceso.
-- **Domicilios**: tablero Por despachar / En camino / Entregados, con el estado en cocina, el domiciliario que lo lleva, hora de salida y entrega, tiempo total, alerta de demora, cuánto cobrar y cuánto cambio llevar, efectivo por recoger, WhatsApp al cliente, llamada y mapa. Al escribir el teléfono en Vender se reconoce al **cliente frecuente** y se llenan su nombre y dirección.
-- **Caja**: apertura con base, totales por forma de pago, conteo por billetes y monedas, aviso de efectivo de domicilios aún en la calle, cierre con el efectivo contado y la diferencia, y **reporte de cierre** imprimible (ventas por forma de pago, productos vendidos y anulaciones).
-- **Inventario**: stock por sede, entradas con fecha de vencimiento (lotes), salidas, mermas, kardex, conteo físico con ajuste automático y orden de compra sugerida por proveedor.
-- **Reportes**: ventas por día, productos más vendidos, formas de pago, costo de insumos, ganancia y mermas, con gráficas.
-- **Exportar**: Excel (inventario, kardex, ventas, orden de compra) y PDF desde el botón imprimir.
-- **Plantilla de carga de inventario**: en *Inventario > Insumos*, **Plantilla de carga** descarga un Excel con los insumos actuales, listas de categorías y unidades e instrucciones. Se llena el stock real contado y se sube con **Cargar Excel**: crea o actualiza insumos por código, crea categorías nuevas y ajusta el stock como conteo físico. Si alguna fila tiene errores no se guarda nada.
-- **Mantenimiento**: productos con foto y receta (costo y margen), adiciones y modificadores, categorías del menú e insumos, proveedores, usuarios, sedes y **Configuración** (nombre del negocio, NIT, logo, colores, moneda y mensaje del ticket). El sistema es una plantilla: cada negocio lo personaliza desde ahí.
-- **Varias sedes**: cada usuario pertenece a una sede; el administrador cambia de sede desde la barra superior.
-- **Roles**: ADMINISTRADOR (todo) y CAJERO (inicio, ventas, domicilios y caja).
+## Alcance de la plantilla
 
-## Cómo ejecutarlo
+No contiene pruebas, scripts SQL, menú precargado, fotografías del cliente ni archivos de compilación. La base de datos existente no fue borrada ni modificada durante esta limpieza. Las fotos anteriores se archivaron fuera del proyecto; esta carpeta uploads está vacía para el nuevo negocio.
 
-1. En SQL Server Management Studio ejecute `BaseDatos/01_BaseDatos.sql`, `BaseDatos/02_DatosIniciales.sql` y `BaseDatos/03_Actualizacion_v3.sql` (SQL Server 2017 o superior). Ojo: el primero borra la base si ya existe.
-   Si ya tiene la versión 2 funcionando, ejecute solo `03_Actualizacion_v3.sql`: agrega lo nuevo y conserva sus datos.
-2. Revise la cadena `CadenaSQL` en `CapaPresentacion/appsettings.json` (por defecto: `Server=localhost`, autenticación de Windows).
-3. Abra `InventarioComidas.sln` en Visual Studio 2026 (con la carga de trabajo "ASP.NET y desarrollo web" y el SDK de .NET 10), marque `CapaPresentacion` como proyecto de inicio y presione F5.
-   Por consola: `dotnet run --project CapaPresentacion`.
-4. Ingrese con **admin / Admin123** y cambie la contraseña.
-5. Suba las fotos de los productos en *Mantenimiento > Productos y recetas* y el logo y colores en *Mantenimiento > Configuración*.
+La plantilla no crea automáticamente una base nueva. La conexión BASE_DATOS_DEL_CLIENTE es un marcador y debe configurarse antes de ejecutar. La copia necesita una base compatible para funcionar.
 
-## Reglas importantes
+## Cómo funciona el inventario
 
-- El stock solo cambia por movimientos (entrada, salida, merma) o ventas; todo queda en el kardex.
-- Las ventas y salidas validan stock dentro de una transacción; si falta algún insumo, no se registra nada.
-- Registros con historial no se eliminan: se desactivan. Las ventas no se borran: se anulan con motivo y quedan en el historial y en el reporte de cierre.
-- Los tiempos de edición, las alertas de cocina y domicilios y el valor del domicilio por defecto se cambian en *Mantenimiento > Configuración*.
-- Para vender debe haber una caja abierta en la sede.
-- Las fotos y el logo se guardan en `CapaPresentacion/wwwroot/uploads` (JPG, PNG, WEBP o GIF de hasta 3 MB).
-- Chart.js y Bootstrap Icons vienen incluidos en `wwwroot/lib`, así que no se necesita internet.
+- **Insumos**: lo que se compra (pan, carne, gaseosas) y cuánto hay. Se cargan con la plantilla de Excel (Descargar plantilla / Subir plantilla).
+- **Ventas**: al cobrar un pedido se descuentan los insumos de la receta de cada producto y de las adiciones elegidas. Los ingredientes que el cliente pide quitar ("Sin lechuga") no se descuentan. Si el pedido se edita o se anula, los insumos vuelven al inventario.
+- **Registrar compras y salidas**: lo que pasa fuera de una venta (llegó una compra, se usó algo, se dañó).
+- **Contar inventario**: corrige la cantidad cuando lo contado en el local no coincide con el sistema.
+- **Cobrar después**: aparta el pedido solo en ese equipo; no se registra la venta, no va a cocina ni descuenta inventario hasta cobrarlo desde "Por cobrar".
 
-![Pantalla de ventas](captura-venta.png)
+## Perfiles
+
+- **Administrador**: todo.
+- **Cajero**: vende, cocina, domicilios y caja.
+- **Domiciliario**: solo ve los domicilios, los despacha y los marca como entregados. No puede despachar mientras cocina no termina el pedido.

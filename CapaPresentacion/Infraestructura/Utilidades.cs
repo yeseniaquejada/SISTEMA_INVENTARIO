@@ -10,6 +10,11 @@ public static class Claves
     public const string IdSede = "IdSede";
     public const string Sede = "Sede";
     public const string Admin = "ADMINISTRADOR";
+    // Yesenia Quejada Rojas - Claude — 19/10/2026: tres perfiles por defecto (administrador, cajero/cocina y domiciliario).
+    public const string Cajero = "CAJERO";
+    public const string Domiciliario = "DOMICILIARIO";
+    /// <summary>Quien atiende el local: vende, cocina y maneja la caja (el domiciliario no).</summary>
+    public const string Local = Admin + "," + Cajero;
 }
 
 public static class UsuarioActual
@@ -18,6 +23,7 @@ public static class UsuarioActual
     public static int IdSede(this ClaimsPrincipal u) => int.Parse(u.FindFirstValue(Claves.IdSede) ?? "1");
     public static string Sede(this ClaimsPrincipal u) => u.FindFirstValue(Claves.Sede) ?? "";
     public static bool EsAdmin(this ClaimsPrincipal u) => u.IsInRole(Claves.Admin);
+    public static bool EsDomiciliario(this ClaimsPrincipal u) => u.IsInRole(Claves.Domiciliario);
 }
 
 public static class Colores
@@ -96,16 +102,26 @@ public static class Excel
     }
 
     /* ---------- Plantilla de carga de inventario ---------- */
+    /* Yesenia Quejada Rojas - Claude — 19/10/2026. Plantilla más sencilla: sin categoría, código opcional,
+       unidad elegida de una lista, números validados y formato General (con "#,##0.###" Excel mostraba "120,"). */
 
-    private static readonly string[] ColumnasInventario =
-        { "Código", "Nombre", "Categoría", "Unidad", "Stock mínimo", "Costo unitario", "Stock actual" };
+    private const int FilasPlantilla = 1000;
+
+    private static readonly (string titulo, string ayuda, bool obligatoria)[] ColumnasInventario =
+    {
+        ("Nombre del insumo", "Escriba el nombre, por ejemplo: Pan de hamburguesa.", true),
+        ("Unidad", "Elija de la lista cómo se cuenta este insumo.", true),
+        ("Cantidad que hay hoy", "Cuente lo que hay en el local hoy. Si la deja vacía, no se cambia.", false),
+        ("Avisar cuando queden", "El sistema avisa que hay que comprar cuando queden esta cantidad o menos.", false),
+        ("Costo por unidad", "Lo que le cuesta una unidad. Sirve para calcular el costo de cada producto.", false),
+        ("Código (opcional)", "Déjelo vacío y el sistema lo crea. Solo cámbielo si ya usa códigos propios.", false),
+    };
 
     /// <summary>
     /// Plantilla para configurar o actualizar el inventario: trae los insumos actuales,
-    /// listas desplegables de categorías y unidades, y una hoja de instrucciones.
+    /// la unidad como lista desplegable y una hoja de instrucciones.
     /// </summary>
-    public static FileContentResult PlantillaInventario(string nombre, IEnumerable<CapaEntidad.Insumo> insumos,
-        IEnumerable<string> categorias, IEnumerable<string> unidades)
+    public static FileContentResult PlantillaInventario(string nombre, IEnumerable<CapaEntidad.Insumo> insumos)
     {
         using var wb = new XLWorkbook();
         var ws = wb.Worksheets.Add("Inventario");
@@ -114,66 +130,72 @@ public static class Excel
 
         for (int c = 0; c < ColumnasInventario.Length; c++)
         {
+            var (titulo, ayuda, obligatoria) = ColumnasInventario[c];
             var celda = ws.Cell(1, c + 1);
-            celda.Value = ColumnasInventario[c];
+            celda.Value = titulo + (obligatoria ? " *" : "");
             celda.Style.Font.Bold = true;
             celda.Style.Font.FontColor = XLColor.White;
-            celda.Style.Fill.BackgroundColor = XLColor.FromHtml(c < 4 ? "#C8322B" : "#555555");
+            celda.Style.Fill.BackgroundColor = XLColor.FromHtml(obligatoria ? "#C8322B" : c == 2 ? "#B7791F" : "#555555");
+            celda.Style.Alignment.WrapText = true;
+            celda.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+            // Mensaje que aparece al seleccionar cualquier celda de la columna
+            var dvAyuda = ws.Range(2, c + 1, FilasPlantilla, c + 1).CreateDataValidation();
+            dvAyuda.InputTitle = titulo;
+            dvAyuda.InputMessage = ayuda;
+            dvAyuda.ShowInputMessage = true;
+            if (c >= 2 && c <= 4)
+            {
+                dvAyuda.Decimal.EqualOrGreaterThan(0);
+                dvAyuda.ErrorTitle = "Número no válido";
+                dvAyuda.ErrorMessage = "Escriba solo números, sin puntos de miles ni símbolos. Ejemplo: 120 o 2,5";
+            }
+            else if (c == 1)
+            {
+                var unidades = CapaNegocio.CN_Insumo.UnidadesTexto;
+                for (int k = 0; k < unidades.Length; k++) listas.Cell(k + 1, 1).Value = unidades[k];
+                dvAyuda.List(listas.Range(1, 1, unidades.Length, 1), true);
+                dvAyuda.ErrorTitle = "Unidad no válida";
+                dvAyuda.ErrorMessage = "Elija una unidad de la lista desplegable.";
+            }
         }
+        ws.Row(1).Height = 32;
+
         int f = 2;
         foreach (var i in insumos.Where(i => i.Activo))
         {
-            ws.Cell(f, 1).Value = i.Codigo;
-            ws.Cell(f, 2).Value = i.Nombre;
-            ws.Cell(f, 3).Value = i.Categoria;
-            ws.Cell(f, 4).Value = i.UnidadMedida;
-            ws.Cell(f, 5).Value = i.StockMinimo;
-            ws.Cell(f, 6).Value = i.CostoUnitario;
-            ws.Cell(f, 7).Value = i.Stock;
+            ws.Cell(f, 1).Value = i.Nombre;
+            var u = Array.IndexOf(CapaNegocio.CN_Insumo.Unidades, i.UnidadMedida);
+            ws.Cell(f, 2).Value = u >= 0 ? CapaNegocio.CN_Insumo.UnidadesTexto[u] : i.UnidadMedida;
+            ws.Cell(f, 3).Value = i.Stock;
+            ws.Cell(f, 4).Value = i.StockMinimo;
+            ws.Cell(f, 5).Value = i.CostoUnitario;
+            ws.Cell(f, 6).Value = i.Codigo;
             f++;
         }
-        ws.Range("E2:G2000").Style.NumberFormat.Format = "#,##0.###";
-        ws.Range("G2:G2000").Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF7D6");
+        ws.Range(2, 3, FilasPlantilla, 5).Style.NumberFormat.Format = "General";
+        ws.Range(2, 3, FilasPlantilla, 3).Style.Fill.BackgroundColor = XLColor.FromHtml("#FFF7D6");
+        ws.Range(2, 6, FilasPlantilla, 6).Style.Font.FontColor = XLColor.FromHtml("#777777");
 
-        var cats = categorias.OrderBy(x => x).ToList();
-        var unds = unidades.ToList();
-        listas.Cell(1, 1).Value = "Categorías";
-        listas.Cell(1, 2).Value = "Unidades";
-        for (int k = 0; k < cats.Count; k++) listas.Cell(k + 2, 1).Value = cats[k];
-        for (int k = 0; k < unds.Count; k++) listas.Cell(k + 2, 2).Value = unds[k];
-        listas.Row(1).Style.Font.Bold = true;
-
-        if (cats.Count > 0)
-        {
-            var dvCat = ws.Range("C2:C2000").CreateDataValidation();
-            dvCat.List(listas.Range(2, 1, cats.Count + 1, 1), true);
-            dvCat.ErrorStyle = XLErrorStyle.Information;   // se permiten categorías nuevas
-            dvCat.ShowErrorMessage = false;
-        }
-        var dvUnd = ws.Range("D2:D2000").CreateDataValidation();
-        dvUnd.List(listas.Range(2, 2, unds.Count + 1, 2), true);
-        dvUnd.ErrorTitle = "Unidad no válida";
-        dvUnd.ErrorMessage = "Use una de la lista: " + string.Join(", ", unds);
-
-        ws.Columns().AdjustToContents();
-        ws.Column(2).Width = Math.Max(ws.Column(2).Width, 32);
+        ws.Column(1).Width = 36;
+        ws.Column(2).Width = 18;
+        ws.Columns(3, 5).Width = 16;
+        ws.Column(6).Width = 18;
         ws.SheetView.FreezeRows(1);
+        listas.Hide();
 
         string[] texto =
         {
-            "CÓMO USAR ESTA PLANTILLA",
+            "CÓMO LLENAR ESTA PLANTILLA",
             "",
-            "1. Llene una fila por cada insumo en la hoja \"Inventario\". Las columnas en rojo son obligatorias.",
-            "2. Código: identificador corto y único (ej. PANH, QMOZ). Si el código ya existe, el insumo se actualiza; si no, se crea.",
-            "3. Categoría: elija de la lista o escriba una nueva (se crea sola).",
-            "4. Unidad: " + string.Join(", ", unds) + ".",
-            "5. Stock mínimo: cantidad a partir de la cual el sistema avisa que hay que pedir.",
-            "6. Costo unitario: lo que cuesta cada unidad (se usa para el costo de las recetas y la ganancia).",
-            "7. Stock actual (amarillo): cantidad REAL contada hoy en la sede. Si la deja vacía, el stock no se toca.",
-            "   El sistema registra la diferencia como un conteo físico, así queda en el kardex.",
-            "8. Guarde el archivo y cárguelo en Inventario > Insumos > Cargar Excel.",
+            "1. En la hoja \"Inventario\" escriba una fila por cada insumo (lo que compra para preparar: pan, carne, queso, gaseosas...).",
+            "2. Las columnas con * son obligatorias: el nombre y la unidad. La unidad se elige de la lista, no hay que escribirla.",
+            "3. \"Cantidad que hay hoy\" (amarilla): lo que contó en el local. Si la deja vacía, la cantidad del sistema no cambia.",
+            "4. \"Avisar cuando queden\": cuando el inventario baje a esa cantidad, el sistema le avisa que debe comprar.",
+            "5. \"Costo por unidad\": lo que le cuesta cada unidad. Escriba solo números, sin $ ni puntos (ejemplo: 1500).",
+            "6. El código es opcional. Si lo deja vacío, el sistema lo crea solo.",
+            "7. Guarde el archivo y súbalo en Configuración > Insumos > Subir plantilla.",
             "",
-            "Si hay errores, el sistema muestra la fila y no guarda nada, para que pueda corregir y volver a cargar.",
+            "Si algo está mal, el sistema le dice en qué fila y no guarda nada, para que lo corrija y lo vuelva a subir.",
             "",
             "Ejemplo:",
         };
@@ -183,35 +205,39 @@ public static class Excel
         int e = texto.Length + 1;
         object[][] ejemplo =
         {
-            ColumnasInventario,
-            new object[] { "PANH", "Pan de hamburguesa", "Panadería", "UND", 30, 1000, 120 },
-            new object[] { "QMOZ", "Queso mozzarella (porción)", "Lácteos", "PORC", 40, 500, 200 },
+            ColumnasInventario.Select(x => (object)x.titulo).ToArray(),
+            new object[] { "Pan de hamburguesa", "Unidad (UND)", 120, 30, 1000, "" },
+            new object[] { "Queso mozzarella (tajada)", "Porción (PORC)", 200, 40, 500, "" },
+            new object[] { "Carne de res", "Kilogramo (KG)", 2.5, 1, 32000, "" },
         };
         for (int r = 0; r < ejemplo.Length; r++)
             for (int c = 0; c < ejemplo[r].Length; c++)
                 ins.Cell(e + r, c + 1).Value = XLCellValue.FromObject(ejemplo[r][c]);
         ins.Row(e).Style.Font.Bold = true;
-        ins.Column(1).Width = 14;
-        ins.Columns(2, 7).AdjustToContents();
+        ins.Column(1).Width = 30;
+        ins.Columns(2, 6).Width = 18;
 
         return Descargar(wb, nombre);
     }
 
-    /// <summary>Lee la hoja "Inventario" de la plantilla. Las columnas se reconocen por su título.</summary>
+    /// <summary>Lee la hoja "Inventario" de la plantilla. Las columnas se reconocen por su título (nuevo o anterior).</summary>
     public static List<CapaEntidad.FilaImportacion> LeerInventario(Stream archivo)
     {
         using var wb = new XLWorkbook(archivo);
         var ws = wb.Worksheets.FirstOrDefault(w => Normalizar(w.Name) == "inventario") ?? wb.Worksheet(1);
-        var encabezado = ws.Row(1);
         var col = new Dictionary<string, int>();
-        foreach (var celda in encabezado.CellsUsed()) col[Normalizar(celda.GetString())] = celda.Address.ColumnNumber;
+        foreach (var celda in ws.Row(1).CellsUsed())
+            col[Normalizar(celda.GetString().Replace("*", ""))] = celda.Address.ColumnNumber;
 
-        int C(string titulo) => col.TryGetValue(Normalizar(titulo), out var n) ? n
-            : throw new InvalidOperationException($"Falta la columna \"{titulo}\". Descargue la plantilla de nuevo.");
-        int cCodigo = C("Código"), cNombre = C("Nombre"), cCategoria = C("Categoría"), cUnidad = C("Unidad");
-        col.TryGetValue(Normalizar("Stock mínimo"), out var cMinimo);
-        col.TryGetValue(Normalizar("Costo unitario"), out var cCosto);
-        col.TryGetValue(Normalizar("Stock actual"), out var cStock);
+        int Buscar(params string[] titulos) =>
+            titulos.Select(t => col.TryGetValue(Normalizar(t), out var n) ? n : 0).FirstOrDefault(n => n > 0);
+        int cNombre = Buscar("Nombre del insumo", "Nombre"), cUnidad = Buscar("Unidad");
+        if (cNombre == 0 || cUnidad == 0)
+            throw new InvalidOperationException("Faltan las columnas \"Nombre del insumo\" y \"Unidad\". Descargue la plantilla de nuevo.");
+        int cCodigo = Buscar("Código (opcional)", "Código");
+        int cMinimo = Buscar("Avisar cuando queden", "Stock mínimo");
+        int cCosto = Buscar("Costo por unidad", "Costo unitario");
+        int cStock = Buscar("Cantidad que hay hoy", "Stock actual");
 
         var filas = new List<CapaEntidad.FilaImportacion>();
         int ultima = ws.LastRowUsed()?.RowNumber() ?? 1;
@@ -221,9 +247,8 @@ public static class Excel
             filas.Add(new CapaEntidad.FilaImportacion
             {
                 Fila = r,
-                Codigo = fila.Cell(cCodigo).GetString(),
+                Codigo = cCodigo > 0 ? fila.Cell(cCodigo).GetString() : "",
                 Nombre = fila.Cell(cNombre).GetString(),
-                Categoria = fila.Cell(cCategoria).GetString(),
                 UnidadMedida = fila.Cell(cUnidad).GetString(),
                 StockMinimo = cMinimo > 0 ? Numero(fila.Cell(cMinimo), r) ?? 0 : 0,
                 CostoUnitario = cCosto > 0 ? Numero(fila.Cell(cCosto), r) ?? 0 : 0,
