@@ -6,8 +6,8 @@ namespace CapaEntidad
         public string? Nit { get; set; }
         public string? Direccion { get; set; }
         public string? Telefono { get; set; }
-        public string ColorPrimario { get; set; } = "#C8322B";
-        public string ColorSecundario { get; set; } = "#1F1A17";
+        public string ColorPrimario { get; set; } = "#E53935";
+        public string ColorSecundario { get; set; } = "#0B0B10";
         public string? LogoUrl { get; set; }
         public string SimboloMoneda { get; set; } = "$";
         public string? MensajeTicket { get; set; }
@@ -16,6 +16,12 @@ namespace CapaEntidad
         public int MinutosAlertaCocina { get; set; } = 15;
         public int MinutosAlertaDomicilio { get; set; } = 40;
         public decimal CostoDomicilio { get; set; }
+        public bool MostrarCocina { get; set; } = true;
+        public bool MostrarDomicilios { get; set; } = true;
+        public bool MostrarMultisede { get; set; } = true;
+        public bool MostrarAvanzado { get; set; } = true;
+        public int AnchoTicket { get; set; } = 80;
+        public bool ImprimirAutomatico { get; set; } = true;
     }
 
     public class Sede
@@ -296,6 +302,8 @@ namespace CapaEntidad
         public decimal VentasTransferencia { get; set; }
         public int NumeroVentas { get; set; }
         public decimal EfectivoEsperado { get; set; }
+        public decimal IngresosEfectivo { get; set; }
+        public decimal EgresosEfectivo { get; set; }
         public decimal EfectivoContado { get; set; }
         public decimal Diferencia { get; set; }
         public string Observacion { get; set; } = "";
@@ -311,6 +319,7 @@ namespace CapaEntidad
     /// <summary>Reporte de cierre de caja (resumen, productos vendidos y anulaciones).</summary>
     public class ReporteCaja
     {
+        public List<MovimientoCaja> Movimientos { get; set; } = new();
         public Caja Caja { get; set; } = new();
         public List<PuntoReporte> Productos { get; set; } = new();
         public List<Venta> Anuladas { get; set; } = new();

@@ -8,11 +8,13 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="~/js/tema.js" asp-append-version="true"></script>
     <title>Iniciar sesión - @Model.NombreNegocio</title>
     @if (!string.IsNullOrEmpty(Model.LogoUrl)) { <link rel="icon" href="@Model.LogoUrl" /> }
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/css/tema.css" asp-append-version="true" />
     <style>
         :root {
             --marca: @Model.ColorPrimario;
@@ -22,31 +24,40 @@
         }
     </style>
 </head>
-<body class="login-fondo d-flex align-items-center justify-content-center p-3">
-    <div class="card shadow-lg login-card border-0">
-        <div class="card-body p-4">
-            <div class="text-center mb-4">
-                @if (!string.IsNullOrEmpty(Model.LogoUrl)) { <img src="@Model.LogoUrl" alt="" class="login-logo" /> }
-                else { <i class="bi bi-basket2-fill text-marca display-4"></i> }
-                <h4 class="mt-2 fw-bold">@Model.NombreNegocio</h4>
-                <p class="text-muted small">Ingrese sus credenciales</p>
+<body class="login-fondo d-flex align-items-center justify-content-center">
+    <div class="login-selector"><partial name="_SelectorTema" /></div>
+    <main class="login-shell">
+        <section class="login-intro" aria-label="Presentación del negocio">
+            <div class="login-brand">
+                @if (!string.IsNullOrEmpty(Model.LogoUrl)) { <img src="@Model.LogoUrl" alt="" class="logo-nav" /> }
+                else { <span class="brand-symbol"><i class="bi bi-basket2-fill"></i></span> }
+                <span>@Model.NombreNegocio</span>
             </div>
-            @if (ViewBag.Error != null)
-            {
-                <div class="alert alert-danger py-2">@ViewBag.Error</div>
-            }
-            <form method="post" asp-action="Login" asp-route-returnUrl="@Context.Request.Query["ReturnUrl"]">
-                <div class="mb-3">
-                    <label class="form-label">Usuario</label>
-                    <input name="usuario" class="form-control" required autofocus />
-                </div>
-                <div class="mb-3">
-                    <label class="form-label">Contraseña</label>
-                    <input name="clave" type="password" class="form-control" required />
-                </div>
-                <button class="btn btn-marca w-100 btn-lg">Ingresar</button>
-            </form>
-        </div>
-    </div>
+            <h1>Tu negocio.<br /><span>Todo bajo control.</span></h1>
+            <p>Ventas, inventario y caja en un solo lugar. Menos cuentas pendientes, más tiempo para tu negocio.</p>
+            <div class="login-features"><span><i class="bi bi-receipt"></i> Ventas</span><span><i class="bi bi-box-seam"></i> Inventario</span><span><i class="bi bi-cash-stack"></i> Caja</span></div>
+        </section>
+        <section class="card login-card">
+            <div class="card-body">
+                <div class="login-icon"><i class="bi bi-person-lock"></i></div>
+                <span class="eyebrow">Acceso al negocio</span>
+                <h2>Bienvenido de nuevo</h2>
+                <p class="text-muted mb-4">Ingresa tus datos para comenzar.</p>
+                @if (ViewBag.Error != null) { <div class="alert alert-danger py-2" role="alert">@ViewBag.Error</div> }
+                <form method="post" asp-action="Login" asp-route-returnUrl="@Context.Request.Query["ReturnUrl"]">
+                    <div class="mb-3">
+                        <label for="usuario" class="form-label">Usuario</label>
+                        <input id="usuario" name="usuario" class="form-control" autocomplete="username" placeholder="Tu usuario" required autofocus />
+                    </div>
+                    <div class="mb-4">
+                        <label for="clave" class="form-label">Contraseña</label>
+                        <input id="clave" name="clave" type="password" class="form-control" autocomplete="current-password" placeholder="Tu contraseña" required />
+                    </div>
+                    <button class="btn btn-marca w-100 btn-lg d-flex justify-content-between align-items-center"><span>Ingresar al sistema</span><i class="bi bi-arrow-right"></i></button>
+                </form>
+                <p class="login-note"><i class="bi bi-shield-check"></i> Acceso exclusivo para el equipo de tu negocio</p>
+            </div>
+        </section>
+    </main>
 </body>
 </html>

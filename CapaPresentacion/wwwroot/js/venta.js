@@ -12,6 +12,7 @@
     let actual = null, cantidad = 1;
     let tipo = 'MESA', pago = 'EFECTIVO', cajaAbierta = true;
     let edicion = null;         // { idVenta, vence (ms) } cuando se edita un pedido ya cobrado
+    let procesando = false;
 
     const precioLinea = l => (l.precio + l.mods.reduce((s, m) => s + m.precio, 0)) * l.cantidad;
     const subtotal = () => pedido.reduce((s, l) => s + precioLinea(l), 0);
@@ -77,7 +78,7 @@
                     </span>
                 </div>
             </div>`;
-        }).join('') : '<p class="text-muted">No hay productos que coincidan.</p>';
+        }).join('') : '<div class="pos-empty"><i class="bi bi-grid"></i><strong>No hay productos para mostrar</strong><span>Prueba otra búsqueda o agrega productos desde Mantenimiento.</span></div>';
     }
 
     $('categorias').addEventListener('click', ev => {
@@ -120,7 +121,7 @@
             return `<div class="mb-3"><div class="fw-semibold mb-2">${esc(g)}${g === 'Salsas' ? ' <small class="text-muted fw-normal">(elija las que quiera)</small>' : ''}</div>
                 ${chips ? `<div class="d-flex flex-wrap gap-2">${items.map(m => `
                     <input type="checkbox" class="btn-check" id="mod${m.idModificador}" value="${m.idModificador}" autocomplete="off" />
-                    <label class="btn btn-sm btn-outline-marca rounded-pill" for="mod${m.idModificador}">${esc(m.nombre)}</label>`).join('')}</div>`
+                    <label class="btn btn-sm btn-outline-marca rounded-pill opcion-modificador" for="mod${m.idModificador}"><i class="bi bi-check-circle-fill seleccion-marca" aria-hidden="true"></i>${esc(m.nombre)}</label>`).join('')}</div>`
                 : `<div class="d-grid gap-2">${items.map(m => `
                     <label class="form-check border rounded p-2 ps-5 d-flex justify-content-between mb-0">
                         <span><input type="checkbox" class="form-check-input" value="${m.idModificador}" /> ${esc(m.nombre)}</span>
@@ -128,11 +129,23 @@
                     </label>`).join('')}</div>`}
             </div>`;
         }).join('') : '<p class="text-muted small mb-0">Este producto no tiene adiciones.</p>';
+        actualizarOpciones();
         modalProducto.show();
     }
+    function actualizarOpciones() {
+        const ids = [...$('modificadores').querySelectorAll('input:checked')].map(i => Number(i.value));
+        const elegidas = modificadores.filter(m => m.idProducto === actual.idProducto && ids.includes(m.idModificador));
+        $('resumenOpciones').textContent = elegidas.length
+            ? `Seleccionado: ${elegidas.map(m => m.nombre).join(' · ')}`
+            : 'Sin opciones adicionales. Puedes elegir varias.';
+        const importe = (actual.precio + elegidas.reduce((s, m) => s + m.precio, 0)) * cantidad;
+        $('btnAgregarPedido').textContent = `Agregar ${cantidad} · ${moneda(importe)}`;
+        $('btnMenos').disabled = cantidad <= 1;
+    }
+    $('modificadores').addEventListener('change', actualizarOpciones);
     $('modalProducto').addEventListener('shown.bs.modal', () => $('btnAgregarPedido').focus());
-    $('btnMenos').addEventListener('click', () => { cantidad = Math.max(1, cantidad - 1); $('lblCantidad').textContent = cantidad; });
-    $('btnMas').addEventListener('click', () => { cantidad++; $('lblCantidad').textContent = cantidad; });
+    $('btnMenos').addEventListener('click', () => { cantidad = Math.max(1, cantidad - 1); $('lblCantidad').textContent = cantidad; actualizarOpciones(); });
+    $('btnMas').addEventListener('click', () => { cantidad++; $('lblCantidad').textContent = cantidad; actualizarOpciones(); });
     $('btnAgregarPedido').addEventListener('click', () => {
         const ids = [...$('modificadores').querySelectorAll('input:checked')].map(i => Number(i.value));
         const mods = modificadores.filter(m => m.idProducto === actual.idProducto && ids.includes(m.idModificador));
@@ -153,6 +166,9 @@
 
     /* ---------- Pedido ---------- */
     function pintarPedido() {
+        const unidades = pedido.reduce((s, l) => s + l.cantidad, 0);
+        $('resumenPedido').textContent = unidades ? `${unidades} producto${unidades === 1 ? '' : 's'} en el pedido` : 'Agrega un producto para comenzar';
+        $('btnVaciar').disabled = !pedido.length || procesando;
         $('lineas').innerHTML = pedido.length ? pedido.map((l, i) => `
             <div class="linea d-flex gap-2 py-2 border-bottom">
                 <div class="flex-grow-1">
@@ -198,7 +214,16 @@
         const billetes = [...new Set([t, ...[10000, 20000, 50000, 100000].map(b => Math.ceil(t / b) * b)])].filter(v => v > 0).slice(0, 4);
         $('billetes').innerHTML = billetes.map(v => `<button type="button" class="btn btn-sm btn-light border" data-billete="${v}">${moneda(v)}</button>`).join('');
         const vencida = edicion && Date.now() >= edicion.vence;
-        $('btnCobrar').disabled = !pedido.length || !cajaAbierta || vencida;
+        const insuficiente = pago === 'EFECTIVO' && $('txtRecibido').value !== '' && recibido < t;
+        $('btnCobrar').disabled = !pedido.length || !cajaAbierta || vencida || insuficiente || procesando;
+        $('lblCobrar').textContent = procesando ? 'Procesando…' : edicion ? 'Guardar cambios' : `Cobrar${pedido.length ? ' · ' + moneda(t) : ''}`;
+        $('ayudaCobro').textContent = procesando ? 'Espera mientras registramos el pedido.'
+            : !cajaAbierta ? 'Abre la caja para registrar la venta.'
+            : vencida ? 'Terminó el tiempo para editar este pedido.'
+            : !pedido.length ? 'Elige productos del catálogo.'
+            : insuficiente ? `Faltan ${moneda(t - recibido)} para completar el pago.`
+            : pago === 'EFECTIVO' && $('txtRecibido').value === '' ? 'Si paga el valor exacto, puedes dejar el dinero recibido vacío.'
+            : 'Revisa el pedido y el método de pago antes de confirmar.';
         $('btnPonerEspera').disabled = !pedido.length || !!edicion;
     }
     $('billetes').addEventListener('click', ev => {
@@ -215,7 +240,10 @@
         });
     }
     function seleccionar(grupo, valor, alCambiar) {
-        grupo.querySelectorAll('.btn').forEach(x => x.classList.toggle('active', x.dataset.valor === valor));
+        grupo.querySelectorAll('.btn').forEach(x => {
+            x.classList.toggle('active', x.dataset.valor === valor);
+            x.setAttribute('aria-pressed', String(x.dataset.valor === valor));
+        });
         alCambiar(valor);
     }
     const alCambiarTipo = v => {
@@ -265,7 +293,9 @@
             montoRecibido: recibido,
             lineas: pedido.map(l => ({ idProducto: l.idProducto, cantidad: l.cantidad, notas: l.notas, modificadores: l.mods.map(m => m.idModificador) }))
         };
-        $('btnCobrar').disabled = true;
+        procesando = true;
+        $('btnCobrar').setAttribute('aria-busy', 'true');
+        totales();
         try {
             const r = await api.post('/Venta/Registrar', venta);
             if (!r.resultado) { alerta(r.mensaje, 'warning'); totales(); return; }
@@ -273,13 +303,19 @@
             $('lblListoTotal').textContent = `Pedido N° ${r.id} · ${moneda(t)}`;
             $('lblListoCambio').textContent = pago === 'EFECTIVO' ? `Cambio: ${moneda(recibido - t)}` : etiquetaPago[pago];
             $('lnkTicket').href = `/Venta/Ticket/${r.id}`;
+            $('lnkVistaTicket').href = `/Venta/Ticket/${r.id}?vista=1`;
             $('lnkComanda').href = `/Venta/Ticket/${r.id}?comanda=true`;
             if (edicion) { history.replaceState(null, '', '/Venta'); salirEdicion(); }
             limpiar();
             cargar();   // refresca más vendidos y disponibilidad
             cargarComandas();
             modalListo.show();
-        } catch (e) { errorAlerta(e); totales(); }
+        } catch (e) { errorAlerta(e); }
+        finally {
+            procesando = false;
+            $('btnCobrar').removeAttribute('aria-busy');
+            pintarPedido();
+        }
     }
     $('btnCobrar').addEventListener('click', cobrar);
 
@@ -431,6 +467,5 @@
 
     pintarEspera();
     cargar();
-    cargarComandas();
-    setInterval(cargarComandas, 20000);
+    if(APP.mostrarCocina){ cargarComandas(); setInterval(cargarComandas, 20000); }
 })();

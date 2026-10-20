@@ -14,8 +14,8 @@
     <meta charset="utf-8" />
     <title>Ticket @v.IdVenta</title>
     <style>
-        @@page { size: 80mm auto; margin: 3mm; }
-        body { font-family: "Courier New", monospace; font-size: 12px; width: 72mm; margin: 0 auto; color: #000; }
+        @@page { size: auto; margin: 3mm; }
+        body { font-family: "Courier New", monospace; font-size: 12px; width: @(c.AnchoTicket - 8)mm; overflow-wrap: anywhere; margin: 0 auto; color: #000; }
         .c { text-align: center; } .r { text-align: right; } .b { font-weight: bold; }
         .logo { max-width: 40mm; max-height: 25mm; display: block; margin: 0 auto 4px; }
         hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
@@ -25,10 +25,14 @@
         .acciones { text-align: center; margin: 12px 0; }
         .anulado { border: 2px solid #000; text-align: center; font-weight: bold; font-size: 16px; padding: 4px; margin: 6px 0; }
         .comanda { font-size: 15px; } .comanda .sub { font-size: 13px; }
-        @@media print { .acciones { display: none; } }
+        td.r { white-space: nowrap; padding-left: 4px; } tr { break-inside: avoid; }
+        .acciones button { padding: 10px 14px; cursor: pointer; margin: 4px; }
+        .guia { font-family: sans-serif; font-size: 12px; line-height: 1.4; }
+        @@media screen { html { background: #eef0f3; } body { background: white; padding: 16px; margin: 24px auto; box-shadow: 0 4px 24px #0002; border-radius: 6px; } }
+        @@media print { .acciones { display: none; } body { margin: 0; } }
     </style>
 </head>
-<body class="@(comanda ? "comanda" : "")">
+<body class="@(comanda ? "comanda" : "")" data-auto="@((c.ImprimirAutomatico && Context.Request.Query["vista"] != "1") ? "true" : "false")">
     @if (v.Anulada) { <div class="anulado">PEDIDO ANULADO<br /><small>@v.MotivoAnulacion</small></div> }
     @if (comanda)
     {
@@ -45,8 +49,8 @@
             }
         </table>
         <hr />
-        <div class="acciones"><button onclick="window.print()">Imprimir</button> <button onclick="window.close()">Cerrar</button></div>
-        <script>window.addEventListener('load', () => setTimeout(() => window.print(), 300));</script>
+        <div class="acciones"><div class="guia">Papel @(c.AnchoTicket) mm · Escala 100 % · Sin encabezados ni pies</div><button id="btnImprimir" disabled>Imprimir</button> <button onclick="window.close()">Cerrar</button></div>
+        <script src="~/js/impresion.js" asp-append-version="true"></script>
         @:</body></html>
         return;
     }
@@ -87,8 +91,9 @@
         }
     </table>
     <hr />
+    <div class="c" style="font-size:10px">Comprobante de pedido · No es factura electrónica</div>
     <div class="c">@(string.IsNullOrEmpty(c.MensajeTicket) ? "¡Gracias por su compra!" : c.MensajeTicket)</div>
-    <div class="acciones"><button onclick="window.print()">Imprimir</button> <button onclick="window.close()">Cerrar</button></div>
-    <script>window.addEventListener('load', () => setTimeout(() => window.print(), 300));</script>
+    <div class="acciones"><div class="guia">Papel @(c.AnchoTicket) mm · Escala 100 % · Sin encabezados ni pies</div><button id="btnImprimir" disabled>Imprimir</button> <button onclick="window.close()">Cerrar</button></div>
+    <script src="~/js/impresion.js" asp-append-version="true"></script>
 </body>
 </html>

@@ -1,32 +1,42 @@
 @{
+    var cfg = new CapaNegocio.CN_Configuracion().Obtener();
     ViewData["Title"] = "Inicio";
     ViewData["OcultarTitulo"] = true;
 }
-<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+<section class="dashboard-hero">
     <div>
-        <h4 class="mb-0 titulo-pagina">Hola, @User.Identity?.Name</h4>
-        <span class="text-muted">Resumen de hoy en la sede <strong>@CapaPresentacion.Infraestructura.UsuarioActual.Sede(User)</strong></span>
+        <span class="eyebrow">Panel de operaciones</span>
+        <h1 class="hero-title">Hola, @User.Identity?.Name</h1>
+        <p class="hero-description">Así va tu negocio hoy en <strong>@CapaPresentacion.Infraestructura.UsuarioActual.Sede(User)</strong>.</p>
     </div>
-    <div class="d-flex gap-2">
+    <div class="hero-actions">
         <span id="estadoCaja"></span>
-        <a asp-controller="Venta" asp-action="Index" class="btn btn-marca"><i class="bi bi-cart-plus"></i> Nueva venta</a>
+        <a asp-controller="Venta" asp-action="Index" class="btn btn-marca"><i class="bi bi-plus-lg"></i> Nueva venta</a>
     </div>
-</div>
+</section>
 
 <div class="row g-3 mb-4">
-    <div class="col-6 col-lg"><div class="card kpi shadow-sm"><div class="card-body"><div class="text-muted small">Ventas de hoy</div><div class="valor" id="kpiVentas">-</div></div></div></div>
-    <div class="col-6 col-lg"><div class="card kpi shadow-sm"><div class="card-body"><div class="text-muted small">Pedidos de hoy</div><div class="valor" id="kpiPedidos">-</div></div></div></div>
-    <div class="col-6 col-lg"><a asp-controller="Domicilio" asp-action="Index" class="text-reset text-decoration-none"><div class="card kpi shadow-sm"><div class="card-body"><div class="text-muted small">Domicilios pendientes</div><div class="valor" id="kpiDomicilios">-</div></div></div></a></div>
-    <div class="col-6 col-lg"><div class="card kpi ok shadow-sm"><div class="card-body"><div class="text-muted small">Valor del inventario</div><div class="valor" id="kpiValor">-</div></div></div></div>
-    <div class="col-12 col-lg"><div class="card kpi alerta shadow-sm"><div class="card-body"><div class="text-muted small">Insumos bajo el mínimo</div><div class="valor" id="kpiBajo">-</div></div></div></div>
+    <div class="col-6 col-lg"><div class="card kpi kpi-principal shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-cash-coin"></i></span><div class="text-muted small">Ventas de hoy</div><div class="valor" id="kpiVentas">-</div></div></div></div>
+    <div class="col-6 col-lg"><div class="card kpi shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-receipt"></i></span><div class="text-muted small">Pedidos de hoy</div><div class="valor" id="kpiPedidos">-</div></div></div></div>
+    <div class="col-6 col-lg" hidden="@(!cfg.MostrarDomicilios)"><a asp-controller="Domicilio" asp-action="Index" class="text-reset text-decoration-none"><div class="card kpi shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-bicycle"></i></span><div class="text-muted small">Domicilios pendientes</div><div class="valor" id="kpiDomicilios">-</div></div></div></a></div>
+    <div class="col-6 col-lg"><div class="card kpi ok shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-box-seam"></i></span><div class="text-muted small">Valor del inventario</div><div class="valor" id="kpiValor">-</div></div></div></div>
+    <div class="col-12 col-lg"><div class="card kpi alerta shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></span><div class="text-muted small">Insumos bajo el mínimo</div><div class="valor" id="kpiBajo">-</div></div></div></div>
 </div>
 
+@if (User.IsInRole("ADMINISTRADOR"))
+{
+    <div class="quick-actions">
+        <a asp-controller="Producto" asp-action="Index" class="quick-action"><i class="bi bi-grid"></i><span><strong>Productos y recetas</strong><small>Organiza lo que vendes</small></span><i class="bi bi-arrow-up-right"></i></a>
+        <a asp-controller="Movimiento" asp-action="Index" class="quick-action"><i class="bi bi-box-arrow-in-down"></i><span><strong>Entradas de inventario</strong><small>Registra tus insumos</small></span><i class="bi bi-arrow-up-right"></i></a>
+        <a asp-controller="Caja" asp-action="Index" class="quick-action"><i class="bi bi-wallet2"></i><span><strong>Caja y movimientos</strong><small>Controla el dinero del día</small></span><i class="bi bi-arrow-up-right"></i></a>
+    </div>
+}
 <div class="row g-3">
     <div class="col-lg-7">
         <div class="card shadow-sm h-100">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <strong><i class="bi bi-exclamation-triangle text-warning"></i> Insumos por pedir</strong>
-                @if (User.IsInRole("ADMINISTRADOR")) { <a asp-controller="Compra" asp-action="Index" class="btn btn-sm btn-outline-marca">Orden de compra</a> }
+                @if (User.IsInRole("ADMINISTRADOR") && cfg.MostrarAvanzado) { <a asp-controller="Compra" asp-action="Index" class="btn btn-sm btn-outline-marca">Orden de compra</a> }
             </div>
             <div class="card-body p-0 table-responsive">
                 <table class="table table-sm mb-0">
@@ -36,7 +46,7 @@
             </div>
         </div>
     </div>
-    <div class="col-lg-5">
+    <div class="col-lg-5" hidden="@(!cfg.MostrarAvanzado)">
         <div class="card shadow-sm h-100">
             <div class="card-header bg-white"><strong><i class="bi bi-calendar-x text-danger"></i> Próximos a vencer</strong></div>
             <div class="card-body p-0 table-responsive">

@@ -50,7 +50,7 @@ const badgeActivo = activo => activo
 function renderTabla(tbody, lista, filaFn, columnas) {
     tbody.innerHTML = lista.length
         ? lista.map(filaFn).join('')
-        : `<tr><td colspan="${columnas}" class="text-center text-muted">Sin registros</td></tr>`;
+        : `<tr><td colspan="${columnas}" class="text-center"><div class="table-empty"><i class="bi bi-inbox"></i><span>Sin registros por ahora</span></div></td></tr>`;
 }
 
 /* Filtro de texto sobre las filas de una tabla */

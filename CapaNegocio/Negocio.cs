@@ -30,6 +30,7 @@ namespace CapaNegocio
                 return Respuesta.Error("El tiempo para editar pedidos debe estar entre 0 y 60 minutos");
             if (c.MinutosAlertaCocina < 1 || c.MinutosAlertaDomicilio < 1)
                 return Respuesta.Error("Los tiempos de alerta deben ser de al menos 1 minuto");
+            if (c.AnchoTicket != 58 && c.AnchoTicket != 80) return Respuesta.Error("El ancho del ticket debe ser 58 u 80 mm");
             if (c.CostoDomicilio < 0) return Respuesta.Error("El valor del domicilio no puede ser negativo");
             if (string.IsNullOrWhiteSpace(c.SimboloMoneda)) c.SimboloMoneda = "$";
             var r = _datos.Guardar(c);

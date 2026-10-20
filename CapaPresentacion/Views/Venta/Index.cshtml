@@ -1,4 +1,5 @@
 @{
+    var cfg = new CapaNegocio.CN_Configuracion().Obtener();
     ViewData["Title"] = "Vender";
     ViewData["OcultarTitulo"] = true;
 }
@@ -13,9 +14,10 @@
     <a href="/Venta" class="btn btn-sm btn-outline-secondary">Cancelar edición</a>
 </div>
 
+<div class="d-flex justify-content-between align-items-center mb-3"><div><span class="eyebrow">Punto de venta</span><h1 class="titulo-pagina mb-0">Nuevo pedido</h1></div><span class="badge text-bg-light"><i class="bi bi-shop"></i> @CapaPresentacion.Infraestructura.UsuarioActual.Sede(User)</span></div>
 <div class="pos">
     <section>
-        <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <div class="pos-toolbar d-flex flex-wrap gap-2 align-items-center mb-3">
             <div class="input-group" style="max-width:320px">
                 <span class="input-group-text bg-white"><i class="bi bi-search"></i></span>
                 <input id="txtBuscar" class="form-control" placeholder="Buscar producto... (F2)" autocomplete="off" />
@@ -26,7 +28,7 @@
                 </button>
                 <ul class="dropdown-menu" id="listaEspera"></ul>
             </div>
-            <button class="btn btn-outline-secondary bg-white" data-bs-toggle="offcanvas" data-bs-target="#panelComandas" title="Pedidos que están en cocina">
+            <button class="btn btn-outline-secondary bg-white" data-bs-toggle="offcanvas" data-bs-target="#panelComandas" hidden="@(!cfg.MostrarCocina)" title="Pedidos que están en cocina">
                 <i class="bi bi-fire"></i> Comandas <span class="badge rounded-pill text-bg-danger" id="lblComandas">0</span>
             </button>
         </div>
@@ -43,7 +45,7 @@
             <div class="btn-group segmentado w-100 mb-3" role="group" id="tipoPedido">
                 <button type="button" class="btn btn-outline-marca active" data-valor="MESA"><i class="bi bi-cup-hot"></i> Mesa</button>
                 <button type="button" class="btn btn-outline-marca" data-valor="LLEVAR"><i class="bi bi-bag-check"></i> Llevar</button>
-                <button type="button" class="btn btn-outline-marca" data-valor="DOMICILIO"><i class="bi bi-bicycle"></i> Domicilio</button>
+                <button type="button" class="btn btn-outline-marca" data-valor="DOMICILIO" hidden="@(!cfg.MostrarDomicilios)"><i class="bi bi-bicycle"></i> Domicilio</button>
             </div>
 
             <div id="datosCliente" class="row g-2 mb-3" hidden>
@@ -57,6 +59,7 @@
                 <input id="txtNombreMesa" class="form-control form-control-sm" placeholder="Nombre o mesa (opcional)" maxlength="100" />
             </div>
 
+            <div class="small text-muted mb-2" id="resumenPedido" aria-live="polite"></div>
             <div class="lineas" id="lineas"></div>
 
             <hr />
@@ -70,26 +73,29 @@
                 <button type="button" class="btn btn-outline-secondary" data-valor="TRANSFERENCIA"><i class="bi bi-phone"></i> Transf.</button>
             </div>
             <div id="datosEfectivo" class="row g-2 align-items-center mb-3">
-                <div class="col-6"><input id="txtRecibido" type="number" min="0" step="1000" class="form-control" placeholder="Recibido" /></div>
+                <div class="col-6"><label for="txtRecibido" class="small text-muted">Dinero recibido</label><input id="txtRecibido" type="number" min="0" step="1000" class="form-control" placeholder="Valor exacto" /></div>
                 <div class="col-6 text-end">Cambio: <strong id="lblCambio">$ 0</strong></div>
                 <div class="col-12 d-flex gap-1 flex-wrap" id="billetes"></div>
             </div>
 
             <div class="d-flex gap-2">
-                <button class="btn btn-outline-secondary" id="btnPonerEspera" title="Guardar el pedido sin cobrar"><i class="bi bi-pause-circle"></i></button>
+                <button class="btn btn-outline-secondary" id="btnPonerEspera" title="Guardar el pedido sin cobrar"><i class="bi bi-pause-circle"></i> En espera</button>
                 <button class="btn btn-marca btn-lg flex-grow-1" id="btnCobrar" disabled><i class="bi bi-check2-circle"></i> <span id="lblCobrar">Cobrar</span></button>
             </div>
+            <p class="small text-muted mt-2 mb-0" id="ayudaCobro" aria-live="polite"></p>
             <div class="text-muted text-center small mt-2 d-none d-lg-block">F2 buscar · Enter agregar · F9 cobrar</div>
         </div>
     </aside>
 </div>
 
 <!-- Adiciones, salsas y notas del producto -->
-<div class="modal fade" id="modalProducto" tabindex="-1">
+<div class="modal fade" id="modalProducto" tabindex="-1" aria-labelledby="tituloProducto">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
         <div class="modal-header"><h5 class="modal-title" id="tituloProducto"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
         <div class="modal-body">
+            <p class="small text-muted">Personaliza el producto y revisa tus opciones antes de agregarlo.</p>
             <div id="modificadores"></div>
+            <div class="resumen-opciones small p-3 rounded mb-2" id="resumenOpciones" aria-live="polite"></div>
             <label class="form-label mt-2" for="txtNotas">Notas para cocina</label>
             <input id="txtNotas" class="form-control" maxlength="150" placeholder="Ej: bien asada, salsas aparte" />
         </div>
@@ -113,8 +119,9 @@
             <p class="mb-1" id="lblListoTotal"></p>
             <p class="text-muted small" id="lblListoCambio"></p>
             <div class="d-grid gap-2">
+                <a class="btn btn-outline-secondary" id="lnkVistaTicket" target="_blank"><i class="bi bi-eye"></i> Ver comprobante</a>
                 <a class="btn btn-marca" id="lnkTicket" target="_blank"><i class="bi bi-printer"></i> Imprimir ticket</a>
-                <a class="btn btn-outline-secondary" id="lnkComanda" target="_blank"><i class="bi bi-fire"></i> Comanda para cocina</a>
+                <a class="btn btn-outline-secondary" id="lnkComanda" hidden="@(!cfg.MostrarCocina)" target="_blank"><i class="bi bi-fire"></i> Comanda para cocina</a>
                 <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Nueva venta</button>
             </div>
         </div>

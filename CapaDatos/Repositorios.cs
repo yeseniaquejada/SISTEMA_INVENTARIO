@@ -23,6 +23,9 @@ namespace CapaDatos
                 MinutosEdicion = dr.Entero("MinutosEdicion"),
                 MinutosAlertaCocina = dr.Entero("MinutosAlertaCocina"),
                 MinutosAlertaDomicilio = dr.Entero("MinutosAlertaDomicilio"),
+                MostrarCocina=dr.Bool("MostrarCocina"), MostrarDomicilios=dr.Bool("MostrarDomicilios"),
+                MostrarMultisede=dr.Bool("MostrarMultisede"), MostrarAvanzado=dr.Bool("MostrarAvanzado"),
+                AnchoTicket=dr.Entero("AnchoTicket"), ImprimirAutomatico=dr.Bool("ImprimirAutomatico"),
                 CostoDomicilio = dr.Decimal("CostoDomicilio")
             }).FirstOrDefault() ?? new Configuracion();
 
@@ -32,7 +35,8 @@ namespace CapaDatos
                 P("@ColorSecundario", c.ColorSecundario), P("@LogoUrl", c.LogoUrl), P("@SimboloMoneda", c.SimboloMoneda),
                 P("@MensajeTicket", c.MensajeTicket), P("@DiasAlertaVencimiento", c.DiasAlertaVencimiento),
                 P("@MinutosEdicion", c.MinutosEdicion), P("@MinutosAlertaCocina", c.MinutosAlertaCocina),
-                P("@MinutosAlertaDomicilio", c.MinutosAlertaDomicilio), P("@CostoDomicilio", c.CostoDomicilio));
+                P("@MinutosAlertaDomicilio", c.MinutosAlertaDomicilio), P("@CostoDomicilio", c.CostoDomicilio),P("@MostrarCocina",c.MostrarCocina),P("@MostrarDomicilios",c.MostrarDomicilios),
+                P("@MostrarMultisede",c.MostrarMultisede),P("@MostrarAvanzado",c.MostrarAvanzado),P("@AnchoTicket",c.AnchoTicket),P("@ImprimirAutomatico",c.ImprimirAutomatico));
     }
 
     public class CD_Sede
@@ -334,6 +338,7 @@ namespace CapaDatos
                 NumeroVentas = dr.Entero("NumeroVentas"),
                 NumeroAnuladas = dr.Entero("NumeroAnuladas"),
                 TotalAnulado = dr.Decimal("TotalAnulado"),
+                IngresosEfectivo=dr.Decimal("IngresosEfectivo"), EgresosEfectivo=dr.Decimal("EgresosEfectivo"),
                 EfectivoEnDomicilios = dr.Decimal("EfectivoEnDomicilios")
             }, P("@IdSede", idSede)).FirstOrDefault();
 
@@ -388,10 +393,11 @@ namespace CapaDatos
                         Domicilios = dr.Decimal("Domicilios"),
                         NumeroVentas = dr.Entero("NumeroVentas"),
                         NumeroAnuladas = dr.Entero("NumeroAnuladas"),
-                        TotalAnulado = dr.Decimal("TotalAnulado")
+                        TotalAnulado = dr.Decimal("TotalAnulado"),
+                        IngresosEfectivo=dr.Decimal("IngresosEfectivo"), EgresosEfectivo=dr.Decimal("EgresosEfectivo")
                     }
                 };
-                r.Caja.EfectivoEsperado = r.Caja.BaseInicial + r.Caja.VentasEfectivo;
+                r.Caja.EfectivoEsperado = r.Caja.Estado == "CERRADA" ? dr.Decimal("EfectivoEsperadoGuardado") : r.Caja.BaseInicial + r.Caja.VentasEfectivo + r.Caja.IngresosEfectivo - r.Caja.EgresosEfectivo;
                 dr.NextResult();
                 while (dr.Read())
                     r.Productos.Add(new PuntoReporte { Etiqueta = dr.Texto("Nombre"), Cantidad = dr.Entero("Cantidad"), Total = dr.Decimal("Total") });
@@ -405,8 +411,10 @@ namespace CapaDatos
                         Usuario = dr.Texto("Usuario")
                     });
             }, P("@IdSede", idSede), P("@IdCaja", idCaja));
+            if (r != null) r.Movimientos = Movimientos(idSede, idCaja);
             return r;
         }
+        public List<MovimientoCaja> Movimientos(int sede,int caja) => new CD_ControlOperacion().Movimientos(sede,caja);
     }
 
     public class CD_Venta

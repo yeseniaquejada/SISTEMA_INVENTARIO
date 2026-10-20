@@ -80,6 +80,9 @@ public class CajaController : Controller
     private readonly CN_Caja _negocio = new();
     public IActionResult Index() => View();
 
+    [HttpGet] public JsonResult Movimientos(int idCaja) => Json(new CN_ControlOperacion().Movimientos(User.IdSede(), idCaja));
+    [HttpPost] public JsonResult RegistrarMovimiento([FromBody] MovimientoCaja obj) => Json(new CN_ControlOperacion().Registrar(User.IdSede(),User.Id(),User.EsAdmin(),obj));
+    [HttpPost, Authorize(Roles=Claves.Admin)] public JsonResult AnularMovimiento(int id,string? motivo) => Json(new CN_ControlOperacion().Anular(User.IdSede(),User.Id(),id,motivo));
     [HttpGet] public JsonResult Actual() => Json(_negocio.Actual(User.IdSede()));
     [HttpGet] public JsonResult Historial() => Json(_negocio.Historial(User.IdSede()));
     [HttpPost] public JsonResult Abrir(decimal baseInicial) => Json(_negocio.Abrir(User.IdSede(), User.Id(), baseInicial));
