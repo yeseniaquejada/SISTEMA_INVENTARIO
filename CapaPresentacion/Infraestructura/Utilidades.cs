@@ -115,6 +115,7 @@ public static class Excel
         ("Avisar cuando queden", "El sistema avisa que hay que comprar cuando queden esta cantidad o menos.", false),
         ("Costo por unidad", "Lo que le cuesta una unidad. Sirve para calcular el costo de cada producto.", false),
         ("Código (opcional)", "Déjelo vacío y el sistema lo crea. Solo cámbielo si ya usa códigos propios.", false),
+        ("Dato por confirmar", "Lo que falta averiguar de este insumo. Bórrelo cuando ya esté confirmado.", false),
     };
 
     /// <summary>
@@ -170,6 +171,7 @@ public static class Excel
             ws.Cell(f, 4).Value = i.StockMinimo;
             ws.Cell(f, 5).Value = i.CostoUnitario;
             ws.Cell(f, 6).Value = i.Codigo;
+            ws.Cell(f, 7).Value = i.PorConfirmar;
             f++;
         }
         ws.Range(2, 3, FilasPlantilla, 5).Style.NumberFormat.Format = "General";
@@ -180,6 +182,8 @@ public static class Excel
         ws.Column(2).Width = 18;
         ws.Columns(3, 5).Width = 16;
         ws.Column(6).Width = 18;
+        ws.Column(7).Width = 50;
+        ws.Range(2, 7, FilasPlantilla, 7).Style.Font.FontColor = XLColor.FromHtml("#9A5B00");
         ws.SheetView.FreezeRows(1);
         listas.Hide();
 
@@ -193,7 +197,8 @@ public static class Excel
             "4. \"Avisar cuando queden\": cuando el inventario baje a esa cantidad, el sistema le avisa que debe comprar.",
             "5. \"Costo por unidad\": lo que le cuesta cada unidad. Escriba solo números, sin $ ni puntos (ejemplo: 1500).",
             "6. El código es opcional. Si lo deja vacío, el sistema lo crea solo.",
-            "7. Guarde el archivo y súbalo en Configuración > Insumos > Subir plantilla.",
+            "7. \"Dato por confirmar\": lo que falta averiguar (por ejemplo, una cantidad que no se leía). El sistema lo resalta en Insumos hasta que lo borre.",
+            "8. Guarde el archivo y súbalo en Configuración > Insumos > Subir plantilla.",
             "",
             "Si algo está mal, el sistema le dice en qué fila y no guarda nada, para que lo corrija y lo vuelva a subir.",
             "",
@@ -206,16 +211,16 @@ public static class Excel
         object[][] ejemplo =
         {
             ColumnasInventario.Select(x => (object)x.titulo).ToArray(),
-            new object[] { "Pan de hamburguesa", "Unidad (UND)", 120, 30, 1000, "" },
-            new object[] { "Queso mozzarella (tajada)", "Porción (PORC)", 200, 40, 500, "" },
-            new object[] { "Carne de res", "Kilogramo (KG)", 2.5, 1, 32000, "" },
+            new object[] { "Pan de hamburguesa", "Unidad (UND)", 120, 30, 1000, "", "" },
+            new object[] { "Queso mozzarella (tajada)", "Porción (PORC)", 200, 40, 500, "", "" },
+            new object[] { "Carne de res", "Kilogramo (KG)", 2.5, 1, 32000, "", "¿El costo es del kilo con o sin hueso?" },
         };
         for (int r = 0; r < ejemplo.Length; r++)
             for (int c = 0; c < ejemplo[r].Length; c++)
                 ins.Cell(e + r, c + 1).Value = XLCellValue.FromObject(ejemplo[r][c]);
         ins.Row(e).Style.Font.Bold = true;
         ins.Column(1).Width = 30;
-        ins.Columns(2, 6).Width = 18;
+        ins.Columns(2, 7).Width = 18;
 
         return Descargar(wb, nombre);
     }
@@ -238,6 +243,7 @@ public static class Excel
         int cMinimo = Buscar("Avisar cuando queden", "Stock mínimo");
         int cCosto = Buscar("Costo por unidad", "Costo unitario");
         int cStock = Buscar("Cantidad que hay hoy", "Stock actual");
+        int cNota = Buscar("Dato por confirmar");
 
         var filas = new List<CapaEntidad.FilaImportacion>();
         int ultima = ws.LastRowUsed()?.RowNumber() ?? 1;
@@ -252,7 +258,8 @@ public static class Excel
                 UnidadMedida = fila.Cell(cUnidad).GetString(),
                 StockMinimo = cMinimo > 0 ? Numero(fila.Cell(cMinimo), r) ?? 0 : 0,
                 CostoUnitario = cCosto > 0 ? Numero(fila.Cell(cCosto), r) ?? 0 : 0,
-                Stock = cStock > 0 ? Numero(fila.Cell(cStock), r) : null
+                Stock = cStock > 0 ? Numero(fila.Cell(cStock), r) : null,
+                PorConfirmar = cNota > 0 ? fila.Cell(cNota).GetString() : null
             });
         }
         return filas;

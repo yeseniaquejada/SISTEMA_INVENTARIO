@@ -125,8 +125,9 @@ namespace CapaDatos
 
     public class CD_Insumo
     {
-        public List<Insumo> Listar(int idSede) =>
-            Conexion.Listar("SP_INSUMO_LISTAR", dr => new Insumo
+        public List<Insumo> Listar(int idSede)
+        {
+            var lista = Conexion.Listar("SP_INSUMO_LISTAR", dr => new Insumo
             {
                 IdInsumo = dr.Entero("IdInsumo"),
                 Codigo = dr.Texto("Codigo"),
@@ -140,6 +141,26 @@ namespace CapaDatos
                 Activo = dr.Bool("Activo"),
                 ProximoVencimiento = dr["ProximoVencimiento"] == DBNull.Value ? "" : ((DateTime)dr["ProximoVencimiento"]).ToString("yyyy-MM-dd")
             }, P("@IdSede", idSede));
+            var notas = Pendientes();
+            foreach (var i in lista)
+                if (notas.TryGetValue(i.IdInsumo, out var nota)) i.PorConfirmar = nota;
+            return lista;
+        }
+
+        // Yesenia Quejada Rojas - Claude — 23/10/2026: notas de "dato por confirmar" (BaseDatos/Insumos_PorConfirmar.sql).
+        // Si la base aún no tiene el script, los insumos se listan igual, sin notas.
+        private static Dictionary<int, string> Pendientes()
+        {
+            try
+            {
+                return Conexion.Listar("SP_INSUMO_PENDIENTE_LISTAR", dr => (Id: dr.Entero("IdInsumo"), Nota: dr.Texto("Nota")))
+                    .ToDictionary(x => x.Id, x => x.Nota);
+            }
+            catch (SqlException) { return new(); }
+        }
+
+        public Respuesta GuardarPendiente(int idInsumo, string nota) =>
+            Ejecutar("SP_INSUMO_PENDIENTE_GUARDAR", P("@IdInsumo", idInsumo), P("@Nota", nota));
 
         public Respuesta Guardar(Insumo i) =>
             Ejecutar("SP_INSUMO_GUARDAR", P("@IdInsumo", i.IdInsumo), P("@Codigo", i.Codigo), P("@Nombre", i.Nombre),
