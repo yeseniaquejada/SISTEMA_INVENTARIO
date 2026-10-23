@@ -106,6 +106,7 @@ function Mantenimiento(op) {
     async function cargar() {
         try {
             datos = await api.get(`${op.base}/Listar`);
+            op.alCargar?.(datos);
             renderTabla(tbody, datos, obj => `<tr>${op.fila(obj)}
                 <td class="text-end text-nowrap">
                     <button class="btn btn-sm btn-outline-primary" data-editar="${obj[op.id]}" title="Editar"><i class="bi bi-pencil"></i></button>

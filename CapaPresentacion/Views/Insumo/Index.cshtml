@@ -18,6 +18,13 @@
         Si contó el local y la cantidad no coincide, use <b>Subir plantilla llena</b> con lo que contó.</div>
 </div>
 
+@* Yesenia Quejada Rojas - Claude — 23/10/2026: los insumos con datos por confirmar se resaltan y se pueden ver solos. *@
+<div class="alert alert-warning py-2 mb-3 d-flex flex-wrap align-items-center gap-2" id="avisoPorConfirmar" hidden>
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <span class="me-auto"><b id="totalPorConfirmar"></b> tienen datos por confirmar con el cliente. Abra cada uno con <i class="bi bi-pencil"></i>, corrija el dato y borre la nota.</span>
+    <button class="btn btn-sm btn-warning" id="btnSoloPorConfirmar" type="button">Ver solo esos</button>
+</div>
+
 <div class="modal fade" id="modalImportar" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
         <div class="modal-header"><h5 class="modal-title" id="tituloImportar">Resultado de la carga</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
@@ -49,6 +56,9 @@
                 <div class="col-md-6"><label class="form-label" for="txtMinimo">Avisar cuando queden</label><input id="txtMinimo" name="stockMinimo" type="number" min="0" step="0.001" class="form-control" data-tipo="numero" required />
                     <div class="form-text">Cantidad para avisar que hay que comprar.</div></div>
                 <div class="col-md-6"><label class="form-label" for="txtCosto">Costo por unidad</label><input id="txtCosto" name="costoUnitario" type="number" min="0" step="0.01" class="form-control" data-tipo="numero" required /></div>
+                <div class="col-12"><label class="form-label" for="txtPorConfirmar"><i class="bi bi-exclamation-triangle text-warning"></i> Dato por confirmar <small class="text-muted">(opcional)</small></label>
+                    <textarea id="txtPorConfirmar" name="porConfirmar" class="form-control" rows="2" maxlength="300" placeholder="Ej: no se leía la cantidad en el conteo"></textarea>
+                    <div class="form-text">Cuando lo confirme, corrija el dato arriba y borre este texto.</div></div>
                 <div class="col-12 form-check ms-2"><input type="checkbox" name="activo" class="form-check-input" id="chkActivo" /><label class="form-check-label" for="chkActivo">Activo</label></div>
                 <div class="col-12 small text-muted">La cantidad que hay no se escribe aquí: sube con las compras y baja con las ventas.</div>
             </form>
@@ -62,14 +72,28 @@
     (function () {
         const mant = Mantenimiento({
             base: '/Insumo', id: 'idInsumo', columnas: 8,
-            nuevo: () => ({ idInsumo: 0, idCategoria: 0, unidadMedida: 'UND', stockMinimo: 0, costoUnitario: 0, activo: true }),
-            fila: i => `<td><div class="fw-semibold">${esc(i.nombre)}</div><small class="text-muted">${esc(i.codigo)}</small></td>
+            nuevo: () => ({ idInsumo: 0, idCategoria: 0, unidadMedida: 'UND', stockMinimo: 0, costoUnitario: 0, activo: true, porConfirmar: '' }),
+            alCargar: lista => {
+                const n = lista.filter(i => i.porConfirmar).length;
+                document.getElementById('avisoPorConfirmar').hidden = n === 0;
+                document.getElementById('totalPorConfirmar').textContent = n === 1 ? '1 insumo' : `${n} insumos`;
+                if (n === 0) mostrarSoloPorConfirmar(false);
+            },
+            fila: i => `<td><div class="fw-semibold">${esc(i.nombre)}</div><small class="text-muted">${esc(i.codigo)}</small>
+                ${i.porConfirmar ? `<div class="por-confirmar small mt-1"><i class="bi bi-exclamation-triangle-fill"></i> Por confirmar: ${esc(i.porConfirmar)}</div>` : ''}</td>
                 <td class="text-end text-nowrap ${i.stock <= i.stockMinimo ? 'stock-bajo' : ''}">${num(i.stock)} ${esc(i.unidadMedida)}</td>
                 <td class="text-end text-nowrap">${num(i.stockMinimo)}</td><td class="text-end text-nowrap">${moneda(i.costoUnitario)}</td>
                 <td>${i.proximoVencimiento ? esc(i.proximoVencimiento) : '<span class="text-muted">-</span>'}</td>
                 <td>${badgeActivo(i.activo)}</td>
                 <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/Movimiento?idInsumo=${i.idInsumo}" title="Registrar compra, salida o daño de ${esc(i.nombre)}"><i class="bi bi-arrow-left-right"></i></a></td>`
         });
+
+        const tabla = document.getElementById('tabla'), btnSolo = document.getElementById('btnSoloPorConfirmar');
+        function mostrarSoloPorConfirmar(solo) {
+            tabla.classList.toggle('solo-por-confirmar', solo);
+            btnSolo.textContent = solo ? 'Ver todos' : 'Ver solo esos';
+        }
+        btnSolo.addEventListener('click', () => mostrarSoloPorConfirmar(!tabla.classList.contains('solo-por-confirmar')));
 
         const modalImportar = new bootstrap.Modal(document.getElementById('modalImportar'));
         document.getElementById('archivoExcel').addEventListener('change', async ev => {

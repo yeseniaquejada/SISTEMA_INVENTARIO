@@ -165,7 +165,26 @@ namespace CapaNegocio
             if (i.Codigo.Length > 30) return Respuesta.Error("El código puede tener máximo 30 caracteres");
             if (!Unidades.Contains(i.UnidadMedida)) return Respuesta.Error("Unidad de medida no válida");
             if (i.StockMinimo < 0 || i.CostoUnitario < 0) return Respuesta.Error("Los valores no pueden ser negativos");
-            return _datos.Guardar(i);
+            i.PorConfirmar = i.PorConfirmar?.Trim() ?? "";
+            if (i.PorConfirmar.Length > 300) return Respuesta.Error("El dato por confirmar puede tener máximo 300 caracteres");
+            var r = _datos.Guardar(i);
+            if (r.Resultado)
+            {
+                var n = GuardarPorConfirmar(r.Id, i.PorConfirmar);
+                if (!n.Resultado) return Respuesta.Error("El insumo se guardó pero la nota no: " + n.Mensaje);
+            }
+            return r;
+        }
+
+        /// <summary>
+        /// Guarda o borra (texto vacío) la nota de dato por confirmar. Borrar una nota en una base
+        /// sin el script Insumos_PorConfirmar.sql no es un error: no había nada que borrar.
+        /// </summary>
+        private Respuesta GuardarPorConfirmar(int idInsumo, string nota)
+        {
+            var r = _datos.GuardarPendiente(idInsumo, nota);
+            if (r.Resultado || nota == "") return Respuesta.Ok(idInsumo);
+            return Respuesta.Error(r.Mensaje + " (ejecute BaseDatos/Insumos_PorConfirmar.sql en la base)");
         }
 
         public Respuesta Eliminar(int id) => _datos.Eliminar(id);
@@ -214,6 +233,8 @@ namespace CapaNegocio
                 if (f.Codigo.Length > 30) res.Errores.Add($"Fila {f.Fila}: el código tiene más de 30 caracteres");
                 if (!Unidades.Contains(f.UnidadMedida)) res.Errores.Add($"Fila {f.Fila}: elija la unidad de la lista ({string.Join(", ", Unidades)})");
                 if (f.StockMinimo < 0 || f.CostoUnitario < 0 || f.Stock < 0) res.Errores.Add($"Fila {f.Fila}: hay valores negativos");
+                f.PorConfirmar = f.PorConfirmar?.Trim();
+                if (f.PorConfirmar?.Length > 300) res.Errores.Add($"Fila {f.Fila}: el dato por confirmar tiene más de 300 caracteres");
             }
             foreach (var g in filas.Where(f => f.Codigo != "").GroupBy(f => f.Codigo).Where(g => g.Count() > 1))
                 res.Errores.Add($"El insumo {g.Key} está repetido en las filas {string.Join(", ", g.Select(f => f.Fila))}");
@@ -237,6 +258,11 @@ namespace CapaNegocio
                 });
                 if (!r.Resultado) { res.Errores.Add($"Fila {f.Fila} ({f.Codigo}): {r.Mensaje}"); continue; }
                 if (actual == null) res.Creados++; else res.Actualizados++;
+                if (f.PorConfirmar != null)
+                {
+                    var n = GuardarPorConfirmar(r.Id, f.PorConfirmar);
+                    if (!n.Resultado) res.Errores.Add($"Fila {f.Fila} ({f.Codigo}): {n.Mensaje}");
+                }
                 if (f.Stock.HasValue && f.Stock.Value != (actual?.Stock ?? 0))
                     conteo.Detalle.Add(new ConteoItem { IdInsumo = r.Id, StockContado = f.Stock.Value });
             }
