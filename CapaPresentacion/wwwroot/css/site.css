@@ -28,6 +28,10 @@ body { background: var(--fondo); min-height: 100vh; }
 .kpi.alerta { border-left-color: #f0ad00; }
 .kpi.ok { border-left-color: #198754; }
 .stock-bajo { color: #dc3545; font-weight: 600; }
+/* Insumos con datos por confirmar con el cliente */
+.por-confirmar { color: #8a5300; font-weight: 600; }
+#tabla tbody tr:has(.por-confirmar) > td:first-child { box-shadow: inset 4px 0 0 #f0ad00; }
+#tabla.solo-por-confirmar tbody tr:not(:has(.por-confirmar)) { display: none; }
 
 /* ---- Login ---- */
 .login-fondo { background: linear-gradient(135deg, var(--marca-2) 0%, var(--marca) 100%); min-height: 100vh; }

@@ -42,6 +42,7 @@
     .text-muted, .form-text { color: var(--texto-suave) !important; }
     .text-dark, .text-body { color: var(--texto) !important; }
     .text-danger, .stock-bajo { color: #ff8585 !important; }
+    .por-confirmar { color: #ffc266 !important; }
     .text-success { color: #75d5a9 !important; }
     .text-primary { color: #91b6ff !important; }
     .text-warning { color: #f5c66d !important; }
@@ -206,6 +207,7 @@
     }
     html[data-tema="claro"] .workspace-label span:last-child { color: #343b4d; }
     html[data-tema="claro"] .text-danger, html[data-tema="claro"] .stock-bajo { color: #b42b36 !important; }
+    html[data-tema="claro"] .por-confirmar { color: #8a5300 !important; }
     html[data-tema="claro"] .text-success { color: #146b49 !important; }
     html[data-tema="claro"] .text-primary { color: #2553a1 !important; }
     html[data-tema="claro"] .text-warning { color: #906109 !important; }

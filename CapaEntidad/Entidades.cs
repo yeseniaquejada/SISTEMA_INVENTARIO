@@ -82,6 +82,8 @@ namespace CapaEntidad
         public decimal CostoUnitario { get; set; }
         public bool Activo { get; set; } = true;
         public string ProximoVencimiento { get; set; } = "";
+        /// <summary>Lo que falta confirmar de este insumo con el cliente; vacío = todo confirmado.</summary>
+        public string PorConfirmar { get; set; } = "";
     }
 
     public class Movimiento
@@ -351,6 +353,8 @@ namespace CapaEntidad
         public decimal CostoUnitario { get; set; }
         /// <summary>Stock real contado; null = no cambiar el stock.</summary>
         public decimal? Stock { get; set; }
+        /// <summary>Dato por confirmar; null = la plantilla no trae la columna y no se cambia.</summary>
+        public string? PorConfirmar { get; set; }
     }
 
     public class ResultadoImportacion
