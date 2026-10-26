@@ -1,5 +1,5 @@
 @{
-    ViewData["Title"] = "Cierre de caja";
+    ViewData["Title"] = "Caja y movimientos";
 }
 <div class="row g-3">
     <div class="col-lg-5">
@@ -28,7 +28,10 @@
                     <tr><td>Ventas por transferencia</td><td class="text-end" id="lblTransferencia"></td></tr>
                     <tr><td>Número de ventas</td><td class="text-end" id="lblNumero"></td></tr>
                     <tr class="text-muted small" id="filaAnuladas" hidden><td>Pedidos anulados (no suman)</td><td class="text-end" id="lblAnuladas"></td></tr>
-                    <tr class="fw-bold"><td>Efectivo esperado en caja</td><td class="text-end" id="lblEsperado"></td></tr>
+                    <tr><td>+ Aportes de efectivo</td><td class="text-end text-success" id="lblIngresos"></td></tr>
+                    <tr><td>− Compras, pagos y retiros</td><td class="text-end text-danger" id="lblEgresos"></td></tr>
+                    <tr><td>Efectivo disponible ahora</td><td class="text-end" id="lblDisponible"></td></tr>
+                    <tr class="fw-bold table-light"><td>Efectivo esperado en caja</td><td class="text-end" id="lblEsperado"></td></tr>
                 </table>
                 <div class="alert alert-warning py-2 small" id="avisoDomicilios" hidden></div>
                 <div class="d-flex justify-content-between align-items-end">
@@ -53,6 +56,21 @@
     </div>
 
     <div class="col-lg-7">
+        <div class="card shadow-sm mb-3" id="panelMovimiento" hidden>
+            <div class="card-header bg-white"><strong><i class="bi bi-arrow-left-right"></i> Registrar dinero que entra o sale</strong></div>
+            <div class="card-body">
+                <p class="small text-muted">Registre compras pequeñas, pagos y retiros del dueño. Una compra aquí registra el dinero; los insumos se ingresan por Inventario → Entradas.</p>
+                <form id="formMovimiento" class="row g-3">
+                    <div class="col-sm-6"><label for="tipoMovimiento" class="form-label">Tipo</label><select id="tipoMovimiento" name="tipo" class="form-select"><option value="COMPRA">Compra pequeña</option><option value="PAGO">Pago / gasto</option>@if(User.IsInRole("ADMINISTRADOR")){<option value="RETIRO">Retiro del dueño</option>}<option value="INGRESO">Aporte de efectivo</option></select></div>
+                    <div class="col-sm-6"><label for="medioMovimiento" class="form-label">Medio de pago</label><select id="medioMovimiento" name="metodoPago" class="form-select"><option value="EFECTIVO">Efectivo de la caja</option><option value="TRANSFERENCIA">Transferencia</option><option value="TARJETA">Tarjeta</option></select></div>
+                    <div class="col-sm-6"><label for="montoMovimiento" class="form-label">Monto</label><input id="montoMovimiento" name="monto" type="number" min="0.01" max="9999999999.99" step="0.01" class="form-control" data-tipo="numero" required /></div>
+                    <div class="col-sm-6"><label for="beneficiarioMovimiento" class="form-label">Pagado a / recibido de</label><input id="beneficiarioMovimiento" name="beneficiario" maxlength="100" class="form-control" /></div>
+                    <div class="col-12"><label for="conceptoMovimiento" class="form-label">Concepto</label><input id="conceptoMovimiento" name="concepto" maxlength="250" class="form-control" placeholder="Ej.: compra de bolsas, pago transporte, retiro del dueño" required /></div>
+                    <div class="col-12 d-flex align-items-center gap-3"><button class="btn btn-marca" id="btnMovimiento">Guardar movimiento</button><small class="text-muted">Tarjeta y transferencia no descuentan efectivo del cajón.</small></div>
+                </form>
+            </div>
+            <div class="table-responsive"><table class="table table-sm mb-0"><thead class="table-light"><tr><th>Fecha / usuario</th><th>Concepto</th><th>Medio</th><th class="text-end">Monto</th><th></th></tr></thead><tbody id="tablaMovimientos"></tbody></table></div>
+        </div>
         <div class="card shadow-sm">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <strong>Cierres anteriores</strong>
@@ -72,7 +90,7 @@
 <script>
 (function () {
     const $ = id => document.getElementById(id);
-    let esperado = 0;
+    let esperado = 0, referencia = crypto.randomUUID();
     const DENOMINACIONES = [100000, 50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50];
     $('denominaciones').innerHTML = DENOMINACIONES.map(d => `
         <div class="col-6 d-flex align-items-center gap-1">
@@ -91,8 +109,14 @@
             const [c, historial] = await Promise.all([api.get('/Caja/Actual'), api.get('/Caja/Historial')]);
             $('panelAbrir').hidden = !!c;
             $('panelCerrar').hidden = !c;
+            $('panelMovimiento').hidden = !c;
             if (c) {
-                esperado = c.baseInicial + c.ventasEfectivo;
+                esperado = c.baseInicial + c.ventasEfectivo + c.ingresosEfectivo - c.egresosEfectivo;
+                $('lblIngresos').textContent=moneda(c.ingresosEfectivo);
+                $('lblEgresos').textContent=moneda(c.egresosEfectivo);
+                $('lblDisponible').textContent=moneda(esperado-c.efectivoEnDomicilios);
+                $('btnCerrar').disabled=c.efectivoEnDomicilios>0;
+                await movimientos(c.idCaja);
                 $('lblApertura').textContent = `${c.fechaApertura} · ${c.usuarioApertura}`;
                 $('lblBase').textContent = moneda(c.baseInicial);
                 $('lblEfectivo').textContent = moneda(c.ventasEfectivo);
@@ -103,8 +127,8 @@
                 $('lblAnuladas').textContent = `${c.numeroAnuladas} · ${moneda(c.totalAnulado)}`;
                 $('lblEsperado').textContent = moneda(esperado);
                 $('avisoDomicilios').hidden = !c.efectivoEnDomicilios;
-                $('avisoDomicilios').innerHTML = `<i class="bi bi-bicycle"></i> Hay ${moneda(c.efectivoEnDomicilios)} de domicilios en efectivo que aún no se han entregado. Ese dinero está incluido en el esperado: espere a que vuelvan los domiciliarios antes de cerrar.`;
-                $('lnkPrevia').href = `/Caja/Reporte/${c.idCaja}`;
+                $('avisoDomicilios').innerHTML = `<i class="bi bi-bicycle"></i> Hay ${moneda(c.efectivoEnDomicilios)} de domicilios en efectivo que aún no se han entregado. Ese dinero está incluido en el esperado. Registre la entrega al recuperar el efectivo; el cierre permanece bloqueado mientras esté pendiente.`;
+                $('lnkPrevia').href = `/Caja/Reporte/${c.idCaja}?vista=1`;
                 diferencia();
             }
             renderTabla($('tablaHistorial'), historial, h => `<tr>
@@ -118,6 +142,31 @@
         } catch (e) { errorAlerta(e); }
     }
 
+    async function movimientos(idCaja) {
+        const lista = await api.get('/Caja/Movimientos?idCaja='+idCaja);
+        renderTabla($('tablaMovimientos'),lista,m=>`<tr class="${m.anulado?'text-muted':''}"><td><small>${esc(m.fecha)}<br>${esc(m.usuario)}</small></td><td><span class="badge text-bg-light">${esc(m.tipo)}</span> ${esc(m.concepto)}<small class="d-block">${esc(m.beneficiario)}${m.anulado?' · ANULADO: '+esc(m.motivoAnulacion):''}</small></td><td>${esc(m.metodoPago)}</td><td class="text-end text-nowrap">${m.tipo==='INGRESO'?'+':'−'} ${moneda(m.monto)}</td><td>${APP.esAdmin&&!m.anulado?'<button class="btn btn-sm btn-outline-danger" data-anular-mov="'+m.idMovimientoCaja+'">Anular</button>':''}</td></tr>`,5);
+    }
+    $('tipoMovimiento').addEventListener('change',()=>{
+        const efectivo=['INGRESO','RETIRO'].includes($('tipoMovimiento').value);
+        $('medioMovimiento').disabled=efectivo;
+        if(efectivo) $('medioMovimiento').value='EFECTIVO';
+    });
+    $('formMovimiento').addEventListener('submit',async ev=>{
+        ev.preventDefault(); if(!$('formMovimiento').reportValidity()) return;
+        $('btnMovimiento').disabled=true;
+        try {
+            const datos=leerForm($('formMovimiento')); datos.referencia=referencia;
+            const r=await api.post('/Caja/RegistrarMovimiento',datos);
+            if(r.resultado){ referencia=crypto.randomUUID(); $('formMovimiento').reset(); $('medioMovimiento').disabled=false; alerta('Movimiento registrado'); await cargar(); }
+            else alerta(r.mensaje,'warning');
+        } catch(e){errorAlerta(e);} finally{$('btnMovimiento').disabled=false;}
+    });
+    $('tablaMovimientos').addEventListener('click',async ev=>{
+        const b=ev.target.closest('[data-anular-mov]'); if(!b)return;
+        const motivo=prompt('Motivo de anulación (el dinero debe haber sido devuelto o corregido):'); if(!motivo?.trim())return;
+        b.disabled=true;
+        try{const q=new URLSearchParams({id:b.dataset.anularMov,motivo}); const r=await api.post('/Caja/AnularMovimiento?'+q); if(r.resultado){alerta('Movimiento anulado');await cargar();}else alerta(r.mensaje,'warning');}catch(e){errorAlerta(e);}finally{b.disabled=false;}
+    });
     function diferencia() {
         const v = $('txtContado').value;
         if (v === '') { $('lblDiferencia').textContent = ''; return; }
@@ -135,6 +184,8 @@
     });
 
     $('btnCerrar').addEventListener('click', async () => {
+        const anterior=esperado; await cargar(); if(esperado!==anterior){alerta('Hubo movimientos nuevos. Revise el saldo antes de cerrar.','warning');return;}
+        if ($('btnCerrar').disabled) return;
         if ($('txtContado').value === '') { alerta('Ingrese el efectivo contado', 'warning'); return; }
         if (!confirm('¿Cerrar la caja? Después no se podrán registrar ventas hasta abrirla de nuevo.')) return;
         const reporte = window.open('', '_blank');   // se abre ya para que el navegador no la bloquee

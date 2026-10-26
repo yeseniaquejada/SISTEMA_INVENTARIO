@@ -25,7 +25,8 @@ function esc(texto) {
     return String(texto ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-const moneda = n => (window.APP?.moneda ?? '$') + ' ' + Number(n ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+// Yesenia Quejada Rojas - Claude — 19/10/2026: espacio que no se parte, para que el "$" no quede en una línea y el valor en otra.
+const moneda = n => (window.APP?.moneda ?? '$') + ' ' + Number(n ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 0 });
 const num = n => Number(n ?? 0).toLocaleString('es-CO', { maximumFractionDigits: 3 });
 const hoy = () => new Date().toLocaleDateString('en-CA'); // yyyy-mm-dd
 
@@ -50,7 +51,7 @@ const badgeActivo = activo => activo
 function renderTabla(tbody, lista, filaFn, columnas) {
     tbody.innerHTML = lista.length
         ? lista.map(filaFn).join('')
-        : `<tr><td colspan="${columnas}" class="text-center text-muted">Sin registros</td></tr>`;
+        : `<tr><td colspan="${columnas}" class="text-center"><div class="table-empty"><i class="bi bi-inbox"></i><span>Sin registros por ahora</span></div></td></tr>`;
 }
 
 /* Filtro de texto sobre las filas de una tabla */
@@ -105,6 +106,7 @@ function Mantenimiento(op) {
     async function cargar() {
         try {
             datos = await api.get(`${op.base}/Listar`);
+            op.alCargar?.(datos);
             renderTabla(tbody, datos, obj => `<tr>${op.fila(obj)}
                 <td class="text-end text-nowrap">
                     <button class="btn btn-sm btn-outline-primary" data-editar="${obj[op.id]}" title="Editar"><i class="bi bi-pencil"></i></button>

@@ -1,51 +1,66 @@
 @{
     ViewData["Title"] = "Insumos";
 }
-<div class="d-flex flex-wrap gap-2 mb-3">
-    <button class="btn btn-marca" id="btnNuevo"><i class="bi bi-plus-lg"></i> Nuevo</button>
-    <a href="/Insumo/Exportar" class="btn btn-outline-success"><i class="bi bi-file-earmark-excel"></i> Excel</a>
-    <div class="btn-group">
-        <a href="/Insumo/Plantilla" class="btn btn-outline-success" title="Plantilla con los insumos actuales para llenar"><i class="bi bi-file-earmark-arrow-down"></i> Plantilla de carga</a>
-        <label class="btn btn-outline-success mb-0" title="Cargar la plantilla llena"><i class="bi bi-file-earmark-arrow-up"></i> Cargar Excel
-            <input type="file" id="archivoExcel" accept=".xlsx" hidden /></label>
-    </div>
-    <button class="btn btn-outline-secondary" onclick="window.print()"><i class="bi bi-printer"></i> PDF</button>
-    <input type="search" id="buscar" class="form-control ms-auto" style="max-width:280px" placeholder="Buscar..." />
+@* Yesenia Quejada Rojas - Claude — 19/10/2026: sin categorías ni PDF; los botones de Excel dicen claramente qué hacen
+   y se explica en una línea para qué sirve cada pantalla del inventario. *@
+<div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
+    <button class="btn btn-marca" id="btnNuevo"><i class="bi bi-plus-lg"></i> Nuevo insumo</button>
+    <div class="vr d-none d-md-block mx-1"></div>
+    <a href="/Insumo/Plantilla" class="btn btn-outline-success" title="Excel para llenar o actualizar los insumos y la cantidad que hay hoy"><i class="bi bi-download"></i> Descargar plantilla para llenar</a>
+    <label class="btn btn-success mb-0" title="Subir la plantilla ya llena"><i class="bi bi-upload"></i> Subir plantilla llena
+        <input type="file" id="archivoExcel" accept=".xlsx" hidden /></label>
+    <a href="/Insumo/Exportar" class="btn btn-outline-secondary" title="Descargar en Excel el inventario como está hoy"><i class="bi bi-file-earmark-spreadsheet"></i> Descargar inventario actual</a>
+    <input type="search" id="buscar" class="form-control ms-auto" style="max-width:260px" placeholder="Buscar insumo..." aria-label="Buscar insumo" />
 </div>
-<div class="alert alert-info py-2 small"><i class="bi bi-info-circle"></i> El stock no se edita aquí: se actualiza con los <a asp-controller="Movimiento" asp-action="Index">movimientos</a> (entradas, salidas, mermas) y con las ventas.
-    Para configurar el inventario de una sede nueva, descargue la <b>Plantilla de carga</b>, llene el stock real y súbala con <b>Cargar Excel</b>.</div>
+<div class="alert alert-info py-2 small mb-3">
+    <div><i class="bi bi-info-circle"></i> <b>Insumos</b> es la lista de lo que compra (pan, carne, gaseosas...) y cuánto hay. La cantidad baja sola con cada venta.</div>
+    <div class="mt-1">Cuando llegue una compra o algo se dañe, regístrelo en <a asp-controller="Movimiento" asp-action="Index">Registrar compras y salidas</a> (o con el botón <i class="bi bi-arrow-left-right"></i> de cada fila).
+        Si contó el local y la cantidad no coincide, use <b>Subir plantilla llena</b> con lo que contó.</div>
+</div>
+
+@* Yesenia Quejada Rojas - Claude — 23/10/2026: los insumos con datos por confirmar se resaltan y se pueden ver solos. *@
+<div class="alert alert-warning py-2 mb-3 d-flex flex-wrap align-items-center gap-2" id="avisoPorConfirmar" hidden>
+    <i class="bi bi-exclamation-triangle-fill"></i>
+    <span class="me-auto"><b id="totalPorConfirmar"></b> tienen datos por confirmar con el cliente. Abra cada uno con <i class="bi bi-pencil"></i>, corrija el dato y borre la nota.</span>
+    <button class="btn btn-sm btn-warning" id="btnSoloPorConfirmar" type="button">Ver solo esos</button>
+</div>
 
 <div class="modal fade" id="modalImportar" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title" id="tituloImportar">Resultado de la carga</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-header"><h5 class="modal-title" id="tituloImportar">Resultado de la carga</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
         <div class="modal-body" id="cuerpoImportar"></div>
         <div class="modal-footer"><button class="btn btn-marca" data-bs-dismiss="modal">Aceptar</button></div>
     </div></div>
 </div>
 <div class="card"><div class="card-body p-0 table-responsive">
     <table class="table table-hover mb-0" id="tabla">
-        <thead class="table-light"><tr><th>Código</th><th>Nombre</th><th>Categoría</th><th class="text-end">Stock</th><th class="text-end">Mínimo</th><th class="text-end">Costo unit.</th><th>Próximo vencimiento</th><th>Estado</th><th></th></tr></thead>
+        <thead class="table-light"><tr><th>Insumo</th><th class="text-end">Hay</th><th class="text-end">Avisar con</th><th class="text-end">Costo unit.</th><th>Próximo vencimiento</th><th>Estado</th><th></th><th></th></tr></thead>
         <tbody></tbody>
     </table>
 </div></div>
 
 <div class="modal fade" id="modal" tabindex="-1">
-    <div class="modal-dialog modal-lg"><div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title"></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
         <div class="modal-body">
             <form id="formulario" class="row g-3">
                 <input type="hidden" name="idInsumo" data-tipo="numero" />
-                <div class="col-md-4"><label class="form-label">Código</label><input name="codigo" class="form-control text-uppercase" maxlength="30" required /></div>
-                <div class="col-md-8"><label class="form-label">Nombre</label><input name="nombre" class="form-control" maxlength="100" required /></div>
-                <div class="col-md-6"><label class="form-label">Categoría</label><select name="idCategoria" id="cboCategoria" class="form-select" data-tipo="numero" required></select></div>
-                <div class="col-md-6"><label class="form-label">Unidad de medida</label>
-                    <select name="unidadMedida" class="form-select">
+                <input type="hidden" name="idCategoria" data-tipo="numero" />
+                <div class="col-12"><label class="form-label" for="txtNombreInsumo">Nombre</label><input id="txtNombreInsumo" name="nombre" class="form-control" maxlength="100" required placeholder="Ej: Pan de hamburguesa" /></div>
+                <div class="col-md-6"><label class="form-label" for="cboUnidad">¿Cómo se cuenta?</label>
+                    <select id="cboUnidad" name="unidadMedida" class="form-select">
                         <option value="UND">Unidad (UND)</option><option value="PORC">Porción (PORC)</option><option value="KG">Kilogramo (KG)</option><option value="GR">Gramo (GR)</option>
                         <option value="LT">Litro (LT)</option><option value="ML">Mililitro (ML)</option>
                     </select></div>
-                <div class="col-md-6"><label class="form-label">Stock mínimo</label><input name="stockMinimo" type="number" min="0" step="0.001" class="form-control" data-tipo="numero" required /></div>
-                <div class="col-md-6"><label class="form-label">Costo unitario</label><input name="costoUnitario" type="number" min="0" step="0.01" class="form-control" data-tipo="numero" required /></div>
+                <div class="col-md-6"><label class="form-label" for="txtCodigo">Código <small class="text-muted">(opcional)</small></label><input id="txtCodigo" name="codigo" class="form-control text-uppercase" maxlength="30" placeholder="Se crea solo" /></div>
+                <div class="col-md-6"><label class="form-label" for="txtMinimo">Avisar cuando queden</label><input id="txtMinimo" name="stockMinimo" type="number" min="0" step="0.001" class="form-control" data-tipo="numero" required />
+                    <div class="form-text">Cantidad para avisar que hay que comprar.</div></div>
+                <div class="col-md-6"><label class="form-label" for="txtCosto">Costo por unidad</label><input id="txtCosto" name="costoUnitario" type="number" min="0" step="0.01" class="form-control" data-tipo="numero" required /></div>
+                <div class="col-12"><label class="form-label" for="txtPorConfirmar"><i class="bi bi-exclamation-triangle text-warning"></i> Dato por confirmar <small class="text-muted">(opcional)</small></label>
+                    <textarea id="txtPorConfirmar" name="porConfirmar" class="form-control" rows="2" maxlength="300" placeholder="Ej: no se leía la cantidad en el conteo"></textarea>
+                    <div class="form-text">Cuando lo confirme, corrija el dato arriba y borre este texto.</div></div>
                 <div class="col-12 form-check ms-2"><input type="checkbox" name="activo" class="form-check-input" id="chkActivo" /><label class="form-check-label" for="chkActivo">Activo</label></div>
+                <div class="col-12 small text-muted">La cantidad que hay no se escribe aquí: sube con las compras y baja con las ventas.</div>
             </form>
         </div>
         <partial name="_ModalPie" />
@@ -54,18 +69,31 @@
 
 @section Scripts {
 <script>
-    (async function () {
-        const categorias = await api.get('/Categoria/Listar');
-        llenarSelect(document.getElementById('cboCategoria'), categorias, 'idCategoria', 'descripcion');
+    (function () {
         const mant = Mantenimiento({
-            base: '/Insumo', id: 'idInsumo', columnas: 9,
-            nuevo: () => ({ idInsumo: 0, idCategoria: 0, unidadMedida: 'UND', stockMinimo: 0, costoUnitario: 0, activo: true }),
-            fila: i => `<td>${esc(i.codigo)}</td><td>${esc(i.nombre)}</td><td>${esc(i.categoria)}</td>
-                <td class="text-end ${i.stock <= i.stockMinimo ? 'stock-bajo' : ''}">${num(i.stock)} ${esc(i.unidadMedida)}</td>
-                <td class="text-end">${num(i.stockMinimo)}</td><td class="text-end">${moneda(i.costoUnitario)}</td>
+            base: '/Insumo', id: 'idInsumo', columnas: 8,
+            nuevo: () => ({ idInsumo: 0, idCategoria: 0, unidadMedida: 'UND', stockMinimo: 0, costoUnitario: 0, activo: true, porConfirmar: '' }),
+            alCargar: lista => {
+                const n = lista.filter(i => i.porConfirmar).length;
+                document.getElementById('avisoPorConfirmar').hidden = n === 0;
+                document.getElementById('totalPorConfirmar').textContent = n === 1 ? '1 insumo' : `${n} insumos`;
+                if (n === 0) mostrarSoloPorConfirmar(false);
+            },
+            fila: i => `<td><div class="fw-semibold">${esc(i.nombre)}</div><small class="text-muted">${esc(i.codigo)}</small>
+                ${i.porConfirmar ? `<div class="por-confirmar small mt-1"><i class="bi bi-exclamation-triangle-fill"></i> Por confirmar: ${esc(i.porConfirmar)}</div>` : ''}</td>
+                <td class="text-end text-nowrap ${i.stock <= i.stockMinimo ? 'stock-bajo' : ''}">${num(i.stock)} ${esc(i.unidadMedida)}</td>
+                <td class="text-end text-nowrap">${num(i.stockMinimo)}</td><td class="text-end text-nowrap">${moneda(i.costoUnitario)}</td>
                 <td>${i.proximoVencimiento ? esc(i.proximoVencimiento) : '<span class="text-muted">-</span>'}</td>
-                <td>${badgeActivo(i.activo)}</td>`
+                <td>${badgeActivo(i.activo)}</td>
+                <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/Movimiento?idInsumo=${i.idInsumo}" title="Registrar compra, salida o daño de ${esc(i.nombre)}"><i class="bi bi-arrow-left-right"></i></a></td>`
         });
+
+        const tabla = document.getElementById('tabla'), btnSolo = document.getElementById('btnSoloPorConfirmar');
+        function mostrarSoloPorConfirmar(solo) {
+            tabla.classList.toggle('solo-por-confirmar', solo);
+            btnSolo.textContent = solo ? 'Ver todos' : 'Ver solo esos';
+        }
+        btnSolo.addEventListener('click', () => mostrarSoloPorConfirmar(!tabla.classList.contains('solo-por-confirmar')));
 
         const modalImportar = new bootstrap.Modal(document.getElementById('modalImportar'));
         document.getElementById('archivoExcel').addEventListener('change', async ev => {
@@ -78,14 +106,13 @@
                 document.getElementById('tituloImportar').textContent = r.resultado ? 'Inventario cargado' : 'Revise el archivo';
                 document.getElementById('cuerpoImportar').innerHTML = (r.resultado || r.creados || r.actualizados
                     ? `<ul class="mb-3"><li>${r.creados} insumos nuevos</li><li>${r.actualizados} insumos actualizados</li>
-                        <li>${r.stockAjustado} con stock ajustado (quedó en el kardex como conteo físico)</li>
-                        ${r.categoriasNuevas ? `<li>${r.categoriasNuevas} categorías nuevas</li>` : ''}</ul>` : '')
-                    + (r.errores.length ? `<div class="alert alert-warning mb-0"><strong>${r.resultado ? '' : 'No se guardó nada. '}Corrija y vuelva a cargar:</strong>
+                        <li>${r.stockAjustado} con la cantidad corregida según lo que contó</li></ul>` : '')
+                    + (r.errores.length ? `<div class="alert alert-warning mb-0"><strong>${r.resultado ? '' : 'No se guardó nada. '}Corrija y vuelva a subirla:</strong>
                         <ul class="mb-0 small">${r.errores.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>` : '');
                 modalImportar.show();
                 mant.cargar();
             } catch (e) { errorAlerta(e); }
         });
-    })().catch(errorAlerta);
+    })();
 </script>
 }

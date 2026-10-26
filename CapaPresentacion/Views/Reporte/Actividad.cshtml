@@ -1,0 +1,61 @@
+@{
+    ViewData["Title"] = "Quién hizo qué";
+}
+@* Yesenia Quejada Rojas - Claude — 19/10/2026: reemplaza "Auditoría y verificación". Muestra en palabras sencillas
+   quién abrió o cerró la caja, registró gastos, anuló o editó pedidos y movió el inventario. *@
+<p class="text-muted">Lo importante que pasó en el negocio, con la hora y la persona: caja, gastos, pedidos anulados o editados y movimientos del inventario.</p>
+<div class="card shadow-sm mb-3 no-imprimir"><div class="card-body d-flex flex-wrap gap-2 align-items-end">
+    <div><label class="form-label small mb-0" for="txtInicio">Desde</label><input type="date" id="txtInicio" class="form-control form-control-sm" /></div>
+    <div><label class="form-label small mb-0" for="txtFin">Hasta</label><input type="date" id="txtFin" class="form-control form-control-sm" /></div>
+    <div><label class="form-label small mb-0" for="cboTipo">Mostrar</label>
+        <select id="cboTipo" class="form-select form-select-sm"><option value="">Todo</option><option>Caja</option><option>Gasto</option><option>Pedido</option><option>Inventario</option></select></div>
+    <button class="btn btn-sm btn-marca" id="btnVer"><i class="bi bi-search"></i> Ver</button>
+    <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir</button>
+</div></div>
+<div class="row g-3 mb-3" id="resumen"></div>
+<div class="card"><div class="card-body p-0 table-responsive">
+    <table class="table table-hover mb-0">
+        <thead class="table-light"><tr><th>Cuándo</th><th>Quién</th><th>Qué pasó</th><th class="text-end">Valor</th></tr></thead>
+        <tbody id="tabla"></tbody>
+    </table>
+</div></div>
+
+@section Scripts {
+<script>
+(function () {
+    const $ = id => document.getElementById(id);
+    const ICONOS = { Caja: ['bi-cash-stack', 'text-bg-primary'], Gasto: ['bi-wallet2', 'text-bg-warning'], Pedido: ['bi-receipt', 'text-bg-danger'], Inventario: ['bi-box-seam', 'text-bg-success'] };
+    let datos = [];
+    $('txtInicio').value = fechaHace(6); $('txtFin').value = hoy();
+
+    function pintar() {
+        const t = $('cboTipo').value;
+        const lista = datos.filter(a => !t || a.tipo === t);
+        renderTabla($('tabla'), lista, a => {
+            const [icono, clase] = ICONOS[a.tipo] || ['bi-dot', 'text-bg-secondary'];
+            return `<tr><td class="text-nowrap small">${esc(a.fecha)}</td><td>${esc(a.usuario)}</td>
+                <td><span class="badge ${clase} me-1"><i class="bi ${icono}"></i> ${esc(a.tipo)}</span> ${esc(a.descripcion)}</td>
+                <td class="text-end text-nowrap">${a.monto === null ? '' : moneda(a.monto)}</td></tr>`;
+        }, 4);
+        const gastos = datos.filter(a => a.tipo === 'Gasto' && !a.descripcion.includes('[anulado]') && !a.descripcion.startsWith('Anuló') && !a.descripcion.startsWith('Ingresó'));
+        const anulados = datos.filter(a => a.tipo === 'Pedido' && a.descripcion.startsWith('Anuló'));
+        $('resumen').innerHTML = [
+            ['Gastos y retiros de caja', moneda(gastos.reduce((s, a) => s + (a.monto || 0), 0)), 'bi-wallet2', 'alerta'],
+            ['Pedidos anulados', `${anulados.length} · ${moneda(anulados.reduce((s, a) => s + (a.monto || 0), 0))}`, 'bi-x-circle', 'alerta'],
+            ['Registros en el periodo', datos.length, 'bi-clock-history', '']
+        ].map(([t, v, i, c]) => `<div class="col-md-4"><div class="card kpi ${c} shadow-sm" style="min-height:0"><div class="card-body">
+            <span class="kpi-icon"><i class="bi ${i}"></i></span><div class="small text-muted">${t}</div><div class="valor monto" style="font-size:1.4rem">${v}</div></div></div></div>`).join('');
+    }
+    async function ver() {
+        if ($('txtInicio').value > $('txtFin').value) return alerta('La fecha "Desde" debe ser anterior a "Hasta"', 'warning');
+        try {
+            datos = await api.get(`/Reporte/ListarActividad?inicio=${$('txtInicio').value}&fin=${$('txtFin').value}`);
+            pintar();
+        } catch (e) { errorAlerta(e); }
+    }
+    $('btnVer').addEventListener('click', ver);
+    $('cboTipo').addEventListener('change', pintar);
+    ver();
+})();
+</script>
+}

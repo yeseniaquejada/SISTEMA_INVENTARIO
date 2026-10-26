@@ -1,11 +1,13 @@
 @{
     ViewData["Title"] = "Usuarios";
+    var multisede = new CapaNegocio.CN_Configuracion().Obtener().MostrarMultisede;
 }
-<p class="text-muted">El <b>administrador</b> ve todo. El <b>cajero</b> solo vende, maneja domicilios y su caja en la sede asignada.</p>
+@* Yesenia Quejada Rojas - Claude — 19/10/2026: tres perfiles por defecto. *@
+<p class="text-muted">Hay tres perfiles: el <b>administrador</b> ve todo; el <b>cajero</b> vende, maneja la cocina, los domicilios y la caja; el <b>domiciliario</b> solo ve los domicilios para llevarlos y marcarlos como entregados.</p>
 <partial name="_Barra" />
 <div class="card"><div class="card-body p-0 table-responsive">
     <table class="table table-hover mb-0" id="tabla">
-        <thead class="table-light"><tr><th>Nombre</th><th>Usuario</th><th>Rol</th><th>Sede</th><th>Estado</th><th></th></tr></thead>
+        <thead class="table-light"><tr><th>Nombre</th><th>Usuario</th><th>Rol</th>@if (multisede) { <th>Sede</th> }<th>Estado</th><th></th></tr></thead>
         <tbody></tbody>
     </table>
 </div></div>
@@ -21,7 +23,7 @@
                 <div class="col-md-6"><label class="form-label">Contraseña</label><input name="clave" type="password" class="form-control" autocomplete="new-password" />
                     <div class="form-text" id="ayudaClave"></div></div>
                 <div class="col-md-6"><label class="form-label">Rol</label><select name="idRol" id="cboRol" class="form-select" data-tipo="numero"></select></div>
-                <div class="col-md-6"><label class="form-label">Sede</label><select name="idSede" id="cboSede" class="form-select" data-tipo="numero"></select></div>
+                <div class="col-md-6" hidden="@(!multisede)"><label class="form-label">Sede</label><select name="idSede" id="cboSede" class="form-select" data-tipo="numero"></select></div>
                 <div class="col-12 form-check ms-2"><input type="checkbox" name="activo" class="form-check-input" id="chkActivo" /><label class="form-check-label" for="chkActivo">Activo (puede ingresar)</label></div>
             </form>
         </div>
@@ -31,12 +33,13 @@
 
 @section Scripts {
 <script>
+    const multisede = @Json.Serialize(multisede);
     (async function () {
         const [roles, sedes] = await Promise.all([api.get('/Usuario/Roles'), api.get('/Sede/Listar')]);
         llenarSelect(document.getElementById('cboRol'), roles, 'idRol', 'descripcion', null);
         llenarSelect(document.getElementById('cboSede'), sedes, 'idSede', 'nombre', null);
         Mantenimiento({
-            base: '/Usuario', id: 'idUsuario', columnas: 6, sinEliminar: true,
+            base: '/Usuario', id: 'idUsuario', columnas: multisede ? 6 : 5, sinEliminar: true,
             nuevo: () => ({ idUsuario: 0, idRol: 2, idSede: sedes[0]?.idSede ?? 1, activo: true }),
             alAbrir: (u, form) => {
                 form.clave.value = '';
@@ -44,8 +47,8 @@
                 document.getElementById('ayudaClave').textContent = u ? 'Déjela vacía para no cambiarla.' : 'Mínimo 6 caracteres.';
             },
             fila: u => `<td class="fw-semibold">${esc(u.nombreCompleto)}</td><td>${esc(u.nombreUsuario)}</td>
-                <td><span class="badge ${u.rol === 'ADMINISTRADOR' ? 'bg-marca' : 'text-bg-secondary'}">${esc(u.rol)}</span></td>
-                <td>${esc(u.sede)}</td><td>${badgeActivo(u.activo)}</td>`
+                <td><span class="badge ${u.rol === 'ADMINISTRADOR' ? 'bg-marca' : u.rol === 'DOMICILIARIO' ? 'text-bg-info' : 'text-bg-secondary'}">${esc(u.rol)}</span></td>
+                ${multisede ? `<td>${esc(u.sede)}</td>` : ''}<td>${badgeActivo(u.activo)}</td>`
         });
     })().catch(errorAlerta);
 </script>

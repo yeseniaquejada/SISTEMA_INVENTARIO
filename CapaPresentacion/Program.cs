@@ -41,6 +41,11 @@ app.UseStaticFiles();
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
+app.Use(async (context, next) => {
+    Conexion.UsuarioAuditoria.Value = int.TryParse(context.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value, out var usuario) ? usuario : null;
+    Conexion.SedeAuditoria.Value = int.TryParse(context.User.FindFirst("IdSede")?.Value, out var sede) ? sede : null;
+    try { await next(); } finally { Conexion.UsuarioAuditoria.Value=null; Conexion.SedeAuditoria.Value=null; }
+});
 
 app.MapControllerRoute(
     name: "default",

@@ -6,8 +6,8 @@ namespace CapaEntidad
         public string? Nit { get; set; }
         public string? Direccion { get; set; }
         public string? Telefono { get; set; }
-        public string ColorPrimario { get; set; } = "#C8322B";
-        public string ColorSecundario { get; set; } = "#1F1A17";
+        public string ColorPrimario { get; set; } = "#E53935";
+        public string ColorSecundario { get; set; } = "#0B0B10";
         public string? LogoUrl { get; set; }
         public string SimboloMoneda { get; set; } = "$";
         public string? MensajeTicket { get; set; }
@@ -16,6 +16,12 @@ namespace CapaEntidad
         public int MinutosAlertaCocina { get; set; } = 15;
         public int MinutosAlertaDomicilio { get; set; } = 40;
         public decimal CostoDomicilio { get; set; }
+        public bool MostrarCocina { get; set; } = true;
+        public bool MostrarDomicilios { get; set; } = true;
+        public bool MostrarMultisede { get; set; } = true;
+        public bool MostrarAvanzado { get; set; } = true;
+        public int AnchoTicket { get; set; } = 80;
+        public bool ImprimirAutomatico { get; set; } = true;
     }
 
     public class Sede
@@ -76,6 +82,8 @@ namespace CapaEntidad
         public decimal CostoUnitario { get; set; }
         public bool Activo { get; set; } = true;
         public string ProximoVencimiento { get; set; } = "";
+        /// <summary>Lo que falta confirmar de este insumo con el cliente; vacío = todo confirmado.</summary>
+        public string PorConfirmar { get; set; } = "";
     }
 
     public class Movimiento
@@ -183,6 +191,15 @@ namespace CapaEntidad
     {
         public List<ProductoMenu> Productos { get; set; } = new();
         public List<ProductoModificador> Modificadores { get; set; } = new();
+        // Yesenia Quejada Rojas - Claude — 19/10/2026: ingredientes de la receta para ofrecer "Sin ..." al vender.
+        public List<IngredienteReceta> Ingredientes { get; set; } = new();
+    }
+
+    public class IngredienteReceta
+    {
+        public int IdProducto { get; set; }
+        public int IdInsumo { get; set; }
+        public string Nombre { get; set; } = "";
     }
 
     public class LineaVenta
@@ -191,6 +208,8 @@ namespace CapaEntidad
         public int Cantidad { get; set; }
         public string? Notas { get; set; }
         public List<int> Modificadores { get; set; } = new();
+        // Yesenia Quejada Rojas - Claude — 19/10/2026: insumos de la receta que el cliente pidió quitar; no se descuentan.
+        public List<int> Quitados { get; set; } = new();
     }
 
     public class NuevaVenta
@@ -274,6 +293,9 @@ namespace CapaEntidad
         public string Notas { get; set; } = "";
         public List<string> Adiciones { get; set; } = new();
         public List<int> Modificadores { get; set; } = new();
+        // Yesenia Quejada Rojas - Claude — 19/10/2026: "Sin lechuga"... se muestran aparte para que cocina no los pase por alto.
+        public List<string> SinIngredientes { get; set; } = new();
+        public List<int> Quitados { get; set; } = new();
     }
 
     public class Ticket
@@ -296,6 +318,8 @@ namespace CapaEntidad
         public decimal VentasTransferencia { get; set; }
         public int NumeroVentas { get; set; }
         public decimal EfectivoEsperado { get; set; }
+        public decimal IngresosEfectivo { get; set; }
+        public decimal EgresosEfectivo { get; set; }
         public decimal EfectivoContado { get; set; }
         public decimal Diferencia { get; set; }
         public string Observacion { get; set; } = "";
@@ -311,6 +335,7 @@ namespace CapaEntidad
     /// <summary>Reporte de cierre de caja (resumen, productos vendidos y anulaciones).</summary>
     public class ReporteCaja
     {
+        public List<MovimientoCaja> Movimientos { get; set; } = new();
         public Caja Caja { get; set; } = new();
         public List<PuntoReporte> Productos { get; set; } = new();
         public List<Venta> Anuladas { get; set; } = new();
@@ -323,12 +348,13 @@ namespace CapaEntidad
         public int Fila { get; set; }
         public string Codigo { get; set; } = "";
         public string Nombre { get; set; } = "";
-        public string Categoria { get; set; } = "";
         public string UnidadMedida { get; set; } = "";
         public decimal StockMinimo { get; set; }
         public decimal CostoUnitario { get; set; }
         /// <summary>Stock real contado; null = no cambiar el stock.</summary>
         public decimal? Stock { get; set; }
+        /// <summary>Dato por confirmar; null = la plantilla no trae la columna y no se cambia.</summary>
+        public string? PorConfirmar { get; set; }
     }
 
     public class ResultadoImportacion
@@ -398,7 +424,19 @@ namespace CapaEntidad
         public decimal Mermas { get; set; }
         public List<PuntoReporte> PorDia { get; set; } = new();
         public List<PuntoReporte> TopProductos { get; set; } = new();
+        // Yesenia Quejada Rojas - Claude — 19/10/2026: productos que menos salen, para decidir qué promocionar o retirar.
+        public List<PuntoReporte> MenosVendidos { get; set; } = new();
         public List<PuntoReporte> PorMetodo { get; set; } = new();
+    }
+
+    /// <summary>Un hecho del día contado en lenguaje sencillo (quién abrió la caja, registró un gasto, anuló un pedido...).</summary>
+    public class Actividad
+    {
+        public string Fecha { get; set; } = "";
+        public string Usuario { get; set; } = "";
+        public string Tipo { get; set; } = "";
+        public string Descripcion { get; set; } = "";
+        public decimal? Monto { get; set; }
     }
 
     /// <summary>Respuesta estándar de las operaciones de guardar/eliminar.</summary>

@@ -1,7 +1,7 @@
 @{
-    ViewData["Title"] = "Configuración y apariencia";
+    ViewData["Title"] = "Datos del negocio";
 }
-<p class="text-muted">Personalice el sistema para cada negocio: nombre, logo, colores y datos que salen en el ticket.</p>
+<p class="text-muted">Paso 1 de la configuración: nombre, logo, colores y los datos que salen en el ticket. <a asp-action="Guia">Ver todos los pasos</a></p>
 <div class="row g-4">
     <div class="col-lg-7">
         <form id="formulario" class="card"><div class="card-body row g-3">
@@ -35,14 +35,24 @@
                 <div class="d-flex flex-wrap gap-2" id="paletas"></div>
             </div>
 
-            <h6 class="col-12 mb-0 mt-4">Operación</h6>
-            <div class="col-sm-6"><label class="form-label" for="simboloMoneda">Símbolo de moneda</label><input id="simboloMoneda" name="simboloMoneda" class="form-control" maxlength="5" /></div>
-            <div class="col-sm-6"><label class="form-label" for="diasAlertaVencimiento">Avisar vencimientos con (días)</label><input id="diasAlertaVencimiento" name="diasAlertaVencimiento" type="number" min="0" max="60" class="form-control" data-tipo="numero" /></div>
+            @* Yesenia Quejada Rojas - Claude — 19/10/2026: solo queda lo que el negocio maneja. Tiempos de alerta, moneda,
+               sedes y opciones técnicas siguen guardados pero ya no se muestran aquí. *@
+            <h6 class="col-12 mb-0 mt-4">¿Qué usa el negocio?</h6>
+            <div class="col-sm-6"><div class="form-check form-switch"><input type="checkbox" class="form-check-input" id="mostrarCocina" name="mostrarCocina" /><label class="form-check-label" for="mostrarCocina">Pantalla de cocina</label></div></div>
+            <div class="col-sm-6"><div class="form-check form-switch"><input type="checkbox" class="form-check-input" id="mostrarDomicilios" name="mostrarDomicilios" /><label class="form-check-label" for="mostrarDomicilios">Domicilios</label></div></div>
             <div class="col-sm-6"><label class="form-label" for="costoDomicilio">Valor del domicilio por defecto</label><input id="costoDomicilio" name="costoDomicilio" type="number" min="0" step="500" class="form-control" data-tipo="numero" /></div>
-            <div class="col-sm-6"><label class="form-label" for="minutosEdicion">Minutos para editar o anular un pedido</label><input id="minutosEdicion" name="minutosEdicion" type="number" min="0" max="60" class="form-control" data-tipo="numero" />
-                <div class="form-text">Solo mientras cocina no lo haya empezado. 0 = no se permite editar.</div></div>
-            <div class="col-sm-6"><label class="form-label" for="minutosAlertaCocina">Alerta en cocina después de (min)</label><input id="minutosAlertaCocina" name="minutosAlertaCocina" type="number" min="1" max="240" class="form-control" data-tipo="numero" /></div>
-            <div class="col-sm-6"><label class="form-label" for="minutosAlertaDomicilio">Alerta de domicilio demorado (min)</label><input id="minutosAlertaDomicilio" name="minutosAlertaDomicilio" type="number" min="1" max="240" class="form-control" data-tipo="numero" /></div>
+
+            <h6 class="col-12 mb-0 mt-4">Impresora de tickets</h6>
+            <div class="col-sm-6"><label for="anchoTicket" class="form-label">Ancho del papel</label><select class="form-select" id="anchoTicket" name="anchoTicket" data-tipo="numero"><option value="80">80 mm</option><option value="58">58 mm</option></select></div>
+            <div class="col-sm-6"><div class="form-check form-switch mt-4"><input type="checkbox" class="form-check-input" id="imprimirAutomatico" name="imprimirAutomatico" /><label class="form-check-label" for="imprimirAutomatico">Imprimir apenas se abra el ticket</label></div></div>
+
+            <input type="hidden" name="mostrarMultisede" data-tipo="bool" />
+            <input type="hidden" name="mostrarAvanzado" data-tipo="bool" />
+            <input type="hidden" name="simboloMoneda" />
+            <input type="hidden" name="diasAlertaVencimiento" data-tipo="numero" />
+            <input type="hidden" name="minutosEdicion" data-tipo="numero" />
+            <input type="hidden" name="minutosAlertaCocina" data-tipo="numero" />
+            <input type="hidden" name="minutosAlertaDomicilio" data-tipo="numero" />
             <div class="col-12"><button class="btn btn-marca px-4">Guardar configuración</button></div>
         </div></form>
     </div>
@@ -53,10 +63,10 @@
                 <div id="pvBarra" class="d-flex align-items-center gap-2 px-3 py-2 fw-bold">
                     <img id="pvLogo" alt="" style="height:28px;border-radius:4px;background:#fff;padding:2px" hidden /><span id="pvNombre"></span>
                 </div>
-                <div class="p-3 d-grid gap-3" style="background:#f5f5f7">
+                <div class="p-3 d-grid gap-3 preview-content" >
                     <div class="producto-card" style="max-width:200px">
                         <div class="producto-foto sin-foto">🍔</div>
-                        <div class="producto-info"><span class="producto-nombre">Hamburguesa John Wick</span><span class="producto-precio" id="pvPrecio">$ 28.000</span></div>
+                        <div class="producto-info"><span class="producto-nombre">Producto de ejemplo</span><span class="producto-precio" id="pvPrecio">$ 28.000</span></div>
                     </div>
                     <button type="button" id="pvBoton" class="btn">Registrar venta</button>
                 </div>
@@ -70,7 +80,7 @@
 (async function () {
     const f = document.getElementById('formulario');
     const $ = id => document.getElementById(id);
-    const PALETAS = [['#C8322B', '#1F1A17'], ['#E4572E', '#29335C'], ['#F2A541', '#2D2A32'], ['#2A9D8F', '#264653'], ['#6A4C93', '#1B1B3A'], ['#D62828', '#003049'], ['#FFB703', '#023047']];
+    const PALETAS = [['#E53935', '#0B0B10'], ['#E4572E', '#29335C'], ['#F2A541', '#2D2A32'], ['#2A9D8F', '#264653'], ['#6A4C93', '#1B1B3A'], ['#D62828', '#003049'], ['#FFB703', '#023047']];
 
     function textoSobre(hex) {
         const c = [1, 3, 5].map(i => { const v = parseInt(hex.substr(i, 2), 16) / 255; return v <= .03928 ? v / 12.92 : Math.pow((v + .055) / 1.055, 2.4); });

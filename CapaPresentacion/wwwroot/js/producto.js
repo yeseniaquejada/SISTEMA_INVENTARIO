@@ -9,11 +9,12 @@
     insumos = insumos.filter(i => i.activo);
     llenarSelect($('cboInsumo'), insumos.map(i => ({ ...i, t: `${i.nombre} (${i.unidadMedida})` })), 'idInsumo', 't', 'Seleccione un insumo...');
     llenarSelect($('cboCategoria'), categorias, 'idCategoriaMenu', 'nombre', 'Seleccione...');
+    // Yesenia Quejada Rojas - Claude — 19/10/2026: la opción elegida se resalta con el color de marca y dice "Elegida".
     $('listaModificadores').innerHTML = modificadores.filter(m => m.activo).map(m => `
-        <label class="form-check border rounded px-2 py-1 d-flex justify-content-between align-items-center gap-2">
-            <span><input class="form-check-input me-2" type="checkbox" value="${m.idModificador}">${esc(m.nombre)}</span>
-            <small class="text-muted">${m.precio ? '+' + moneda(m.precio) : 'Gratis'}</small>
-        </label>`).join('') || '<span class="text-muted small">No hay adiciones. Créelas en Mantenimiento.</span>';
+        <label class="opcion-producto">
+            <span><input class="form-check-input me-2" type="checkbox" value="${m.idModificador}"><small class="text-muted">${esc(m.grupo)} ·</small> ${esc(m.nombre)}</span>
+            <span class="text-end"><small class="text-muted d-block">${m.precio ? '+' + moneda(m.precio) : 'Gratis'}</small><span class="estado-opcion"></span></span>
+        </label>`).join('') || '<span class="text-muted small">No hay adiciones ni salsas. Créelas en Configuración > Adiciones y salsas.</span>';
 
     const foto = p => p.imagenUrl
         ? `<img src="${esc(p.imagenUrl)}" alt="" style="width:56px;height:42px;object-fit:cover;border-radius:6px">`

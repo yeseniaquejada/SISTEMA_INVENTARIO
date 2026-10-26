@@ -12,18 +12,22 @@
     <meta charset="utf-8" />
     <title>Cierre de caja @k.IdCaja</title>
     <style>
-        @@page { size: 80mm auto; margin: 3mm; }
-        body { font-family: "Courier New", monospace; font-size: 12px; width: 72mm; margin: 0 auto; color: #000; }
+        @@page { size: auto; margin: 3mm; }
+        body { font-family: "Courier New", monospace; font-size: 12px; width: @(c.AnchoTicket - 8)mm; overflow-wrap: anywhere; margin: 0 auto; color: #000; }
         .c { text-align: center; } .r { text-align: right; } .b { font-weight: bold; }
         hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
         table { width: 100%; border-collapse: collapse; } td { vertical-align: top; padding: 1px 0; }
         .grande td { font-size: 14px; font-weight: bold; }
         .aviso { border: 1px solid #000; padding: 4px; text-align: center; font-weight: bold; margin: 6px 0; }
         .acciones { text-align: center; margin: 12px 0; }
-        @@media print { .acciones { display: none; } }
+        td.r { white-space: nowrap; padding-left: 4px; } tr { break-inside: avoid; }
+        .acciones button { padding: 10px 14px; cursor: pointer; margin: 4px; }
+        .guia { font-family: sans-serif; font-size: 12px; line-height: 1.4; }
+        @@media screen { html { background: #eef0f3; } body { background: white; padding: 16px; margin: 24px auto; box-shadow: 0 4px 24px #0002; border-radius: 6px; } }
+        @@media print { .acciones { display: none; } body { margin: 0; } }
     </style>
 </head>
-<body>
+<body data-auto="@((cerrada && c.ImprimirAutomatico && Context.Request.Query["vista"] != "1") ? "true" : "false")">
     <div class="c b" style="font-size:15px">@c.NombreNegocio</div>
     <div class="c b">@(cerrada ? "CIERRE DE CAJA" : "VISTA PREVIA DEL CIERRE")</div>
     <div class="c">Sede @k.Sede · Caja N° @k.IdCaja</div>
@@ -53,6 +57,8 @@
     <table>
         <tr><td>Base inicial</td><td class="r">@M(k.BaseInicial)</td></tr>
         <tr><td>+ Ventas en efectivo</td><td class="r">@M(k.VentasEfectivo)</td></tr>
+        <tr><td>+ Aportes</td><td class="r">@M(k.IngresosEfectivo)</td></tr>
+        <tr><td>− Compras, pagos y retiros</td><td class="r">@M(k.EgresosEfectivo)</td></tr>
         <tr class="b"><td>= Esperado</td><td class="r">@M(k.EfectivoEsperado)</td></tr>
         @if (cerrada)
         {
@@ -61,6 +67,9 @@
         }
     </table>
     @if (!string.IsNullOrEmpty(k.Observacion)) { <div>Obs: @k.Observacion</div> }
+    <hr />
+    <div class="b">MOVIMIENTOS DE CAJA</div>
+    <table>@foreach(var m in Model.Movimientos){<tr><td>@m.Tipo · @m.Concepto<br /><small>@m.Fecha · @m.Usuario · @m.MetodoPago @m.Beneficiario @(m.Anulado ? "ANULADO: " + m.MotivoAnulacion : "")</small></td><td class="r">@M(m.Monto)</td></tr>}</table>
     <hr />
     <div class="b">PRODUCTOS VENDIDOS</div>
     <table>
@@ -77,6 +86,7 @@
     }
     <hr />
     <div style="margin-top:28px" class="c">______________________<br />Firma cajero</div>
-    <div class="acciones"><button onclick="window.print()">Imprimir</button> <button onclick="window.close()">Cerrar</button></div>
+    <div class="acciones"><div class="guia">Papel @(c.AnchoTicket) mm · Escala 100 % · Sin encabezados ni pies</div><button id="btnImprimir" disabled>Imprimir</button> <button onclick="window.close()">Cerrar</button></div>
+<script src="~/js/impresion.js" asp-append-version="true"></script>
 </body>
 </html>

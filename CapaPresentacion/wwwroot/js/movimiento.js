@@ -3,7 +3,9 @@
     const cboTipo = document.getElementById('cboTipo');
     const cboInsumo = document.getElementById('cboInsumo');
     const lblStock = document.getElementById('lblStock');
-    const colores = { ENTRADA: 'success', SALIDA: 'primary', MERMA: 'warning', VENTA: 'danger', 'AJUSTE+': 'info', 'AJUSTE-': 'secondary' };
+    const colores = { ENTRADA: 'success', SALIDA: 'primary', MERMA: 'warning', VENTA: 'danger', 'AJUSTE+': 'info', 'AJUSTE-': 'secondary', DEVOLUCION: 'light' };
+    // Yesenia Quejada Rojas - Claude — 19/10/2026: nombres que entiende quien no sabe de inventarios.
+    const nombres = { ENTRADA: 'Compra', SALIDA: 'Uso', MERMA: 'Daño', VENTA: 'Venta', DEVOLUCION: 'Devuelto', 'AJUSTE+': 'Conteo (+)', 'AJUSTE-': 'Conteo (−)' };
     let insumos = [];
 
     document.getElementById('txtInicio').value = hoy();
@@ -35,7 +37,7 @@
         const lista = await api.get(`/Movimiento/Listar?inicio=${inicio}&fin=${fin}&idInsumo=${idInsumo}`);
         renderTabla(document.getElementById('tablaKardex'), lista, m => `<tr>
             <td class="text-nowrap">${esc(m.fecha)}</td><td>${esc(m.insumo)}</td>
-            <td><span class="badge text-bg-${colores[m.tipo]}">${m.tipo}</span></td>
+            <td><span class="badge text-bg-${colores[m.tipo] || 'secondary'}">${esc(nombres[m.tipo] || m.tipo)}</span></td>
             <td class="text-end">${num(m.cantidad)} ${esc(m.unidadMedida)}</td>
             <td class="text-end">${num(m.stockAnterior)}</td><td class="text-end">${num(m.stockNuevo)}</td>
             <td>${esc(m.proveedor || m.observacion)}${m.fechaVencimiento ? `<br><small class="text-muted">Vence ${esc(m.fechaVencimiento.substring(0, 10))}</small>` : ''}</td><td>${esc(m.usuario)}</td></tr>`, 8);
@@ -67,6 +69,13 @@
     const proveedores = (await api.get('/Proveedor/Listar')).filter(p => p.activo);
     llenarSelect(document.getElementById('cboProveedor'), proveedores, 'idProveedor', 'razonSocial', 'Sin proveedor');
     await cargarInsumos();
+    // Yesenia Quejada Rojas - Claude — 19/10/2026: desde Insumos se llega con el insumo ya elegido.
+    const desdeInsumo = new URLSearchParams(location.search).get('idInsumo');
+    if (desdeInsumo && insumos.some(i => String(i.idInsumo) === desdeInsumo)) {
+        cboInsumo.value = desdeInsumo;
+        document.getElementById('cboFiltroInsumo').value = desdeInsumo;
+        document.getElementById('txtInicio').value = fechaHace(30);
+    }
     ajustarTipo();
     await cargarKardex();
 })().catch(errorAlerta);
