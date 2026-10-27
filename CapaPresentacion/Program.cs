@@ -1,6 +1,7 @@
 using CapaDatos;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Authorization;
 
@@ -18,6 +19,17 @@ builder.Services.AddControllersWithViews(opciones =>
 });
 
 builder.Services.AddAntiforgery(o => o.HeaderName = "RequestVerificationToken");
+
+// En IIS, ignora la identidad de Windows que IIS pueda traer (p. ej. un candado de usuario y clave del hosting):
+// solo vale la sesión de la propia aplicación.
+builder.Services.Configure<IISServerOptions>(o => o.AutomaticAuthentication = false);
+
+// Las claves que cifran la sesión y los formularios se guardan en disco: en hosting compartido el sitio
+// se reinicia seguido y, sin esto, cada reinicio cerraría la sesión de todos.
+builder.Services.AddDataProtection()
+    .SetApplicationName("InventarioComidas")
+    .PersistKeysToFileSystem(new DirectoryInfo(
+        builder.Configuration["ProteccionDatos:Carpeta"] ?? Path.Combine(builder.Environment.ContentRootPath, "App_Data", "claves")));
 
 builder.Services.AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
     .AddCookie(o =>

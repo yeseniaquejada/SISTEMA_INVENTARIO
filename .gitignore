@@ -3,3 +3,4 @@ obj/
 .vs/
 *.user
 CapaPresentacion/wwwroot/uploads/
+CapaPresentacion/App_Data/
