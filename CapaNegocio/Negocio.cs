@@ -18,6 +18,36 @@ namespace CapaNegocio
             lock (_bloqueo) return _cache ??= _datos.Obtener();
         }
 
+        // Yesenia Quejada Rojas - Claude — 31/10/2026: fechas con las que las páginas (ventas y ganancias, facturas, movimientos) filtran "hoy".
+        // Hoy = fecha del reloj del servidor SQL, porque ese reloj graba las ventas (hoy 2 horas atrás de Colombia; 3 desde el 1/11); con la fecha del PC,
+        // pasada la medianoche todo daba 0. Inicio = el día en que se abrió la caja que sigue abierta: mientras el negocio no cierra, "hoy" sigue siendo
+        // el día que están trabajando aunque ya sea otra fecha. Sin caja abierta, Inicio = Hoy. Se guarda 10 segundos por sede; si la base falla se usa la
+        // hora de Colombia, para que ninguna página se caiga por esto.
+        private static readonly Dictionary<int, (string Hoy, string Inicio, DateTime Vence)> _fechas = new();
+
+        public (string Hoy, string Inicio) Fechas(int idSede)
+        {
+            lock (_bloqueo)
+            {
+                if (_fechas.TryGetValue(idSede, out var f) && DateTime.UtcNow < f.Vence) return (f.Hoy, f.Inicio);
+                string hoy, inicio;
+                try
+                {
+                    var (h, diaCaja) = _datos.Fechas(idSede);
+                    if (string.IsNullOrEmpty(h)) throw new InvalidOperationException("La base no devolvió la fecha");
+                    hoy = h;
+                    inicio = diaCaja != "" && string.CompareOrdinal(diaCaja, h) < 0 ? diaCaja : h;
+                    _fechas[idSede] = (hoy, inicio, DateTime.UtcNow.AddSeconds(10));
+                }
+                catch
+                {
+                    hoy = inicio = DateTime.UtcNow.AddHours(-5).ToString("yyyy-MM-dd");
+                    _fechas[idSede] = (hoy, inicio, DateTime.UtcNow.AddSeconds(5));
+                }
+                return (hoy, inicio);
+            }
+        }
+
         public Respuesta Guardar(Configuracion c)
         {
             c.NombreNegocio = c.NombreNegocio?.Trim() ?? "";
@@ -134,10 +164,11 @@ namespace CapaNegocio
 
     public class CN_Insumo
     {
-        public static readonly string[] Unidades = { "UND", "PORC", "KG", "GR", "LT", "ML" };
+        // Yesenia Quejada Rojas - Claude — 28/10/2026: PAQ para lo que se compra en paquetes (servilletas, tortillas, bolsas).
+        public static readonly string[] Unidades = { "UND", "PORC", "KG", "GR", "LT", "ML", "PAQ" };
         // Yesenia Quejada Rojas - Claude — 19/10/2026: en la plantilla de Excel la unidad se elige de una lista con nombre claro.
         public static readonly string[] UnidadesTexto =
-            { "Unidad (UND)", "Porción (PORC)", "Kilogramo (KG)", "Gramo (GR)", "Litro (LT)", "Mililitro (ML)" };
+            { "Unidad (UND)", "Porción (PORC)", "Kilogramo (KG)", "Gramo (GR)", "Litro (LT)", "Mililitro (ML)", "Paquete (PAQ)" };
 
         /// <summary>Acepta "Kilogramo (KG)", "kg" o "Kilogramo" y devuelve el código de la unidad.</summary>
         public static string UnidadDesdeTexto(string? texto)
@@ -165,6 +196,8 @@ namespace CapaNegocio
             if (i.Codigo.Length > 30) return Respuesta.Error("El código puede tener máximo 30 caracteres");
             if (!Unidades.Contains(i.UnidadMedida)) return Respuesta.Error("Unidad de medida no válida");
             if (i.StockMinimo < 0 || i.CostoUnitario < 0) return Respuesta.Error("Los valores no pueden ser negativos");
+            if (i.UnidadMedida != "PAQ") i.UnidadesPorPaquete = null;
+            else if (!(i.UnidadesPorPaquete > 1)) return Respuesta.Error("Indique cuántas unidades trae el paquete");
             i.PorConfirmar = i.PorConfirmar?.Trim() ?? "";
             if (i.PorConfirmar.Length > 300) return Respuesta.Error("El dato por confirmar puede tener máximo 300 caracteres");
             var r = _datos.Guardar(i);
@@ -308,8 +341,11 @@ namespace CapaNegocio
         public Respuesta Registrar(int idSede, int idUsuario, Conteo c)
         {
             c.Detalle = c.Detalle?.GroupBy(d => d.IdInsumo).Select(g => g.Last()).ToList() ?? new();
-            if (c.Detalle.Count == 0) return Respuesta.Error("Ingrese al menos una cantidad contada");
+            // Yesenia Quejada Rojas - Claude — 28/10/2026: el conteo también puede traer solo costos corregidos.
+            c.Costos = c.Costos?.GroupBy(k => k.IdInsumo).Select(g => g.Last()).ToList() ?? new();
+            if (c.Detalle.Count == 0 && c.Costos.Count == 0) return Respuesta.Error("Ingrese al menos una cantidad contada o un costo");
             if (c.Detalle.Any(d => d.StockContado < 0)) return Respuesta.Error("Las cantidades no pueden ser negativas");
+            if (c.Costos.Any(k => k.CostoUnitario < 0 || k.CostoUnitario > 9999999999.99m)) return Respuesta.Error("Los costos no pueden ser negativos");
             return _datos.Registrar(idSede, idUsuario, c);
         }
     }
@@ -380,8 +416,16 @@ namespace CapaNegocio
         public Caja? Actual(int idSede) => _datos.Actual(idSede);
         public List<Caja> Historial(int idSede) => _datos.Historial(idSede);
 
-        public Respuesta Abrir(int idSede, int idUsuario, decimal baseInicial) =>
-            baseInicial < 0 ? Respuesta.Error("La base no puede ser negativa") : _datos.Abrir(idSede, idUsuario, baseInicial);
+        public Respuesta Abrir(int idSede, int idUsuario, decimal baseInicial, decimal fondoNegocio) =>
+            baseInicial < 0 || fondoNegocio < 0 ? Respuesta.Error("La base y el fondo no pueden ser negativos") : _datos.Abrir(idSede, idUsuario, baseInicial, fondoNegocio);
+
+        public decimal FondoSugerido(int idSede) => _datos.FondoSugerido(idSede);
+
+        // Yesenia Quejada Rojas - Claude — 04/11/2026: si al abrir se escribió mal (o no se escribió) la base de caja, se corrige mientras la caja siga abierta.
+        public Respuesta EditarBase(int idSede, int idUsuario, decimal baseInicial) =>
+            baseInicial < 0 || baseInicial > 9999999999.99m || decimal.Round(baseInicial, 2) != baseInicial
+                ? Respuesta.Error("La base de caja debe ser un valor positivo con máximo dos decimales")
+                : _datos.EditarBase(idSede, idUsuario, baseInicial);
 
         public Respuesta Cerrar(int idSede, int idUsuario, decimal efectivoContado, string? observacion) =>
             efectivoContado < 0 ? Respuesta.Error("El efectivo contado no puede ser negativo") : _datos.Cerrar(idSede, idUsuario, efectivoContado, observacion);
@@ -397,7 +441,8 @@ namespace CapaNegocio
     public class CN_Venta
     {
         private static readonly string[] TiposPedido = { "MESA", "LLEVAR", "DOMICILIO" };
-        private static readonly string[] Metodos = { "EFECTIVO", "TARJETA", "TRANSFERENCIA" };
+        // Yesenia Quejada Rojas - Claude — 30/10/2026: RAPPI = el cliente pagó en la app de Rappi (no es efectivo de la caja).
+        private static readonly string[] Metodos = { "EFECTIVO", "TARJETA", "TRANSFERENCIA", "RAPPI" };
         private static readonly string[] Estados = { "PENDIENTE", "EN_CAMINO", "ENTREGADO" };
         private static readonly string[] EstadosCocina = { "PENDIENTE", "PREPARANDO", "LISTO", "ENTREGADO" };
         private readonly CD_Venta _datos = new();
@@ -410,6 +455,8 @@ namespace CapaNegocio
             if (!Metodos.Contains(v.MetodoPago)) return Respuesta.Error("Forma de pago no válida");
             if (v.CostoDomicilio < 0 || v.MontoRecibido < 0) return Respuesta.Error("Los valores no pueden ser negativos");
             if (v.IdVenta < 0) return Respuesta.Error("Pedido no válido");
+            // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque del pedido (0 a 99); el SP y el CHECK de la tabla lo vuelven a validar.
+            if (v.Cajas < 0 || v.Cajas > 99) return Respuesta.Error("Las cajas deben estar entre 0 y 99");
             v.ClienteTelefono = SoloDigitos(v.ClienteTelefono);
             if (v.TipoPedido == "DOMICILIO" &&
                 (string.IsNullOrWhiteSpace(v.ClienteNombre) || string.IsNullOrWhiteSpace(v.ClienteTelefono) || string.IsNullOrWhiteSpace(v.Direccion)))
@@ -427,6 +474,9 @@ namespace CapaNegocio
             t.Configuracion = new CN_Configuracion().Obtener();
             return t;
         }
+
+        public Respuesta ConfirmarPago(int idSede, int idUsuario, int idVenta, bool confirmado) =>
+            idVenta <= 0 ? Respuesta.Error("Venta no válida") : _datos.ConfirmarPago(idSede, idUsuario, idVenta, confirmado);
 
         public Respuesta Anular(int idSede, int idVenta, int idUsuario, bool esAdmin, string? motivo) =>
             string.IsNullOrWhiteSpace(motivo) ? Respuesta.Error("Indique el motivo de la anulación")

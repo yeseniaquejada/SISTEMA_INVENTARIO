@@ -7,6 +7,9 @@ namespace CapaDatos
 {
     public class CD_Configuracion
     {
+        // Yesenia Quejada Rojas - Claude — 31/10/2026: fecha de hoy de la base de datos (la de las ventas) y día de la caja abierta, para los filtros de las páginas.
+        public (string Hoy, string DiaCaja) Fechas(int idSede) => FechasDeTrabajo(idSede);
+
         public Configuracion Obtener() =>
             Listar("SP_CONFIGURACION_OBTENER", dr => new Configuracion
             {
@@ -139,7 +142,9 @@ namespace CapaDatos
                 StockMinimo = dr.Decimal("StockMinimo"),
                 CostoUnitario = dr.Decimal("CostoUnitario"),
                 Activo = dr.Bool("Activo"),
-                ProximoVencimiento = dr["ProximoVencimiento"] == DBNull.Value ? "" : ((DateTime)dr["ProximoVencimiento"]).ToString("yyyy-MM-dd")
+                ProximoVencimiento = dr["ProximoVencimiento"] == DBNull.Value ? "" : ((DateTime)dr["ProximoVencimiento"]).ToString("yyyy-MM-dd"),
+                UnidadesPorPaquete = dr["UnidadesPorPaquete"] == DBNull.Value ? null : dr.Decimal("UnidadesPorPaquete"),
+                ControlaStock = dr.Bool("ControlaStock")
             }, P("@IdSede", idSede));
             var notas = Pendientes();
             foreach (var i in lista)
@@ -165,7 +170,7 @@ namespace CapaDatos
         public Respuesta Guardar(Insumo i) =>
             Ejecutar("SP_INSUMO_GUARDAR", P("@IdInsumo", i.IdInsumo), P("@Codigo", i.Codigo), P("@Nombre", i.Nombre),
                 P("@IdCategoria", i.IdCategoria), P("@UnidadMedida", i.UnidadMedida), P("@StockMinimo", i.StockMinimo),
-                P("@CostoUnitario", i.CostoUnitario), P("@Activo", i.Activo));
+                P("@CostoUnitario", i.CostoUnitario), P("@Activo", i.Activo), P("@UnidadesPorPaquete", i.UnidadesPorPaquete), P("@ControlaStock", i.ControlaStock));
 
         public Respuesta Eliminar(int id) => Ejecutar("SP_INSUMO_ELIMINAR", P("@IdInsumo", id));
     }
@@ -203,8 +208,12 @@ namespace CapaDatos
             t.Columns.Add("IdInsumo", typeof(int));
             t.Columns.Add("StockContado", typeof(decimal));
             foreach (var d in c.Detalle) t.Rows.Add(d.IdInsumo, d.StockContado);
+            var costos = new DataTable();
+            costos.Columns.Add("IdInsumo", typeof(int));
+            costos.Columns.Add("CostoUnitario", typeof(decimal));
+            foreach (var k in c.Costos) costos.Rows.Add(k.IdInsumo, k.CostoUnitario);
             return Ejecutar("SP_CONTEO_REGISTRAR", P("@IdSede", idSede), P("@IdUsuario", idUsuario),
-                P("@Observacion", c.Observacion), Tabla("@Detalle", "EConteo", t));
+                P("@Observacion", c.Observacion), Tabla("@Detalle", "EConteo", t), Tabla("@Costos", "ECostoInsumo", costos));
         }
 
         public List<Conteo> Listar(int idSede) =>
@@ -258,6 +267,7 @@ namespace CapaDatos
             {
                 var p = Mapear(dr);
                 p.Activo = dr.Bool("Activo");
+                p.EnCarta = dr.Bool("EnCarta");   // Yesenia Quejada Rojas - Claude — 02/11/2026: si sale o no en la carta pública.
                 p.TotalInsumos = dr.Entero("TotalInsumos");
                 p.Costo = dr.Decimal("Costo");
                 return p;
@@ -285,7 +295,8 @@ namespace CapaDatos
 
             return Ejecutar("SP_PRODUCTO_GUARDAR", P("@IdProducto", p.IdProducto), P("@Nombre", p.Nombre),
                 P("@Descripcion", p.Descripcion), P("@IdCategoriaMenu", p.IdCategoriaMenu), P("@Precio", p.Precio),
-                P("@Activo", p.Activo), Tabla("@Receta", "EReceta", receta), Tabla("@Modificadores", "EIds", Ids(p.Modificadores)));
+                P("@Activo", p.Activo), Tabla("@Receta", "EReceta", receta), Tabla("@Modificadores", "EIds", Ids(p.Modificadores)),
+                P("@EnCarta", p.EnCarta));   // Yesenia Quejada Rojas - Claude — 02/11/2026: ocultar el producto de la carta pública.
         }
 
         public Respuesta GuardarImagen(int idProducto, string? url) =>
@@ -364,15 +375,29 @@ namespace CapaDatos
                 VentasEfectivo = dr.Decimal("VentasEfectivo"),
                 VentasTarjeta = dr.Decimal("VentasTarjeta"),
                 VentasTransferencia = dr.Decimal("VentasTransferencia"),
+                VentasRappi = dr.Decimal("VentasRappi"),
+                BaseNegocio = dr.Decimal("BaseNegocio"), SaldoNegocio = dr.Decimal("SaldoNegocio"),
                 NumeroVentas = dr.Entero("NumeroVentas"),
                 NumeroAnuladas = dr.Entero("NumeroAnuladas"),
                 TotalAnulado = dr.Decimal("TotalAnulado"),
                 IngresosEfectivo=dr.Decimal("IngresosEfectivo"), EgresosEfectivo=dr.Decimal("EgresosEfectivo"),
-                EfectivoEnDomicilios = dr.Decimal("EfectivoEnDomicilios")
+                GastosTotal = dr.Decimal("GastosTotal"),
+                // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque gastadas en la caja abierta.
+                Cajas = dr.Entero("Cajas"), CostoCaja = dr.Decimal("CostoCaja"),
+                EfectivoEnDomicilios = dr.Decimal("EfectivoEnDomicilios"),
+                FondoNegocio = dr.Decimal("FondoNegocio"), IngresosFondo = dr.Decimal("IngresosFondo"), EgresosFondo = dr.Decimal("EgresosFondo")
             }, P("@IdSede", idSede)).FirstOrDefault();
 
-        public Respuesta Abrir(int idSede, int idUsuario, decimal baseInicial) =>
-            Ejecutar("SP_CAJA_ABRIR", P("@IdSede", idSede), P("@IdUsuario", idUsuario), P("@BaseInicial", baseInicial));
+        public Respuesta Abrir(int idSede, int idUsuario, decimal baseInicial, decimal fondoNegocio) =>
+            Ejecutar("SP_CAJA_ABRIR", P("@IdSede", idSede), P("@IdUsuario", idUsuario), P("@BaseInicial", baseInicial), P("@FondoNegocio", fondoNegocio));
+
+        // Yesenia Quejada Rojas - Claude — 04/11/2026: corrige la base de caja (efectivo con que arrancó el cajón) de la caja abierta.
+        public Respuesta EditarBase(int idSede, int idUsuario, decimal baseInicial) =>
+            Ejecutar("SP_CAJA_EDITAR_BASE", P("@IdSede", idSede), P("@IdUsuario", idUsuario), P("@BaseInicial", baseInicial));
+
+        // Yesenia Quejada Rojas - Claude — 28/10/2026: lo que quedó del fondo del negocio en el último cierre.
+        public decimal FondoSugerido(int idSede) =>
+            Conexion.Listar("SP_CAJA_FONDO_SUGERIDO", dr => dr.Decimal("Fondo"), P("@IdSede", idSede)).FirstOrDefault();
 
         public Respuesta Cerrar(int idSede, int idUsuario, decimal efectivoContado, string? observacion) =>
             Ejecutar("SP_CAJA_CERRAR", P("@IdSede", idSede), P("@IdUsuario", idUsuario),
@@ -388,6 +413,11 @@ namespace CapaDatos
                 VentasEfectivo = dr.Decimal("VentasEfectivo"),
                 VentasTarjeta = dr.Decimal("VentasTarjeta"),
                 VentasTransferencia = dr.Decimal("VentasTransferencia"),
+                VentasRappi = dr.Decimal("VentasRappi"),
+                BaseNegocio = dr.Decimal("BaseNegocio"), SaldoNegocio = dr.Decimal("SaldoNegocio"),
+                VentasTotal = dr.Decimal("VentasTotal"), GastosTotal = dr.Decimal("GastosTotal"),
+                // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque gastadas en cada caja.
+                Cajas = dr.Entero("Cajas"), CostoCaja = dr.Decimal("CostoCaja"),
                 EfectivoEsperado = dr.Decimal("EfectivoEsperado"),
                 EfectivoContado = dr.Decimal("EfectivoContado"),
                 Diferencia = dr.Decimal("Diferencia"),
@@ -419,11 +449,16 @@ namespace CapaDatos
                         VentasEfectivo = dr.Decimal("VentasEfectivo"),
                         VentasTarjeta = dr.Decimal("VentasTarjeta"),
                         VentasTransferencia = dr.Decimal("VentasTransferencia"),
+                        VentasRappi = dr.Decimal("VentasRappi"),
+                        BaseNegocio = dr.Decimal("BaseNegocio"), SaldoNegocio = dr.Decimal("SaldoNegocio"),
                         Domicilios = dr.Decimal("Domicilios"),
+                        // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque gastadas, para el cierre de caja.
+                        Cajas = dr.Entero("Cajas"), CostoCaja = dr.Decimal("CostoCaja"),
                         NumeroVentas = dr.Entero("NumeroVentas"),
                         NumeroAnuladas = dr.Entero("NumeroAnuladas"),
                         TotalAnulado = dr.Decimal("TotalAnulado"),
-                        IngresosEfectivo=dr.Decimal("IngresosEfectivo"), EgresosEfectivo=dr.Decimal("EgresosEfectivo")
+                        IngresosEfectivo=dr.Decimal("IngresosEfectivo"), EgresosEfectivo=dr.Decimal("EgresosEfectivo"),
+                        FondoNegocio=dr.Decimal("FondoNegocio"), IngresosFondo=dr.Decimal("IngresosFondo"), EgresosFondo=dr.Decimal("EgresosFondo")
                     }
                 };
                 r.Caja.EfectivoEsperado = r.Caja.Estado == "CERRADA" ? dr.Decimal("EfectivoEsperadoGuardado") : r.Caja.BaseInicial + r.Caja.VentasEfectivo + r.Caja.IngresosEfectivo - r.Caja.EgresosEfectivo;
@@ -474,8 +509,14 @@ namespace CapaDatos
                 P("@ClienteNombre", v.ClienteNombre), P("@ClienteTelefono", v.ClienteTelefono), P("@Direccion", v.Direccion),
                 P("@CostoDomicilio", v.CostoDomicilio), P("@MetodoPago", v.MetodoPago), P("@MontoRecibido", v.MontoRecibido),
                 Tabla("@Lineas", "ELineaVenta", lineas), Tabla("@Modificadores", "ELineaModificador", mods),
-                P("@IdVenta", v.IdVenta), Tabla("@Quitados", "ELineaQuitado", quitados));
+                P("@IdVenta", v.IdVenta), Tabla("@Quitados", "ELineaQuitado", quitados),
+                // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque del pedido.
+                P("@Cajas", v.Cajas));
         }
+
+        // Yesenia Quejada Rojas - Claude — 30/10/2026: marca que el pago de Rappi ya entró.
+        public Respuesta ConfirmarPago(int idSede, int idUsuario, int idVenta, bool confirmado) =>
+            Ejecutar("SP_VENTA_PAGO_CONFIRMAR", P("@IdSede", idSede), P("@IdUsuario", idUsuario), P("@IdVenta", idVenta), P("@Confirmado", confirmado));
 
         public Respuesta Anular(int idSede, int idVenta, int idUsuario, bool esAdmin, string motivo) =>
             Ejecutar("SP_VENTA_ANULAR", P("@IdSede", idSede), P("@IdVenta", idVenta), P("@IdUsuario", idUsuario),
@@ -497,7 +538,11 @@ namespace CapaDatos
                 MotivoAnulacion = dr.Texto("MotivoAnulacion"),
                 EstadoCocina = dr.Texto("EstadoCocina"),
                 SegundosEdicion = dr.Entero("SegundosEdicion"),
-                CajaAbierta = dr.Bool("CajaAbierta")
+                CajaAbierta = dr.Bool("CajaAbierta"),
+                PagoConfirmado = dr.Bool("PagoConfirmado"),
+                FechaPagoConfirmado = dr.Texto("FechaPagoConfirmado"),
+                // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque del pedido, para el listado de ventas.
+                Cajas = dr.Entero("Cajas")
             }, P("@IdSede", idSede), P("@FechaInicio", inicio.Date), P("@FechaFin", fin.Date));
 
         /// <summary>Devuelve el ticket y el Id de la sede de la venta (para validar acceso).</summary>
@@ -532,7 +577,9 @@ namespace CapaDatos
                         Anulada = dr.Bool("Anulada"),
                         MotivoAnulacion = dr.Texto("MotivoAnulacion"),
                         EstadoCocina = dr.Texto("EstadoCocina"),
-                        SegundosEdicion = dr.Entero("SegundosEdicion")
+                        SegundosEdicion = dr.Entero("SegundosEdicion"),
+                        // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque del pedido, para ticket y comanda.
+                        Cajas = dr.Entero("Cajas")
                     }
                 };
                 dr.NextResult();
@@ -662,6 +709,7 @@ namespace CapaDatos
                 UnidadMedida = dr.Texto("UnidadMedida"),
                 Stock = dr.Decimal("Stock"),
                 StockMinimo = dr.Decimal("StockMinimo"),
+                ConsumoDia = dr.Decimal("ConsumoDia"),
                 CantidadSugerida = dr.Decimal("CantidadSugerida"),
                 CostoUnitario = dr.Decimal("CostoUnitario"),
                 CostoEstimado = dr.Decimal("CostoEstimado"),
@@ -688,6 +736,9 @@ namespace CapaDatos
                     r.CostoInsumos = dr.Decimal("CostoInsumos");
                     r.Ganancia = dr.Decimal("Ganancia");
                     r.Mermas = dr.Decimal("Mermas");
+                    // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque gastadas en el periodo.
+                    r.Cajas = dr.Entero("Cajas");
+                    r.CostoCaja = dr.Decimal("CostoCaja");
                 }
                 dr.NextResult();
                 while (dr.Read())
