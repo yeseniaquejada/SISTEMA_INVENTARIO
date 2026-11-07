@@ -1,34 +1,44 @@
 @{
     ViewData["Title"] = "Contar inventario";
 }
+@* Yesenia Quejada Rojas - Claude — 28/10/2026: el conteo se agrupa por categoría, deja corregir el costo por unidad, agregar insumos
+   nuevos sin salir de la pantalla y quitar con la "x" los que no aplican hoy (vuelven a la lista al guardar). La tabla es más alta. *@
 <div class="row g-3">
-    <div class="col-xl-8">
+    <div class="col-xxl-9">
         <div class="card shadow-sm">
             <div class="card-header bg-white">
-                <p class="small text-muted mb-2">Úselo cuando cuente lo que hay en el local y no coincida con el sistema. Escriba solo lo que contó; el sistema corrige la cantidad y deja anotada la diferencia.</p>
-                <div class="d-flex gap-2 flex-wrap">
-                    <input type="search" id="txtBuscar" class="form-control form-control-sm" style="max-width:240px" placeholder="Buscar insumo..." />
-                    <button class="btn btn-sm btn-outline-secondary ms-auto" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir hoja de conteo</button>
+                @* Yesenia Quejada Rojas - Claude — 07/11/2026: se vuelve a escribir el total contado (no lo comprado); el sistema lo toma
+                   como la nueva existencia y anota la diferencia, como antes del cambio del 30/10/2026. *@
+                <p class="small text-muted mb-2">Escriba la cantidad total que contó de cada insumo; el sistema la toma como la nueva existencia y anota la diferencia.
+                    Si cambió, corrija el costo por unidad. Con la <i class="bi bi-x-lg"></i> quita de la lista lo que no aplica; vuelve a aparecer al guardar.</p>
+                <div class="d-flex gap-2 flex-wrap align-items-center">
+                    <input type="search" id="txtBuscar" class="form-control form-control-sm" style="max-width:240px" placeholder="Buscar insumo..." aria-label="Buscar insumo" />
+                    <button class="btn btn-sm btn-outline-primary" id="btnAgregar" type="button"><i class="bi bi-plus-lg"></i> Agregar insumo</button>
+                    <span class="small text-muted" id="lblQuitados"></span>
+                    <button class="btn btn-sm btn-outline-secondary ms-auto no-imprimir" onclick="window.print()"><i class="bi bi-printer"></i> Imprimir hoja de conteo</button>
                 </div>
             </div>
-            <div class="card-body p-0 table-responsive" style="max-height:60vh">
-                <table class="table table-sm table-hover mb-0">
-                    <thead class="table-light sticky-top"><tr><th>Insumo</th><th class="text-end">Dice el sistema</th><th style="width:140px">Usted contó</th><th class="text-end">Diferencia</th></tr></thead>
+            <div class="card-body p-0 table-responsive tabla-conteo">
+                <table class="table table-sm table-hover mb-0 align-middle">
+                    <thead class="table-light sticky-top">
+                        <tr><th>Insumo</th><th class="text-end">Hay ahora</th><th style="width:130px">Cantidad contada (total)</th>
+                            <th style="width:140px">Costo por unidad</th><th class="text-end">Diferencia</th><th class="no-imprimir" style="width:36px"></th></tr>
+                    </thead>
                     <tbody id="tablaConteo"></tbody>
                 </table>
             </div>
-            <div class="card-footer bg-white d-flex gap-2 no-imprimir">
-                <input id="txtObservacion" class="form-control" maxlength="250" placeholder="Observación (opcional)" />
+            <div class="card-footer bg-white d-flex gap-2 flex-wrap no-imprimir">
+                <input id="txtObservacion" class="form-control flex-grow-1" style="min-width:200px" maxlength="250" placeholder="Observación (opcional)" />
                 <button class="btn btn-marca text-nowrap" id="btnGuardar"><i class="bi bi-check2-square"></i> Guardar conteo</button>
             </div>
         </div>
     </div>
-    <div class="col-xl-4 no-imprimir">
+    <div class="col-xxl-3 no-imprimir">
         <div class="card shadow-sm">
             <div class="card-header bg-white"><strong>Conteos anteriores</strong></div>
             <div class="card-body p-0 table-responsive">
                 <table class="table table-sm mb-0">
-                    <thead class="table-light"><tr><th>Fecha</th><th class="text-end">Insumos</th><th class="text-end">Con diferencia</th><th class="text-end">Valor</th></tr></thead>
+                    <thead class="table-light"><tr><th>Fecha</th><th class="text-end">Insumos</th><th class="text-end">Valor</th></tr></thead>
                     <tbody id="tablaHistorial"></tbody>
                 </table>
             </div>
@@ -36,54 +46,157 @@
     </div>
 </div>
 
+<div class="modal fade" id="modalNuevo" tabindex="-1" aria-labelledby="tituloNuevo">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="tituloNuevo">Agregar insumo</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body">
+            <form id="formNuevo" class="row g-3">
+                <div class="col-12"><label class="form-label" for="nvNombre">Nombre</label><input id="nvNombre" class="form-control" maxlength="100" required placeholder="Ej: Salsa de piña" /></div>
+                <div class="col-md-6"><label class="form-label" for="nvCategoria">Categoría</label><select id="nvCategoria" class="form-select"></select></div>
+                <div class="col-md-6"><label class="form-label" for="nvUnidad">¿Cómo se cuenta?</label>
+                    <select id="nvUnidad" class="form-select">
+                        <option value="UND">Unidad (UND)</option><option value="KG">Kilogramo (KG)</option><option value="GR">Gramo (GR)</option>
+                        <option value="LT">Litro (LT)</option><option value="ML">Mililitro (ML)</option><option value="PAQ">Paquete (PAQ)</option>
+                    </select></div>
+                <div class="col-md-6" id="nvGrupoPaquete" hidden><label class="form-label" for="nvUnidadesPaquete">Unidades que trae el paquete</label><input id="nvUnidadesPaquete" type="number" min="2" step="1" class="form-control" /></div>
+                <div class="col-md-6"><label class="form-label" for="nvCosto" id="nvLblCosto">Costo por unidad</label><input data-moneda id="nvCosto" type="number" min="0" step="0.01" class="form-control" value="0" />
+                    <div class="form-text" id="nvAyudaCosto"></div></div>
+                <div class="col-md-6"><label class="form-label" for="nvContado">Cantidad que contó</label><input id="nvContado" type="number" min="0" step="1" class="form-control" required /></div>
+                <div class="col-md-6"><label class="form-label" for="nvMinimo">Avisar cuando queden</label><input id="nvMinimo" type="number" min="0" step="1" class="form-control" value="0" /></div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="button" class="btn btn-marca" id="btnCrear"><i class="bi bi-plus-lg"></i> Agregar al conteo</button>
+        </div>
+    </div></div>
+</div>
+
 @section Scripts {
 <script>
 (function () {
     const $ = id => document.getElementById(id);
-    let insumos = [];
+    let insumos = [], quitados = new Set();
+    const modalNuevo = new bootstrap.Modal($('modalNuevo'));
 
     async function cargar() {
         try {
-            const [lista, historial] = await Promise.all([api.get('/Insumo/Listar'), api.get('/Conteo/Listar')]);
+            const [lista, historial, categorias] = await Promise.all([api.get('/Insumo/Listar'), api.get('/Conteo/Listar'), api.get('/Categoria/Listar')]);
             insumos = lista.filter(i => i.activo);
-            // Yesenia Quejada Rojas - Claude — 19/10/2026: sin categorías; basta buscar por nombre.
-            renderTabla($('tablaConteo'), insumos, i => `<tr>
-                <td>${esc(i.nombre)}</td>
-                <td class="text-end text-nowrap">${num(i.stock)} ${esc(i.unidadMedida)}</td>
-                <td><input type="number" min="0" step="0.001" class="form-control form-control-sm" data-id="${i.idInsumo}" data-stock="${i.stock}" aria-label="Cantidad contada de ${esc(i.nombre)}" /></td>
-                <td class="text-end diferencia"></td></tr>`, 4);
+            quitados.clear();
+            llenarSelect($('nvCategoria'), categorias.filter(c => c.activo), 'idCategoria', 'descripcion', null);
+            pintar();
             renderTabla($('tablaHistorial'), historial, h => `<tr>
                 <td class="text-nowrap">${esc(h.fecha)}<br><small class="text-muted">${esc(h.usuario)}</small></td>
-                <td class="text-end">${h.insumos}</td><td class="text-end">${h.conDiferencia}</td>
-                <td class="text-end ${h.valorDiferencia < 0 ? 'text-danger' : ''}">${moneda(h.valorDiferencia)}</td></tr>`, 4);
+                <td class="text-end">${h.insumos}<div class="small text-muted">${h.conDiferencia} con dif.</div></td>
+                <td class="text-end text-nowrap ${h.valorDiferencia < 0 ? 'text-danger' : ''}">${moneda(h.valorDiferencia)}</td></tr>`, 3);
         } catch (e) { errorAlerta(e); }
+    }
+
+    // Agrupa por categoría; dentro de cada una, por nombre.
+    function pintar() {
+        const visibles = insumos.filter(i => !quitados.has(i.idInsumo));
+        const grupos = Object.entries(visibles.reduce((g, i) => ((g[i.categoria || 'General'] ??= []).push(i), g), {}))
+            .sort(([a], [b]) => a.localeCompare(b, 'es'));
+        $('tablaConteo').innerHTML = grupos.map(([cat, items]) => `
+            <tr class="fila-categoria"><th colspan="6">${esc(cat)} <span class="text-muted fw-normal small">(${items.length})</span></th></tr>
+            ${items.map(i => `<tr data-fila="${i.idInsumo}" data-unidad="${esc(i.unidadMedida)}">
+                <td>${esc(i.nombre)}${i.unidadesPorPaquete ? `<div class="small text-muted">Paquete de ${num(i.unidadesPorPaquete)} und.</div>` : ''}</td>
+                @* Yesenia Quejada Rojas - Claude — 31/10/2026: aquí se ve y se cuenta en números enteros. Por dentro el stock conserva sus fracciones
+                   porque las recetas gastan partes (una tortilla es 0,1 de paquete) y, si se redondeara al guardar, el inventario se descuadraría. *@
+                <td class="text-end text-nowrap">${num(Math.round(i.stock))} ${esc(i.unidadMedida)}</td>
+                <td><input type="number" min="0" step="1" class="form-control form-control-sm" data-id="${i.idInsumo}" data-stock="${i.stock}" value="${i.contadoNuevo ?? ''}" aria-label="Cantidad contada de${esc(i.nombre)}" /></td>
+                <td><input data-moneda type="number" min="0" step="0.01" class="form-control form-control-sm" data-costo="${i.idInsumo}" data-original="${i.costoUnitario}" value="${i.costoUnitario}" aria-label="Costo por unidad de ${esc(i.nombre)}" /></td>
+                <td class="text-end diferencia"></td>
+                <td class="no-imprimir"><button type="button" class="btn btn-sm btn-link text-muted p-0" data-quitar="${i.idInsumo}" title="Quitar de este conteo" aria-label="Quitar ${esc(i.nombre)} de este conteo"><i class="bi bi-x-lg"></i></button></td>
+            </tr>`).join('')}`).join('') || '<tr><td colspan="6" class="text-center text-muted py-4">No hay insumos para contar</td></tr>';
+        $('lblQuitados').innerHTML = quitados.size ? `${quitados.size} quitado(s) de este conteo · <a href="#" id="lnkRestaurar">ver todos</a>` : '';
+        etiquetarTabla($('tablaConteo'));
+        $('tablaConteo').querySelectorAll('input[data-id]').forEach(diferencia);
+        filtrar();
     }
 
     function filtrar() {
         const q = $('txtBuscar').value.toLowerCase();
-        $('tablaConteo').querySelectorAll('tr').forEach(tr => tr.hidden = !tr.textContent.toLowerCase().includes(q));
+        $('tablaConteo').querySelectorAll('tr[data-fila]').forEach(tr => tr.hidden = !tr.cells[0].textContent.toLowerCase().includes(q));
+        // Oculta el título de la categoría si no queda ninguna fila visible debajo.
+        $('tablaConteo').querySelectorAll('tr.fila-categoria').forEach(tr => {
+            let s = tr.nextElementSibling, alguna = false;
+            while (s && !s.classList.contains('fila-categoria')) { if (!s.hidden) alguna = true; s = s.nextElementSibling; }
+            tr.hidden = !alguna;
+        });
     }
     $('txtBuscar').addEventListener('input', filtrar);
 
-    $('tablaConteo').addEventListener('input', ev => {
-        const inp = ev.target;
+    function diferencia(inp) {
         const celda = inp.closest('tr').querySelector('.diferencia');
         if (inp.value === '') { celda.textContent = ''; return; }
-        const d = Number(inp.value) - Number(inp.dataset.stock);
-        celda.textContent = (d > 0 ? '+' : '') + num(d);
-        celda.className = 'text-end diferencia ' + (d < 0 ? 'text-danger' : d > 0 ? 'text-primary' : 'text-success');
+        // Yesenia Quejada Rojas - Claude — 07/11/2026: diferencia = contado − hay ahora (rojo si falta, azul si sobra, verde si cuadra).
+        const d = Number(inp.value) - Math.round(Number(inp.dataset.stock));
+        celda.textContent = `${d > 0 ? '+' : ''}${num(d)} ${inp.closest('tr').dataset.unidad}`;
+        celda.className = 'text-end text-nowrap fw-semibold diferencia ' + (d < 0 ? 'text-danger' : d > 0 ? 'text-primary' : 'text-success');
+    }
+    $('tablaConteo').addEventListener('input', ev => {
+        if (ev.target.dataset.id) diferencia(ev.target);
+        const i = insumos.find(x => x.idInsumo === Number(ev.target.dataset.id)); if (i) i.contadoNuevo = ev.target.value;
+    });
+    $('tablaConteo').addEventListener('click', ev => {
+        const b = ev.target.closest('[data-quitar]'); if (!b) return;
+        quitados.add(Number(b.dataset.quitar));
+        pintar();
+    });
+    $('lblQuitados').addEventListener('click', ev => {
+        if (ev.target.id !== 'lnkRestaurar') return;
+        ev.preventDefault(); quitados.clear(); pintar();
+    });
+
+    // Insumo nuevo desde el conteo: se crea con su costo y entra al conteo con la cantidad que hay.
+    function pintarNuevo() {
+        const paq = $('nvUnidad').value === 'PAQ', n = Number($('nvUnidadesPaquete').value), c = Number($('nvCosto').value);
+        $('nvGrupoPaquete').hidden = !paq; $('nvUnidadesPaquete').required = paq;
+        $('nvLblCosto').textContent = paq ? 'Costo del paquete' : 'Costo por unidad';
+        $('nvAyudaCosto').textContent = paq && n > 1 && c > 0 ? `Cada unidad cuesta ${moneda(c / n)}` : '';
+    }
+    ['nvUnidad', 'nvUnidadesPaquete', 'nvCosto'].forEach(id => $(id).addEventListener('input', pintarNuevo));
+    $('btnAgregar').addEventListener('click', () => { $('formNuevo').reset(); pintarNuevo(); modalNuevo.show(); });
+    $('btnCrear').addEventListener('click', async () => {
+        if (!$('formNuevo').reportValidity()) return;
+        $('btnCrear').disabled = true;
+        try {
+            const r = await api.post('/Insumo/Guardar', {
+                idInsumo: 0, nombre: $('nvNombre').value.trim(), idCategoria: Number($('nvCategoria').value) || 0,
+                unidadMedida: $('nvUnidad').value, unidadesPorPaquete: Number($('nvUnidadesPaquete').value) || null,
+                costoUnitario: Number($('nvCosto').value) || 0, stockMinimo: Number($('nvMinimo').value) || 0, activo: true
+            });
+            if (!r.resultado) return alerta(r.mensaje, 'warning');
+            const contado = $('nvContado').value;
+            const lista = await api.get('/Insumo/Listar');
+            const nuevo = lista.find(i => i.idInsumo === r.id);
+            if (nuevo) { nuevo.contadoNuevo = contado; insumos.push(nuevo); }
+            modalNuevo.hide();
+            pintar();
+            alerta('Insumo agregado. Guarde el conteo para registrar la cantidad.');
+        } catch (e) { errorAlerta(e); } finally { $('btnCrear').disabled = false; }
     });
 
     $('btnGuardar').addEventListener('click', async () => {
-        const detalle = [...$('tablaConteo').querySelectorAll('input')].filter(i => i.value !== '')
+        const filas = [...$('tablaConteo').querySelectorAll('tr[data-fila]')];
+        if (filas.some(tr => !Number.isInteger(Number(tr.querySelector('input[data-id]').value)))) { alerta('Escriba las cantidades en números enteros', 'warning'); return; }
+        // Yesenia Quejada Rojas - Claude — 07/11/2026: se manda el total contado; SP_CONTEO_REGISTRAR lo deja como existencia y ajusta la diferencia.
+        const detalle = filas.map(tr => tr.querySelector('input[data-id]')).filter(i => i.value !== '')
             .map(i => ({ idInsumo: Number(i.dataset.id), stockContado: Number(i.value) }));
-        if (!detalle.length) { alerta('Escriba al menos una cantidad contada', 'warning'); return; }
-        if (!confirm(`Se ajustará el stock de ${detalle.length} insumo(s). ¿Continuar?`)) return;
+        const costos = filas.map(tr => tr.querySelector('input[data-costo]'))
+            .filter(i => i.value !== '' && Number(i.value) !== Number(i.dataset.original))
+            .map(i => ({ idInsumo: Number(i.dataset.costo), costoUnitario: Number(i.value) }));
+        if (!detalle.length && !costos.length) { alerta('Escriba al menos una cantidad contada o un costo', 'warning'); return; }
+        const partes = [detalle.length ? `ajustar la existencia de ${detalle.length} insumo(s)` : '', costos.length ? `cambiar el costo de ${costos.length}` : ''].filter(Boolean);
+        if (!confirm(`Se va a ${partes.join(' y ')}. ¿Continuar?`)) return;
+        $('btnGuardar').disabled = true;
         try {
-            const r = await api.post('/Conteo/Registrar', { observacion: $('txtObservacion').value, detalle });
-            if (r.resultado) { alerta('Conteo guardado y stock ajustado'); $('txtObservacion').value = ''; cargar(); }
+            const r = await api.post('/Conteo/Registrar', { observacion: $('txtObservacion').value, detalle, costos });
+            if (r.resultado) { alerta('Conteo guardado y existencia ajustada'); $('txtObservacion').value = ''; $('txtBuscar').value = ''; cargar(); }
             else alerta(r.mensaje, 'warning');
-        } catch (e) { errorAlerta(e); }
+        } catch (e) { errorAlerta(e); } finally { $('btnGuardar').disabled = false; }
     });
 
     cargar();
