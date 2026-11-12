@@ -3,3 +3,6 @@ obj/
 .vs/
 *.user
 CapaPresentacion/wwwroot/uploads/
+publicado/
+publicado-zip/
+BaseDatos/Resultados/

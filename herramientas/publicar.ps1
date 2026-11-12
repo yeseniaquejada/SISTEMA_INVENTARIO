@@ -67,14 +67,17 @@ switch ($ent.Metodo) {
             $destinoArgs += '/p:WebPublishMethod=MSDeploy', '/p:MSDeployPublishMethod=WMSVC', '/p:EnableMSDeployAppOffline=true',
                 "/p:MSDeployServiceURL=$($ent.ServidorWebDeploy)", "/p:DeployIisAppPath=$($ent.Sitio)"
         }
+        # La clave va por variable de entorno (MSBuild la lee como propiedad), no en la línea de comandos
+        $env:Password = $cred.GetNetworkCredential().Password
         & dotnet publish $proyecto -c Release --nologo @destinoArgs `
             "/p:UserName=$($cred.UserName)" `
-            "/p:Password=$($cred.GetNetworkCredential().Password)" `
             '/p:SkipExtraFilesOnServer=true' `
             '/p:AllowUntrustedCertificate=true' `
             "/p:CustomAfterMicrosoftCommonTargets=$props"
+        $codigo = $LASTEXITCODE
+        Remove-Item Env:\Password -ErrorAction SilentlyContinue
         Remove-Item $props -Force -ErrorAction SilentlyContinue
-        if ($LASTEXITCODE -ne 0) { throw 'La publicación con Web Deploy falló.' }
+        if ($codigo -ne 0) { throw 'La publicación con Web Deploy falló.' }
     }
     'Zip' {
         # Para hostings donde se sube un .zip por el panel. El zip no lleva appsettings.json

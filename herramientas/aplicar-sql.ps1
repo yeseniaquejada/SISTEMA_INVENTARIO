@@ -53,7 +53,10 @@ try {
         if (-not $dr.IsClosed) { $dr.Close() }
     }
 
-    Exec @"
+    # Con -Ver no se escribe nada: si la tabla de registro no existe, todo sale como pendiente
+    $existe = $cn.CreateCommand(); $existe.CommandText = "SELECT CASE WHEN OBJECT_ID('dbo.HISTORIAL_SCRIPTS','U') IS NULL THEN 0 ELSE 1 END"
+    $hayTabla = [int]$existe.ExecuteScalar() -eq 1
+    if (-not $hayTabla -and -not $Ver) { Exec @"
 IF OBJECT_ID('dbo.HISTORIAL_SCRIPTS','U') IS NULL
 CREATE TABLE dbo.HISTORIAL_SCRIPTS (
     Nombre       VARCHAR(200)  NOT NULL PRIMARY KEY,
@@ -62,11 +65,13 @@ CREATE TABLE dbo.HISTORIAL_SCRIPTS (
     EjecutadoPor VARCHAR(100)  NULL,
     Modo         VARCHAR(20)   NOT NULL   -- EJECUTADO o MARCADO
 );
-"@ | Out-Null
+"@ | Out-Null; $hayTabla = $true }
 
     $hechos = @{}
-    $cmd = $cn.CreateCommand(); $cmd.CommandText = 'SELECT Nombre, Huella FROM dbo.HISTORIAL_SCRIPTS'
-    $dr = $cmd.ExecuteReader(); while ($dr.Read()) { $hechos[$dr.GetString(0)] = if ($dr.IsDBNull(1)) { '' } else { $dr.GetString(1) } }; $dr.Close()
+    if ($hayTabla) {
+        $cmd = $cn.CreateCommand(); $cmd.CommandText = 'SELECT Nombre, Huella FROM dbo.HISTORIAL_SCRIPTS'
+        $dr = $cmd.ExecuteReader(); while ($dr.Read()) { $hechos[$dr.GetString(0)] = if ($dr.IsDBNull(1)) { '' } else { $dr.GetString(1) } }; $dr.Close()
+    } else { Log 'La base aún no tiene la tabla HISTORIAL_SCRIPTS (se crea al ejecutar o marcar).' 'Yellow' }
 
     $archivos = Get-ChildItem -Path $Carpeta -Filter '*.sql' | Where-Object { $_.Name -match '^\d{3}_' } | Sort-Object Name
     $pendientes = @()
@@ -79,6 +84,7 @@ CREATE TABLE dbo.HISTORIAL_SCRIPTS (
 
     Log ("Base: {0} en {1} ({2})" -f $cfg.Base, $cfg.Servidor, $Entorno) 'Cyan'
 
+    if ($MarcarHasta -and $Ver) { throw 'Use -Ver o -MarcarHasta, no los dos.' }
     if ($MarcarHasta) {
         foreach ($p in $pendientes | Where-Object { $_.Archivo.Name.Substring(0, 3) -le $MarcarHasta }) {
             $c = $cn.CreateCommand()
