@@ -1,4 +1,6 @@
-<div class="d-flex flex-wrap gap-2 mb-3">
-    <button class="btn btn-marca" id="btnNuevo"><i class="bi bi-plus-lg"></i> Nuevo</button>
-    <input type="search" id="buscar" class="form-control ms-auto" style="max-width:280px" placeholder="Buscar..." />
+@* Yesenia Quejada Rojas - Claude — 29/10/2026: "Nuevo" y "Buscar" siempre en la misma línea; en celular el buscador se encoge
+   (antes bajaba solo a la derecha y se veía desalineado). *@
+<div class="d-flex flex-nowrap align-items-center gap-2 mb-3 barra-acciones">
+    <button class="btn btn-marca flex-shrink-0" id="btnNuevo"><i class="bi bi-plus-lg"></i> Nuevo</button>
+    <input type="search" id="buscar" class="form-control ms-auto" style="max-width:280px; min-width:0; flex:1 1 auto" placeholder="Buscar..." aria-label="Buscar" />
 </div>

@@ -5,23 +5,28 @@
     var c = Model.Configuracion;
     string M(decimal n) => c.SimboloMoneda + " " + n.ToString("N0", new System.Globalization.CultureInfo("es-CO"));
     var pedido = new Dictionary<string, string> { ["MESA"] = "En mesa", ["LLEVAR"] = "Para llevar", ["DOMICILIO"] = "Domicilio" };
-    var pago = new Dictionary<string, string> { ["EFECTIVO"] = "Efectivo", ["TARJETA"] = "Tarjeta", ["TRANSFERENCIA"] = "Transferencia" };
+    var pago = new Dictionary<string, string> { ["EFECTIVO"] = "Efectivo", ["TARJETA"] = "Tarjeta", ["TRANSFERENCIA"] = "Transferencia", ["RAPPI"] = "Rappi (pagado en la app)", ["POR_COBRAR"] = "POR COBRAR" };
+    // Yesenia Quejada Rojas - Claude — 30/10/2026: N° 0 = pedido aún sin cobrar (sale de "Cobrar después").
+    var numero = v.IdVenta > 0 ? "N° " + v.IdVenta : "sin cobrar";
     var comanda = ViewData["Comanda"] is true;
 }
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="utf-8" />
-    <title>Ticket @v.IdVenta</title>
+    @* Yesenia Quejada Rojas - Claude — 30/10/2026: el título es el nombre que propone el navegador al guardar el PDF. *@
+    <title>@(comanda ? "Comanda" : "Factura") @numero - @c.NombreNegocio</title>
     <style>
-        @@page { size: auto; margin: 3mm; }
-        body { font-family: "Courier New", monospace; font-size: 12px; width: @(c.AnchoTicket - 8)mm; overflow-wrap: anywhere; margin: 0 auto; color: #000; }
+        @* Yesenia Quejada Rojas - Claude — 29/10/2026: margen 0 y ancho del área que imprime la térmica (48 mm en 58 mm, 72 mm en 80 mm). *@
+        @@page { size: auto; margin: 0; }
+        body { font-family: "Courier New", monospace; font-size: @(c.LetraTicket)px; width: @(c.AreaImpresion)mm; overflow-wrap: anywhere; margin: 0 auto; color: #000; }
+        @@media print { body { margin: 0; padding: 0 0 6mm; } }
         .c { text-align: center; } .r { text-align: right; } .b { font-weight: bold; }
         .logo { max-width: 40mm; max-height: 25mm; display: block; margin: 0 auto 4px; }
         hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
         table { width: 100%; border-collapse: collapse; } td { vertical-align: top; padding: 1px 0; }
-        .sub { font-size: 11px; padding-left: 8px; }
-        .total td { font-size: 15px; font-weight: bold; }
+        .sub { font-size: 12px; padding-left: 8px; }
+        .total td { font-size: 16px; font-weight: bold; }
         .acciones { text-align: center; margin: 12px 0; }
         .anulado { border: 2px solid #000; text-align: center; font-weight: bold; font-size: 16px; padding: 4px; margin: 6px 0; }
         .comanda { font-size: 15px; } .comanda .sub { font-size: 13px; }
@@ -29,16 +34,19 @@
         .acciones button { padding: 10px 14px; cursor: pointer; margin: 4px; }
         .guia { font-family: sans-serif; font-size: 12px; line-height: 1.4; }
         @@media screen { html { background: #eef0f3; } body { background: white; padding: 16px; margin: 24px auto; box-shadow: 0 4px 24px #0002; border-radius: 6px; } }
-        @@media print { .acciones { display: none; } body { margin: 0; } }
+        @@media print { .acciones { display: none; } body { margin: 0; } body.modo-pdf { margin: 0 auto; padding-top: 10mm; } }
     </style>
 </head>
-<body class="@(comanda ? "comanda" : "")" data-auto="@((c.ImprimirAutomatico && Context.Request.Query["vista"] != "1") ? "true" : "false")">
+<body class="@(comanda ? "comanda" : "")" data-auto="@((c.ImprimirAutomatico && Context.Request.Query["vista"] != "1" && Context.Request.Query["pdf"] != "1") ? "true" : "false")">
     @if (v.Anulada) { <div class="anulado">PEDIDO ANULADO<br /><small>@v.MotivoAnulacion</small></div> }
+    @if (v.MetodoPago == "POR_COBRAR" && !comanda) { <div class="anulado">PAGO POR COBRAR<br />@M(v.Total)</div> }
     @if (comanda)
     {
-        <div class="c b" style="font-size:20px">COMANDA N° @v.IdVenta</div>
+        <div class="c b" style="font-size:20px">COMANDA @(v.IdVenta > 0 ? "N° " + v.IdVenta : "")</div>
         <div class="c b">@(pedido.GetValueOrDefault(v.TipoPedido, v.TipoPedido))@(string.IsNullOrEmpty(v.ClienteNombre) ? "" : " · " + v.ClienteNombre)</div>
         <div class="c">@v.Fecha</div>
+        @* Yesenia Quejada Rojas - Claude — 31/10/2026: cocina ve de una si el pedido sale en caja y cuántas. *@
+        @if (v.Cajas > 0) { <div class="c b" style="font-size:18px">CON CAJA × @v.Cajas</div> }
         <hr />
         <table>
             @foreach (var l in Model.Lineas)
@@ -51,7 +59,7 @@
             }
         </table>
         <hr />
-        <div class="acciones"><div class="guia">Papel @(c.AnchoTicket) mm · Escala 100 % · Sin encabezados ni pies</div><button id="btnImprimir" disabled>Imprimir</button> <button onclick="window.close()">Cerrar</button></div>
+        <div class="acciones"><div class="guia">Papel @(c.AnchoTicket) mm · Imprime @(c.AreaImpresion) mm · Escala 100 % · Márgenes: ninguno · Sin encabezados ni pies</div><button id="btnImprimir" disabled>Imprimir</button> <button onclick="window.close()">Cerrar</button></div>
         <script src="~/js/impresion.js" asp-append-version="true"></script>
         @:</body></html>
         return;
@@ -62,10 +70,12 @@
     <div class="c">@v.Sede @(string.IsNullOrEmpty(v.SedeDireccion) ? c.Direccion : v.SedeDireccion)</div>
     @if (!string.IsNullOrEmpty(c.Telefono)) { <div class="c">Tel. @c.Telefono</div> }
     <hr />
-    <div>Pedido N° <span class="b">@v.IdVenta</span> · @(pedido.GetValueOrDefault(v.TipoPedido, v.TipoPedido))</div>
+    <div>Pedido <span class="b">@numero</span> · @(pedido.GetValueOrDefault(v.TipoPedido, v.TipoPedido))</div>
     <div>Fecha: @v.Fecha</div>
     <div>Atendió: @v.Usuario</div>
     @if (!string.IsNullOrEmpty(v.ClienteNombre)) { <div>Cliente: @v.ClienteNombre</div> }
+    @* Yesenia Quejada Rojas - Claude — 31/10/2026: cuántas cajas lleva el pedido (sin precio: no se cobran aparte). *@
+    @if (v.Cajas > 0) { <div>Cajas: @v.Cajas</div> }
     @if (v.TipoPedido == "DOMICILIO")
     {
         <div>Tel: @v.ClienteTelefono</div>
@@ -96,7 +106,18 @@
     <hr />
     <div class="c" style="font-size:10px">Comprobante de pedido · No es factura electrónica</div>
     <div class="c">@(string.IsNullOrEmpty(c.MensajeTicket) ? "¡Gracias por su compra!" : c.MensajeTicket)</div>
-    <div class="acciones"><div class="guia">Papel @(c.AnchoTicket) mm · Escala 100 % · Sin encabezados ni pies</div><button id="btnImprimir" disabled>Imprimir</button> <button onclick="window.close()">Cerrar</button></div>
+    <div class="acciones"><div class="guia">Papel @(c.AnchoTicket) mm · Imprime @(c.AreaImpresion) mm · Escala 100 % · Márgenes: ninguno · Sin encabezados ni pies</div>
+        <div class="guia" id="guiaPdf" hidden><b>Para descargar:</b> en "Destino" elija <b>Guardar como PDF</b> y pulse Guardar.</div>
+        <button id="btnImprimir" disabled>Imprimir</button> <button id="btnPdf" type="button">Descargar PDF</button> <button onclick="window.close()">Cerrar</button></div>
     <script src="~/js/impresion.js" asp-append-version="true"></script>
+    @* Yesenia Quejada Rojas - Claude — 30/10/2026: descargar la factura en PDF con "Guardar como PDF" del navegador (sin librerías nuevas);
+       con ?pdf=1 (desde Facturas) se abre directo. *@
+    <script>
+        (() => {
+            const pdf = () => { document.getElementById('guiaPdf').hidden = false; document.body.classList.add('modo-pdf'); setTimeout(() => window.print(), 150); };
+            document.getElementById('btnPdf').addEventListener('click', pdf);
+            if (new URLSearchParams(location.search).get('pdf') === '1') window.addEventListener('load', () => setTimeout(pdf, 400));
+        })();
+    </script>
 </body>
 </html>

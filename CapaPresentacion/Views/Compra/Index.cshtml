@@ -2,7 +2,8 @@
     ViewData["Title"] = "Qué debo comprar";
 }
 <div class="d-flex flex-wrap gap-2 mb-3 align-items-center no-imprimir">
-    <p class="text-muted small mb-0">Insumos que están en el mínimo o por debajo. La cantidad sugerida lleva el stock al doble del mínimo; el proveedor es el de la última entrada.</p>
+    <p class="text-muted small mb-0">@* Yesenia Quejada Rojas - Claude — 31/10/2026: la cantidad se estima con lo que el negocio gasta de verdad (lo calcula SP_ORDEN_COMPRA_SUGERIDA). *@
+        Insumos en el mínimo o que no alcanzan para 3 días. "A pedir" es un estimado para cubrir 7 días según lo que se gastó en los últimos 14 (nunca menos del doble del mínimo). Ajústelo según lo que espere vender.</p>
     <div class="ms-auto d-flex gap-2">
         <a href="/Compra/Exportar" class="btn btn-sm btn-outline-success"><i class="bi bi-file-earmark-excel"></i> Excel</a>
         <button class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="bi bi-file-earmark-pdf"></i> Imprimir / PDF</button>
@@ -26,15 +27,16 @@
                 </div>
                 <div class="card-body p-0 table-responsive">
                     <table class="table table-sm mb-0">
-                        <thead class="table-light"><tr><th>Código</th><th>Insumo</th><th class="text-end">Stock</th><th class="text-end">Mínimo</th><th class="text-end">A pedir</th><th class="text-end">Costo unit.</th><th class="text-end">Costo estimado</th></tr></thead>
+                        <thead class="table-light"><tr><th>Código</th><th>Insumo</th><th class="text-end">Stock</th><th class="text-end">Mínimo</th><th class="text-end">Se gasta al día</th><th class="text-end">A pedir</th><th class="text-end">Costo unit.</th><th class="text-end">Costo estimado</th></tr></thead>
                         <tbody>${items.map(o => `<tr><td>${esc(o.codigo)}</td><td>${esc(o.nombre)}</td>
-                            <td class="text-end stock-bajo">${num(o.stock)}</td><td class="text-end">${num(o.stockMinimo)}</td>
+                            <td class="text-end stock-bajo">${num(Math.round(o.stock))}</td><td class="text-end">${num(o.stockMinimo)}</td>
+                            <td class="text-end">${o.consumoDia ? o.consumoDia.toLocaleString('es-CO', { maximumFractionDigits: 1 }) : '—'}</td>
                             <td class="text-end fw-bold">${num(o.cantidadSugerida)} ${esc(o.unidadMedida)}</td>
                             <td class="text-end">${moneda(o.costoUnitario)}</td><td class="text-end">${moneda(o.costoEstimado)}</td></tr>`).join('')}</tbody>
-                        <tfoot><tr><th colspan="6" class="text-end">Subtotal</th><th class="text-end">${moneda(items.reduce((s, o) => s + o.costoEstimado, 0))}</th></tr></tfoot>
+                        <tfoot><tr><th colspan="7" class="text-end">Subtotal</th><th class="text-end">${moneda(items.reduce((s, o) => s + o.costoEstimado, 0))}</th></tr></tfoot>
                     </table>
                 </div>
-            </div>`).join('') : '<div class="alert alert-success"><i class="bi bi-check-circle"></i> No hay insumos por pedir. Todo está por encima del mínimo.</div>';
+            </div>`).join('') : '<div class="alert alert-success"><i class="bi bi-check-circle"></i> No hay insumos por pedir. Todo alcanza por ahora.</div>';
         if (lista.length) document.getElementById('lblTotal').textContent = `Total estimado: ${moneda(lista.reduce((s, o) => s + o.costoEstimado, 0))}`;
     } catch (e) { errorAlerta(e); }
 })();

@@ -6,7 +6,13 @@
 <section class="dashboard-hero">
     <div>
         <span class="eyebrow">Panel de operaciones</span>
-        <h1 class="hero-title">Hola, @User.Identity?.Name</h1>
+        @* Yesenia Quejada Rojas - Claude — 29/10/2026: saludo según la hora de Colombia (UTC-5; el hosting puede estar en otro huso)
+           con el nombre de quien inició sesión. *@
+        @{
+            var hora = DateTime.UtcNow.AddHours(-5).Hour;
+            var saludo = hora < 12 ? "Buenos días" : hora < 19 ? "Buenas tardes" : "Buenas noches";
+        }
+        <h1 class="hero-title">@saludo, @User.Identity?.Name</h1>
         <p class="hero-description">Así va tu negocio hoy en <strong>@CapaPresentacion.Infraestructura.UsuarioActual.Sede(User)</strong>.</p>
     </div>
     <div class="hero-actions">

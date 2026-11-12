@@ -3,6 +3,7 @@
     var cfg = new CapaNegocio.CN_Configuracion().Obtener();
     var esAdmin = User.IsInRole(Claves.Admin);
     var esDomiciliario = User.IsInRole(Claves.Domiciliario);
+    var fechasDeTrabajo = new CapaNegocio.CN_Configuracion().Fechas(User.IdSede());   // Yesenia Quejada Rojas - Claude — 31/10/2026: ver window.APP.hoy / inicioDia
     var controlador = ViewContext.RouteData.Values["controller"]?.ToString();
     string Activo(params string[] c) => c.Contains(controlador) ? "active" : "";
 }
@@ -12,6 +13,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <script src="~/js/tema.js" asp-append-version="true"></script>
+    <script src="~/js/clave.js" asp-append-version="true" defer></script>
     <title>@ViewData["Title"] - @cfg.NombreNegocio</title>
     @if (!string.IsNullOrEmpty(cfg.LogoUrl)) { <link rel="icon" href="@cfg.LogoUrl" /> }
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
@@ -35,6 +37,9 @@
                 else { <span class="brand-symbol"><i class="bi bi-basket2-fill"></i></span> }
                 <span>@cfg.NombreNegocio</span>
             </a>
+            @* Yesenia Quejada Rojas - Claude — 31/10/2026: campana con los pedidos de la carta digital en orden de llegada y acceso al QR general. Va fuera del
+               menú desplegable para que se vea siempre, también en el celular (en pantalla ancha queda al final de la barra). *@
+            @if (!esDomiciliario) { <partial name="_Campana" /> }
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menu"><span class="navbar-toggler-icon"></span><span class="visually-hidden">Abrir menú</span></button>
             <div class="collapse navbar-collapse" id="menu">
                 @* Yesenia Quejada Rojas - Claude — 19/10/2026: menú por perfil. "Mantenimiento" pasa a "Configuración" con los pasos en orden
@@ -47,45 +52,53 @@
                     else
                     {
                     <li class="nav-item"><a class="nav-link @Activo("Home")" asp-controller="Home" asp-action="Index"><i class="bi bi-speedometer2"></i> Inicio</a></li>
-                    <li class="nav-item"><a class="nav-link @Activo("Venta")" asp-controller="Venta" asp-action="Index"><i class="bi bi-cart3"></i> Vender</a></li>
+                    <li class="nav-item"><a class="nav-link @(controlador == "Venta" && ViewContext.RouteData.Values["action"]?.ToString() != "Historial" ? "active" : "")" asp-controller="Venta" asp-action="Index"><i class="bi bi-cart3"></i> Vender</a></li>
                     @if(cfg.MostrarCocina){ <li class="nav-item"><a class="nav-link @Activo("Cocina")" asp-controller="Cocina" asp-action="Index"><i class="bi bi-fire"></i> Cocina</a></li> }
                     @if(cfg.MostrarDomicilios){ <li class="nav-item"><a class="nav-link @Activo("Domicilio")" asp-controller="Domicilio" asp-action="Index"><i class="bi bi-bicycle"></i> Domicilios</a></li> }
                     <li class="nav-item"><a class="nav-link @Activo("Caja")" asp-controller="Caja" asp-action="Index"><i class="bi bi-cash-stack"></i> Caja</a></li>
+                    @* Yesenia Quejada Rojas - Claude — 30/10/2026: acceso directo a las facturas (ver, imprimir y descargar) para todos. *@
+                    <li class="nav-item"><a class="nav-link @(ViewContext.RouteData.Values["action"]?.ToString() == "Historial" ? "active" : "")" asp-controller="Venta" asp-action="Historial"><i class="bi bi-receipt"></i> Facturas</a></li>
                     @if (esAdmin)
                     {
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle @Activo("Reporte")" href="#" data-bs-toggle="dropdown"><i class="bi bi-graph-up"></i> Reportes</a>
                             <ul class="dropdown-menu">
                                 <li><a class="dropdown-item" asp-controller="Reporte" asp-action="Index"><i class="bi bi-bar-chart"></i> Ventas y ganancias</a></li>
-                                <li><a class="dropdown-item" asp-controller="Venta" asp-action="Historial"><i class="bi bi-receipt"></i> Historial de ventas</a></li>
+                                
                                 <li><a class="dropdown-item" asp-controller="Reporte" asp-action="Actividad"><i class="bi bi-clock-history"></i> Quién hizo qué</a></li>
                             </ul>
                         </li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle @Activo("Producto", "Modificador", "CategoriaMenu", "Proveedor", "Usuario", "Sede", "Configuracion", "Insumo", "Movimiento", "Conteo", "Compra")" href="#" data-bs-toggle="dropdown"><i class="bi bi-gear"></i> Configuración</a>
+                            <a class="nav-link dropdown-toggle @Activo("Producto", "Modificador", "CategoriaMenu", "Proveedor", "Usuario", "Sede", "Configuracion", "Insumo", "Movimiento", "Conteo", "Compra")" href="#" data-bs-toggle="dropdown" data-bs-auto-close="outside"><i class="bi bi-gear"></i> Configuración</a>
+                            @* Yesenia Quejada Rojas - Claude — 30/10/2026: arriba queda lo del día a día; los pasos de la puesta en marcha
+                               (y proveedores, mientras tanto) van en un desplegable cerrado. auto-close "outside" deja abrirlo sin cerrar el menú. *@
                             <ul class="dropdown-menu menu-config">
-                                <li><a class="dropdown-item fw-semibold" asp-controller="Configuracion" asp-action="Guia"><i class="bi bi-signpost-split"></i> Guía: por dónde empezar</a></li>
-                                <li><hr class="dropdown-divider" /></li>
-                                <li><h6 class="dropdown-header">Primero, en este orden</h6></li>
-                                <li><a class="dropdown-item" asp-controller="Configuracion" asp-action="Index"><span class="paso-menu">1</span> Datos del negocio</a></li>
-                                <li><a class="dropdown-item" asp-controller="Insumo" asp-action="Index"><span class="paso-menu">2</span> Insumos (lo que compras)</a></li>
-                                <li><a class="dropdown-item" asp-controller="CategoriaMenu" asp-action="Index"><span class="paso-menu">3</span> Categorías del menú</a></li>
-                                <li><a class="dropdown-item" asp-controller="Producto" asp-action="Index"><span class="paso-menu">4</span> Productos y recetas</a></li>
-                                <li><a class="dropdown-item" asp-controller="Modificador" asp-action="Index"><span class="paso-menu">5</span> Adiciones y salsas</a></li>
-                                <li><a class="dropdown-item" asp-controller="Usuario" asp-action="Index"><span class="paso-menu">6</span> Usuarios</a></li>
-                                <li><hr class="dropdown-divider" /></li>
-                                <li><h6 class="dropdown-header">Inventario del día a día</h6></li>
+                                <li><h6 class="dropdown-header">Del día a día</h6></li>
                                 <li><a class="dropdown-item" asp-controller="Movimiento" asp-action="Index"><i class="bi bi-box-arrow-in-down"></i> Registrar compras y salidas</a></li>
                                 @if(cfg.MostrarAvanzado){ <li><a class="dropdown-item" asp-controller="Conteo" asp-action="Index"><i class="bi bi-clipboard-check"></i> Contar inventario</a></li> }
                                 @if(cfg.MostrarAvanzado){ <li><a class="dropdown-item" asp-controller="Compra" asp-action="Index"><i class="bi bi-cart-check"></i> Qué debo comprar</a></li> }
-                                <li><a class="dropdown-item" asp-controller="Proveedor" asp-action="Index"><i class="bi bi-truck"></i> Proveedores</a></li>
-                                @if(cfg.MostrarMultisede){ <li><a class="dropdown-item" asp-controller="Sede" asp-action="Index"><i class="bi bi-shop"></i> Sedes</a></li> }
+                                @* Yesenia Quejada Rojas - Claude — 28/10/2026: mesas, QR y carta digital pública. *@
+                                <li><a class="dropdown-item" asp-controller="Mesa" asp-action="Index"><i class="bi bi-qr-code"></i> Mesas y carta digital</a></li>
+                                <li><hr class="dropdown-divider" /></li>
+                                <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-bs-toggle="collapse" data-bs-target="#menuPasos" aria-expanded="false" aria-controls="menuPasos"><i class="bi bi-list-ol"></i> Pasos para empezar <i class="bi bi-chevron-down ms-auto small"></i></button></li>
+                                <li class="collapse" id="menuPasos">
+                                    <ul class="list-unstyled mb-0">
+                                        <li><a class="dropdown-item fw-semibold" asp-controller="Configuracion" asp-action="Guia"><i class="bi bi-signpost-split"></i> Guía: por dónde empezar</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Configuracion" asp-action="Index"><span class="paso-menu">1</span> Datos del negocio</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Insumo" asp-action="Index"><span class="paso-menu">2</span> Insumos (lo que compras)</a></li>
+                                        <li><a class="dropdown-item" asp-controller="CategoriaMenu" asp-action="Index"><span class="paso-menu">3</span> Categorías del menú</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Producto" asp-action="Index"><span class="paso-menu">4</span> Productos y recetas</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Modificador" asp-action="Index"><span class="paso-menu">5</span> Adiciones y salsas</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Usuario" asp-action="Index"><span class="paso-menu">6</span> Usuarios</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Proveedor" asp-action="Index"><i class="bi bi-truck"></i> Proveedores</a></li>
+                                        @if(cfg.MostrarMultisede){ <li><a class="dropdown-item" asp-controller="Sede" asp-action="Index"><i class="bi bi-shop"></i> Sedes</a></li> }
+                                    </ul>
+                                </li>
                             </ul>
                         </li>
                     }
                     else
                     {
-                        <li class="nav-item"><a class="nav-link @Activo("Venta")" asp-controller="Venta" asp-action="Historial"><i class="bi bi-receipt"></i> Mis ventas</a></li>
                     }
                     }
                 </ul>
@@ -134,7 +147,11 @@
     <script>window.APP = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(new {
         mostrarCocina=cfg.MostrarCocina, mostrarDomicilios=cfg.MostrarDomicilios,
         moneda = cfg.SimboloMoneda, esAdmin, esDomiciliario, negocio = cfg.NombreNegocio, telefonoNegocio = cfg.Telefono, costoDomicilio = cfg.CostoDomicilio,
-        minutosEdicion = cfg.MinutosEdicion, minutosAlertaCocina = cfg.MinutosAlertaCocina, minutosAlertaDomicilio = cfg.MinutosAlertaDomicilio }));</script>
+        minutosEdicion = cfg.MinutosEdicion, minutosAlertaCocina = cfg.MinutosAlertaCocina, minutosAlertaDomicilio = cfg.MinutosAlertaDomicilio,
+        // Yesenia Quejada Rojas - Claude — 31/10/2026: "hoy" según la base de datos (la fecha que llevan las ventas), no según el PC, e inicioDia = día en que
+        // se abrió la caja que sigue abierta (así "Hoy" sigue mostrando el día que se está trabajando aunque pase la medianoche).
+        hoy = fechasDeTrabajo.Hoy, inicioDia = fechasDeTrabajo.Inicio,
+        version = CapaPresentacion.Infraestructura.VersionApp.Valor }));</script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)

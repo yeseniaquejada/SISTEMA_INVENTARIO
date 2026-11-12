@@ -48,6 +48,21 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+// Yesenia Quejada Rojas - Claude — 30/10/2026: quien entre por la dirección temporal del hosting (QR viejos, enlaces guardados)
+// pasa a la dirección pública del negocio, con la misma ruta.
+var urlPublica = (app.Configuration["Carta:UrlPublica"] ?? "").Trim().TrimEnd('/');
+if (Uri.TryCreate(urlPublica, UriKind.Absolute, out _))
+{
+    app.Use(async (context, next) => {
+        if (context.Request.Host.Host.EndsWith(".gtempurl.com", StringComparison.OrdinalIgnoreCase))
+        {
+            context.Response.Redirect(urlPublica + context.Request.PathBase + context.Request.Path + context.Request.QueryString);
+            return;
+        }
+        await next();
+    });
+}
+
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
@@ -58,6 +73,9 @@ app.Use(async (context, next) => {
     Conexion.SedeAuditoria.Value = int.TryParse(context.User.FindFirst("IdSede")?.Value, out var sede) ? sede : null;
     try { await next(); } finally { Conexion.UsuarioAuditoria.Value=null; Conexion.SedeAuditoria.Value=null; }
 });
+
+// Yesenia Quejada Rojas - Claude — 30/10/2026: versión publicada; las páginas la consultan para recargarse solas tras publicar.
+app.MapGet("/version", (HttpContext ctx) => { ctx.Response.Headers.CacheControl = "no-store"; return Results.Text(CapaPresentacion.Infraestructura.VersionApp.Valor); }).AllowAnonymous();
 
 app.MapControllerRoute(
     name: "default",

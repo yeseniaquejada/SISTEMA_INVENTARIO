@@ -6,6 +6,8 @@ public class MovimientoCaja {
  public string? Beneficiario {get;set;} public Guid Referencia {get;set;}
  public string Fecha {get;set;}=""; public string Usuario {get;set;}="";
  public bool Anulado {get;set;} public string MotivoAnulacion {get;set;}="";
+ // Yesenia Quejada Rojas - Claude — 28/10/2026: de dónde sale la plata (CAJA = cajón, FONDO = fondo del negocio) y si es salario.
+ public string Origen {get;set;}="CAJA"; public string? Clase {get;set;}
 }
 public class EventoAuditoria {
  public string Fecha {get;set;}=""; public string Usuario {get;set;}="";
@@ -16,3 +18,4 @@ public class DiferenciaInventario {
  public string Codigo {get;set;}=""; public string Nombre {get;set;}="";
  public decimal Stock {get;set;} public decimal Lotes {get;set;} public decimal Kardex {get;set;}
 }
+

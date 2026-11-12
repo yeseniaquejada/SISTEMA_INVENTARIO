@@ -1,0 +1,160 @@
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@{
+    ViewData["Title"] = "Mesas y carta digital";
+    // Yesenia Quejada Rojas - Claude — 29/10/2026: los QR se imprimen y se pegan en las mesas, así que no pueden depender
+    // de la dirección con que el administrador abrió la página: salen siempre de Carta:UrlPublica (si no está, de la actual).
+    var urlPublica = (Config["Carta:UrlPublica"] ?? "").Trim().TrimEnd('/');
+    if (urlPublica == "") urlPublica = $"{Context.Request.Scheme}://{Context.Request.Host}";
+    var cfg = new CapaNegocio.CN_Configuracion().Obtener();
+}
+@* Yesenia Quejada Rojas - Claude — 28/10/2026: mesas del local y sus códigos QR. Cada QR abre la carta pública con el nombre de la mesa;
+   el cliente no necesita usuario ni clave. *@
+<div class="alert alert-info py-2 small mb-3 d-flex flex-wrap align-items-center gap-2">
+    <i class="bi bi-qr-code"></i>
+    <span class="me-auto">La <b>carta digital</b> se abre sin iniciar sesión. Imprima el QR de cada mesa o comparta el enlace general.
+        <span class="d-block">Cada QR es fijo: abre <b id="txtUrlCarta"></b>. Cambiar el nombre de la mesa no lo cambia; para dejar de usarla, desactívela (no se elimina, así el QR impreso sigue abriendo la carta).</span></span>
+    <a class="btn btn-sm btn-outline-primary" id="lnkCarta" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i> Ver carta</a>
+    @* Yesenia Quejada Rojas - Claude — 31/10/2026: QR general (sin mesa) para que el mesero lo muestre; también está en la campana del menú. *@
+    <a class="btn btn-sm btn-outline-primary" href="/Carta/Qr" target="_blank" rel="noopener"><i class="bi bi-phone"></i> QR para el mesero</a>
+    <button class="btn btn-sm btn-outline-secondary" id="btnCopiar" type="button"><i class="bi bi-clipboard"></i> Copiar enlace</button>
+    <button class="btn btn-sm btn-marca" id="btnImprimir" type="button"><i class="bi bi-printer"></i> Imprimir QR de las mesas</button>
+</div>
+<div class="no-imprimir">
+    <partial name="_Barra" />
+    <div class="card"><div class="card-body p-0 table-responsive">
+        <table class="table table-hover mb-0" id="tabla">
+            <thead class="table-light"><tr><th>Mesa</th><th class="text-end">Puestos</th><th>Estado</th><th>QR</th><th></th></tr></thead>
+            <tbody></tbody>
+        </table>
+    </div></div>
+</div>
+
+<div class="hoja-qr" id="hojaQr" aria-hidden="true"></div>
+
+@* Yesenia Quejada Rojas - Claude — 29/10/2026: vista grande del QR de una mesa (se abre al tocar el QR de la tabla). *@
+<div class="modal fade" id="modalQr" tabindex="-1" aria-labelledby="tituloQr">
+    <div class="modal-dialog modal-dialog-centered"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="tituloQr"><i class="bi bi-qr-code"></i> QR de la mesa</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body"><div id="vistaQr"></div></div>
+        <div class="modal-footer"><button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button><button type="button" class="btn btn-marca" id="btnImprimirUna"><i class="bi bi-printer"></i> Imprimir esta mesa</button></div>
+    </div></div>
+</div>
+
+<div class="modal fade" id="modal" tabindex="-1" aria-labelledby="tituloMesa">
+    <div class="modal-dialog"><div class="modal-content">
+        <div class="modal-header"><h5 class="modal-title" id="tituloMesa"></h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
+        <div class="modal-body">
+            <form id="formulario" class="row g-3">
+                <input type="hidden" name="idMesa" data-tipo="numero" />
+                <div class="col-md-8"><label class="form-label" for="txtMesa">Nombre o número</label><input id="txtMesa" name="nombre" class="form-control" maxlength="30" required placeholder="Ej: 1, Terraza 2" /></div>
+                <div class="col-md-4"><label class="form-label" for="txtPuestos">Puestos</label><input id="txtPuestos" name="puestos" type="number" min="1" max="50" class="form-control" data-tipo="numero" required /></div>
+                <div class="col-12 form-check ms-2"><input type="checkbox" name="activo" class="form-check-input" id="chkActivo" /><label class="form-check-label" for="chkActivo">Activa</label></div>
+            </form>
+        </div>
+        <partial name="_ModalPie" />
+    </div></div>
+</div>
+
+@section Scripts {
+<script src="~/lib/qrcodejs/qrcode.min.js"></script>
+<script>
+(function () {
+    // Yesenia Quejada Rojas - Claude — 29/10/2026: el QR solo lleva el número interno de la mesa (no cambia nunca); la sede sale de la mesa.
+    const base = @Json.Serialize(urlPublica) + '/Carta';
+    const url = m => m ? `${base}?mesa=${m.idMesa}` : base;
+    document.getElementById('lnkCarta').href = url();
+    document.getElementById('txtUrlCarta').textContent = base;
+    let mesas = [];
+
+    // Dibuja un QR en el contenedor dado (qrcodejs genera un canvas/imagen sin conexión a internet).
+    const qr = (el, texto, tam) => new QRCode(el, { text: texto, width: tam, height: tam, correctLevel: QRCode.CorrectLevel.M });
+
+    const mant = Mantenimiento({
+        // Sin eliminar: borrar la mesa dejaría sin carta el QR ya impreso.
+        base: '/Mesa', id: 'idMesa', columnas: 5, sinEliminar: true,
+        nuevo: () => ({ idMesa: 0, puestos: 4, activo: true }),
+        alCargar: lista => {
+            mesas = lista;
+            // alCargar corre antes de pintar la tabla: los QR se dibujan justo después.
+            queueMicrotask(() => document.querySelectorAll('[data-qr]').forEach(el => qr(el, url(lista.find(m => m.idMesa === Number(el.dataset.qr))), 64)));
+        },
+        fila: m => `<td class="fw-semibold">Mesa ${esc(m.nombre)}</td><td class="text-end">${m.puestos}</td><td>${badgeActivo(m.activo)}</td>
+            <td><div class="d-inline-block bg-white p-1 rounded" data-qr="${m.idMesa}" title="Ver en grande el QR de la mesa ${esc(m.nombre)}" role="button" tabindex="0"></div></td>`
+    });
+
+    document.getElementById('btnCopiar').addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(url()); alerta('Enlace de la carta copiado'); }
+        catch { prompt('Copie el enlace de la carta:', url()); }
+    });
+
+    // Yesenia Quejada Rojas - Claude — 29/10/2026: tarjeta de mesa para imprimir con el logo y los colores del negocio, el QR con el
+    // logo al centro (corrección alta, así se sigue leyendo) y cómo pedir. Dos tarjetas por hoja.
+    const NEGOCIO = @Json.Serialize(new { nombre = cfg.NombreNegocio, logo = cfg.LogoUrl, telefono = cfg.Telefono });
+    const logo = NEGOCIO.logo ? esc(NEGOCIO.logo) : '';
+    // Pinta las tarjetas en el contenedor y dibuja sus QR; devuelve una promesa que se cumple cuando cargaron los logos.
+    function tarjetas(contenedor, lista, prefijo) {
+        contenedor.innerHTML = lista.map((m, i) => `
+            <div class="tarjeta-qr">
+                <div class="tq-cabecera">
+                    ${logo ? `<img class="tq-logo" src="${logo}" alt="Logo de ${esc(NEGOCIO.nombre)}" />` : ''}
+                    <div class="tq-textos"><div class="tq-negocio">${esc(NEGOCIO.nombre)}</div><div class="tq-mesa">${m ? 'Mesa ' + esc(m.nombre) : 'Nuestra carta'}</div></div>
+                </div>
+                <div class="tq-centro-qr"><div class="tq-marco"><div id="${prefijo}${i}"></div>${logo ? `<img class="tq-centro" src="${logo}" alt="" />` : ''}</div></div>
+                <div class="tq-titulo">Escanea y pide desde tu celular</div>
+                <div class="tq-pasos">Apunta la cámara · Elige · Envía tu pedido${NEGOCIO.telefono ? ` · <i class="bi bi-telephone"></i> ${esc(NEGOCIO.telefono)}` : ''}</div>
+            </div>`).join('');
+        lista.forEach((m, i) => new QRCode(document.getElementById(prefijo + i), { text: url(m), width: 190, height: 190, correctLevel: QRCode.CorrectLevel.H }));
+        return Promise.all([...contenedor.querySelectorAll('img.tq-logo, img.tq-centro')]
+            .map(im => im.complete ? 0 : new Promise(ok => { im.onload = im.onerror = ok; setTimeout(ok, 3000); })));
+    }
+    function imprimir(lista) {
+        tarjetas(document.getElementById('hojaQr'), lista, 'qr').then(() => setTimeout(() => window.print(), 250));
+    }
+    document.getElementById('btnImprimir').addEventListener('click', () => {
+        const activas = mesas.filter(m => m.activo);
+        // Yesenia Quejada Rojas - Claude — 31/10/2026: al final de la hoja va una tarjeta general ("Nuestra carta", sin mesa) para el mesero.
+        imprimir(activas.length ? [...activas, null] : [null]);
+    });
+
+    // Al tocar el QR de una mesa se ve su tarjeta en grande, sin imprimir; desde ahí se puede imprimir solo esa.
+    const modalQr = new bootstrap.Modal(document.getElementById('modalQr'));
+    let mesaVista = null;
+    document.getElementById('tabla').addEventListener('click', ev => {
+        const el = ev.target.closest('[data-qr]');
+        if (!el) return;
+        mesaVista = mesas.find(m => m.idMesa === Number(el.dataset.qr));
+        tarjetas(document.getElementById('vistaQr'), [mesaVista], 'vqr');
+        modalQr.show();
+    });
+    document.getElementById('btnImprimirUna').addEventListener('click', () => { modalQr.hide(); imprimir([mesaVista]); });
+})();
+</script>
+<style>
+    /* Yesenia Quejada Rojas - Claude — 29/10/2026: tarjeta de la mesa (se ve en el modal y se imprime igual). */
+    .hoja-qr { display: none; }
+    /* Tarjeta cuadrada: encabezado con logo, nombre y mesa en una fila; el QR al centro; una línea de cómo pedir. */
+    .tarjeta-qr { -webkit-print-color-adjust: exact; print-color-adjust: exact; position: relative; overflow: hidden; break-inside: avoid;
+        width: 92mm; aspect-ratio: 1; margin: 0 auto; border-radius: 18px; display: flex; flex-direction: column; text-align: center;
+        color: #15151a; background: #fff; font-family: 'Segoe UI', system-ui, sans-serif; box-shadow: 0 0 0 2px var(--marca); }
+    .tq-cabecera { display: flex; align-items: center; gap: 3mm; padding: 3mm 4mm; text-align: left;
+        background: radial-gradient(ellipse at 100% 0, color-mix(in srgb, var(--marca) 70%, #000), #101014 75%); }
+    .tq-logo { height: 15mm; width: 15mm; object-fit: contain; border-radius: 10px; background: #fff; padding: 1mm; flex: 0 0 auto; }
+    .tq-textos { min-width: 0; }
+    .tq-negocio { color: #fff; font-size: 13pt; font-weight: 800; line-height: 1.1; }
+    .tq-mesa { display: inline-block; margin-top: 1mm; padding: .4mm 4mm; border-radius: 999px; background: var(--marca);
+        color: var(--marca-texto); font-weight: 800; font-size: 12pt; }
+    .tq-centro-qr { flex: 1 1 auto; display: grid; place-items: center; }
+    .tq-marco { position: relative; display: inline-block; padding: 2mm; border-radius: 12px; background: #fff; border: 2px dashed color-mix(in srgb, var(--marca) 55%, #ccc); }
+    .tq-marco img:not(.tq-centro), .tq-marco canvas { display: block; }
+    .tq-centro { position: absolute; top: 50%; left: 50%; width: 22%; transform: translate(-50%, -50%); background: #fff; padding: 1mm; border-radius: 8px; }
+    .tq-titulo { font-weight: 800; font-size: 12pt; color: var(--marca); }
+    .tq-pasos { font-size: 8.5pt; color: #4a4a55; padding: .5mm 3mm 3.5mm; }
+    #vistaQr { padding: 1rem 0; }
+    [data-qr] { cursor: zoom-in; }
+    @@media print {
+        @@page { size: letter; margin: 10mm; }
+        .hoja-qr { display: grid; grid-template-columns: repeat(2, 92mm); justify-content: center; gap: 8mm; }
+        .alert, .modal { display: none !important; }
+    }
+</style>
+}
