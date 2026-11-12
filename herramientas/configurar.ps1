@@ -10,17 +10,26 @@
 #>
 param(
     [Parameter(Mandatory)][ValidateSet('BaseDatos', 'Publicacion', 'Probar')][string]$Que,
-    [Parameter(Mandatory)][string]$Entorno
+    [Parameter(Mandatory)][string]$Entorno,
+    # Opcionales: si se pasan, no se preguntan y solo queda por escribir la clave
+    [string]$Servidor = '',
+    [string]$Base = '',
+    [string]$Usuario = ''
 )
 . (Join-Path $PSScriptRoot 'comun.ps1')
 
 if ($Que -eq 'BaseDatos') {
-    $servidor = Read-Host 'Servidor SQL (ej. sql1234.site4now.net o (localdb)\MSSQLLocalDB)'
-    $base = Read-Host 'Nombre de la base (ej. DB_INVENTARIO_COMIDAS)'
-    $modo = Read-Host '¿Usuario SQL (S) o autenticación de Windows (W)? [S/W]'
+    $servidor = $Servidor; if (-not $servidor) { $servidor = Read-Host 'Servidor SQL (ej. sql1234.site4now.net o (localdb)\MSSQLLocalDB)' }
+    $base = $Base; if (-not $base) { $base = Read-Host 'Nombre de la base (ej. DB_INVENTARIO_COMIDAS)' }
     $cred = $null
-    if ($modo -match '^[sS]') { $cred = Get-Credential -Message "Usuario y clave SQL de $Entorno" }
-    $cifrar = (Read-Host '¿El hosting exige conexión cifrada (Encrypt)? [s/N]') -match '^[sS]'
+    if ($Usuario) {
+        Write-Host "Escriba la clave de la base para el usuario $Usuario" -ForegroundColor Yellow
+        $cred = Get-Credential -UserName $Usuario -Message "Clave SQL de $Entorno ($base)"
+    } elseif ((Read-Host '¿Usuario SQL (S) o autenticación de Windows (W)? [S/W]') -match '^[sS]') {
+        $cred = Get-Credential -Message "Usuario y clave SQL de $Entorno"
+    }
+    $cifrar = $false
+    if (-not $Servidor) { $cifrar = (Read-Host '¿El hosting exige conexión cifrada (Encrypt)? [s/N]') -match '^[sS]' }
     $cfg = [pscustomobject]@{ Servidor = $servidor; Base = $base; Credencial = $cred; Cifrar = $cifrar }
     $cfg | Export-Clixml (Get-RutaSecreto "bd-$Entorno")
     Write-Host "Guardado. Probando conexión..." -ForegroundColor Green
@@ -28,7 +37,8 @@ if ($Que -eq 'BaseDatos') {
 }
 
 if ($Que -eq 'Publicacion') {
-    $cred = Get-Credential -Message "Usuario y clave para publicar en $Entorno (Web Deploy o FTP)"
+    if ($Usuario) { Write-Host "Escriba la clave de publicación (Web Deploy) para el usuario $Usuario" -ForegroundColor Yellow; $cred = Get-Credential -UserName $Usuario -Message "Clave de Web Deploy de $Entorno" }
+    else { $cred = Get-Credential -Message "Usuario y clave para publicar en $Entorno (Web Deploy o FTP)" }
     $cred | Export-Clixml (Get-RutaSecreto "pub-$Entorno")
     Write-Host "Guardado en $(Get-RutaSecreto "pub-$Entorno") (cifrado)." -ForegroundColor Green
     return
