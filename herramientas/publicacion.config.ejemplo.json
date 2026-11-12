@@ -1,0 +1,16 @@
+{
+  "Proyecto": "CapaPresentacion\\CapaPresentacion.csproj",
+  "Entornos": {
+    "hosting": {
+      "Metodo": "WebDeploy",
+      "ServidorWebDeploy": "https://winXXXX.site4now.net:8172/msdeploy.axd?site=USUARIO-001-site1",
+      "Sitio": "USUARIO-001-site1",
+      "Url": "https://SU-DOMINIO/Acceso/Login",
+      "NoReemplazar": [ "appsettings.json", "appsettings.Production.json" ]
+    },
+    "hosting-zip": {
+      "Metodo": "Zip",
+      "NoReemplazar": [ "appsettings.json", "appsettings.Production.json" ]
+    }
+  }
+}
