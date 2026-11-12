@@ -30,7 +30,8 @@ function New-CadenaConexion($cfg) {
     }
     $b['TrustServerCertificate'] = $true
     $b['Encrypt'] = [bool]$cfg.Cifrar
-    $b['Connect Timeout'] = 30
+    # Yesenia Quejada Rojas - Claude — 11/11/2026: LocalDB takes ~30 s to start when stopped; 30 s was not enough.
+    $b['Connect Timeout'] = 60
     return $b.ConnectionString
 }
 

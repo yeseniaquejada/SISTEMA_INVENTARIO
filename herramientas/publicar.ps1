@@ -86,7 +86,18 @@ switch ($ent.Metodo) {
         $carpetaZip = Resolve-RutaRepo 'publicado-zip'
         if (-not (Test-Path $carpetaZip)) { New-Item -ItemType Directory -Path $carpetaZip | Out-Null }
         $zip = Join-Path $carpetaZip ("inventario_{0:yyyyMMdd_HHmm}.zip" -f (Get-Date))
-        Compress-Archive -Path (Join-Path $salida '*') -DestinationPath $zip -CompressionLevel Optimal
+        # Yesenia Quejada Rojas - Claude — 11/11/2026: Compress-Archive in PowerShell 5.1 writes entry names
+        # with "\", which some unzip tools treat as part of the file name. Build the zip by hand with "/".
+        # The development settings file is never needed on the server, so it is left out too.
+        Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+        $raizSalida = (Resolve-Path $salida).Path.TrimEnd('\') + '\'
+        $archivoZip = [System.IO.Compression.ZipFile]::Open($zip, 'Create')
+        try {
+            Get-ChildItem $salida -Recurse -File | Where-Object { $_.Name -ne 'appsettings.Development.json' } | ForEach-Object {
+                $entrada = $_.FullName.Substring($raizSalida.Length).Replace('\', '/')
+                $null = [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archivoZip, $_.FullName, $entrada, 'Optimal')
+            }
+        } finally { $archivoZip.Dispose() }
         Write-Host "`nZip listo para subir en el panel del hosting:`n  $zip" -ForegroundColor Green
         Write-Host 'Al descomprimir en el servidor elija reemplazar archivos; no borre la carpeta wwwroot\uploads.' -ForegroundColor Yellow
     }
