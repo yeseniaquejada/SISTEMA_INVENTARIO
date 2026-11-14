@@ -353,6 +353,14 @@ namespace CapaNegocio
             c.Costos = c.Costos?.GroupBy(k => k.IdInsumo).Select(g => g.Last()).ToList() ?? new();
             if (c.Detalle.Count == 0 && c.Costos.Count == 0) return Respuesta.Error("Ingrese al menos una cantidad contada o un costo");
             if (c.Detalle.Any(d => d.StockContado < 0)) return Respuesta.Error("Las cantidades no pueden ser negativas");
+            // Yesenia Quejada Rojas - Claude — 13/11/2026: modo "Sumar lo que llegó". Se suma a la existencia de este momento (no a la
+            // que se vio al abrir la pantalla) y se guarda como un conteo normal con el total, así el SP no cambia.
+            if (c.Sumar && c.Detalle.Count > 0)
+            {
+                var stock = new CN_Insumo().Listar(idSede).ToDictionary(i => i.IdInsumo, i => i.Stock);
+                foreach (var d in c.Detalle) d.StockContado += stock.TryGetValue(d.IdInsumo, out var s) ? s : 0;
+                if (string.IsNullOrWhiteSpace(c.Observacion)) c.Observacion = "Llegó mercancía (sumado)";
+            }
             if (c.Costos.Any(k => k.CostoUnitario < 0 || k.CostoUnitario > 9999999999.99m)) return Respuesta.Error("Los costos no pueden ser negativos");
             return _datos.Registrar(idSede, idUsuario, c);
         }

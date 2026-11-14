@@ -138,6 +138,8 @@ namespace CapaEntidad
         public List<ConteoItem> Detalle { get; set; } = new();
         /// <summary>Costos por unidad corregidos al contar (Yesenia Quejada Rojas - Claude — 28/10/2026).</summary>
         public List<CostoInsumo> Costos { get; set; } = new();
+        /// <summary>true = las cantidades son lo que llegó y se suman a lo que hay (Yesenia Quejada Rojas - Claude — 13/11/2026).</summary>
+        public bool Sumar { get; set; }
     }
 
     public class CostoInsumo

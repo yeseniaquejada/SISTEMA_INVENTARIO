@@ -9,7 +9,14 @@
             <div class="card-header bg-white">
                 @* Yesenia Quejada Rojas - Claude — 07/11/2026: se vuelve a escribir el total contado (no lo comprado); el sistema lo toma
                    como la nueva existencia y anota la diferencia, como antes del cambio del 30/10/2026. *@
-                <p class="small text-muted mb-2">Escriba la cantidad total que contó de cada insumo; el sistema la toma como la nueva existencia y anota la diferencia.
+                @* Yesenia Quejada Rojas - Claude — 13/11/2026: dos formas de usar el conteo: escribir el total contado o sumar lo que llegó. *@
+                <div class="btn-group btn-group-sm mb-2 no-imprimir" role="group" aria-label="Qué va a escribir">
+                    <input type="radio" class="btn-check" name="modoConteo" id="modoTotal" value="total" checked />
+                    <label class="btn btn-outline-primary" for="modoTotal"><i class="bi bi-clipboard-check"></i> Total contado</label>
+                    <input type="radio" class="btn-check" name="modoConteo" id="modoSumar" value="sumar" />
+                    <label class="btn btn-outline-primary" for="modoSumar"><i class="bi bi-plus-circle"></i> Sumar lo que llegó</label>
+                </div>
+                <p class="small text-muted mb-2"><span id="lblAyudaModo">Escriba la cantidad total que contó de cada insumo; el sistema la toma como la nueva existencia y anota la diferencia.</span>
                     Si cambió, corrija el costo por unidad. Con la <i class="bi bi-x-lg"></i> quita de la lista lo que no aplica; vuelve a aparecer al guardar.</p>
                 <div class="d-flex gap-2 flex-wrap align-items-center">
                     <input type="search" id="txtBuscar" class="form-control form-control-sm" style="max-width:240px" placeholder="Buscar insumo..." aria-label="Buscar insumo" />
@@ -21,7 +28,7 @@
             <div class="card-body p-0 table-responsive tabla-conteo">
                 <table class="table table-sm table-hover mb-0 align-middle">
                     <thead class="table-light sticky-top">
-                        <tr><th>Insumo</th><th class="text-end">Hay ahora</th><th style="width:130px">Cantidad contada (total)</th>
+                        <tr><th>Insumo</th><th class="text-end">Hay ahora</th><th style="width:130px" id="thCantidad">Cantidad contada (total)</th>
                             <th style="width:140px">Costo por unidad</th><th class="text-end">Diferencia</th><th class="no-imprimir" style="width:36px"></th></tr>
                     </thead>
                     <tbody id="tablaConteo"></tbody>
@@ -66,6 +73,16 @@
 (function () {
     const $ = id => document.getElementById(id);
     let insumos = [], quitados = new Set();
+    const sumando = () => $('modoSumar').checked;
+    const AYUDA = {
+        total: 'Escriba la cantidad total que contó de cada insumo; el sistema la toma como la nueva existencia y anota la diferencia.',
+        sumar: 'Escriba solo lo que llegó de cada insumo; el sistema lo suma a lo que hay. Ej: hay 7 y llegan 10 → queda en 17.'
+    };
+    document.querySelectorAll('input[name="modoConteo"]').forEach(r => r.addEventListener('change', () => {
+        $('lblAyudaModo').textContent = AYUDA[sumando() ? 'sumar' : 'total'];
+        $('thCantidad').textContent = sumando() ? 'Llegó (se suma)' : 'Cantidad contada (total)';
+        $('tablaConteo').querySelectorAll('input[data-id]').forEach(diferencia);
+    }));
     const modalNuevo = new bootstrap.Modal($('modalNuevo'));
 
     // Yesenia Quejada Rojas - Claude — 13/11/2026: "Imprimir conteo" abre la tirilla (ancho de la impresora de tickets) con los insumos que se ven
@@ -130,7 +147,8 @@
         const celda = inp.closest('tr').querySelector('.diferencia');
         if (inp.value === '') { celda.textContent = ''; return; }
         // Yesenia Quejada Rojas - Claude — 07/11/2026: diferencia = contado − hay ahora (rojo si falta, azul si sobra, verde si cuadra).
-        const d = Number(inp.value) - Math.round(Number(inp.dataset.stock));
+        // 13/11/2026: en "Sumar lo que llegó" la diferencia es lo que se escribió.
+        const d = sumando() ? Number(inp.value) : Number(inp.value) - Math.round(Number(inp.dataset.stock));
         celda.textContent = `${d > 0 ? '+' : ''}${num(d)} ${inp.closest('tr').dataset.unidad}`;
         celda.className = 'text-end text-nowrap fw-semibold diferencia ' + (d < 0 ? 'text-danger' : d > 0 ? 'text-primary' : 'text-success');
     }
@@ -187,12 +205,12 @@
             .filter(i => i.value !== '' && Number(i.value) !== Number(i.dataset.original))
             .map(i => ({ idInsumo: Number(i.dataset.costo), costoUnitario: Number(i.value) }));
         if (!detalle.length && !costos.length) { alerta('Escriba al menos una cantidad contada o un costo', 'warning'); return; }
-        const partes = [detalle.length ? `ajustar la existencia de ${detalle.length} insumo(s)` : '', costos.length ? `cambiar el costo de ${costos.length}` : ''].filter(Boolean);
+        const partes = [detalle.length ? (sumando() ? `SUMAR lo que llegó a ${detalle.length} insumo(s)` : `ajustar la existencia de ${detalle.length} insumo(s) al total contado`) : '', costos.length ? `cambiar el costo de ${costos.length}` : ''].filter(Boolean);
         if (!confirm(`Se va a ${partes.join(' y ')}. ¿Continuar?`)) return;
         $('btnGuardar').disabled = true;
         try {
-            const r = await api.post('/Conteo/Registrar', { observacion: $('txtObservacion').value, detalle, costos });
-            if (r.resultado) { alerta('Conteo guardado y existencia ajustada'); $('txtObservacion').value = ''; $('txtBuscar').value = ''; cargar(); }
+            const r = await api.post('/Conteo/Registrar', { observacion: $('txtObservacion').value, detalle, costos, sumar: sumando() });
+            if (r.resultado) { alerta(sumando() ? 'Listo, se sumó lo que llegó' : 'Conteo guardado y existencia ajustada'); $('txtObservacion').value = ''; $('txtBuscar').value = ''; cargar(); }
             else alerta(r.mensaje, 'warning');
         } catch (e) { errorAlerta(e); } finally { $('btnGuardar').disabled = false; }
     });
