@@ -717,6 +717,25 @@ namespace CapaDatos
                 Proveedor = dr.Texto("Proveedor"),
                 TelefonoProveedor = dr.Texto("TelefonoProveedor")
             }, P("@IdSede", idSede));
+
+        // Yesenia Quejada Rojas - Claude — 11/11/2026: insumos que no deben salir en la lista de compras (BaseDatos/08_Lista_Compras.sql).
+        // Si la base aún no tiene el script, la lista sale completa como antes.
+        public List<InsumoFueraCompra> FueraDeLista()
+        {
+            try
+            {
+                return Conexion.Listar("SP_COMPRA_FUERA_LISTAR", dr => new InsumoFueraCompra
+                {
+                    IdInsumo = dr.Entero("IdInsumo"),
+                    Codigo = dr.Texto("Codigo"),
+                    Nombre = dr.Texto("Nombre")
+                });
+            }
+            catch (SqlException) { return new(); }
+        }
+
+        public Respuesta CambiarEnLista(int idInsumo, bool fuera) =>
+            Ejecutar("SP_COMPRA_FUERA_GUARDAR", P("@IdInsumo", idInsumo), P("@Fuera", fuera));
     }
 
     public class CD_Reporte

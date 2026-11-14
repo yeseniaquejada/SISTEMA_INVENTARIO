@@ -432,6 +432,24 @@ namespace CapaEntidad
         public string TelefonoProveedor { get; set; } = "";
     }
 
+    // Yesenia Quejada Rojas - Claude — 11/11/2026: insumo que el administrador quitó de "Qué debo comprar" (p. ej. la bolsa ziploc).
+    public class InsumoFueraCompra
+    {
+        public int IdInsumo { get; set; }
+        public string Codigo { get; set; } = "";
+        public string Nombre { get; set; } = "";
+    }
+
+    // Yesenia Quejada Rojas - Claude — 11/11/2026: lista de compras para imprimir en tirilla (impresora térmica).
+    public class TirillaCompra
+    {
+        public List<OrdenCompraItem> Items { get; set; } = new();
+        public Configuracion Configuracion { get; set; } = new();
+        public string Fecha { get; set; } = "";
+        public string Sede { get; set; } = "";
+        public string Usuario { get; set; } = "";
+    }
+
     public class LoteAlerta
     {
         public int IdLote { get; set; }

@@ -1,0 +1,79 @@
+@model CapaEntidad.TirillaCompra
+@{
+    Layout = null;
+    var c = Model.Configuracion;
+    var co = new System.Globalization.CultureInfo("es-CO");
+    string M(decimal n) => c.SimboloMoneda + " " + n.ToString("N0", co);
+    string Q(decimal n) => n.ToString("#,##0.###", co);
+    var grupos = Model.Items.GroupBy(o => (o.Proveedor, o.TelefonoProveedor)).ToList();
+    var total = Model.Items.Sum(o => o.CostoEstimado);
+}
+@* Yesenia Quejada Rojas - Claude — 11/11/2026: lista de compras en tirilla, con el mismo ancho y letra que el ticket y el cierre de caja.
+   Cada insumo lleva un cuadrito para chulear lo que ya se compró. *@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>Lista de compras</title>
+    <style>
+        @@page { size: auto; margin: 0; }
+        body { font-family: "Courier New", monospace; font-size: @(c.LetraTicket)px; width: @(c.AreaImpresion)mm; overflow-wrap: anywhere; margin: 0 auto; color: #000; }
+        @@media print { body { margin: 0; padding: 0 0 6mm; } }
+        .c { text-align: center; } .r { text-align: right; } .b { font-weight: bold; }
+        hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
+        table { width: 100%; border-collapse: collapse; } td { vertical-align: top; padding: 1px 0; }
+        td.r { white-space: nowrap; padding-left: 4px; } tr { break-inside: avoid; }
+        td.chulo { width: 1.6em; white-space: nowrap; }
+        .grande td { font-size: 14px; font-weight: bold; }
+        .det { font-size: 0.9em; }
+        body.sin-precios .precio { display: none; }
+        .acciones { text-align: center; margin: 12px 0; }
+        .acciones button { padding: 10px 14px; cursor: pointer; margin: 4px; }
+        .guia { font-family: sans-serif; font-size: 12px; line-height: 1.4; }
+        @@media screen { html { background: #eef0f3; } body { background: white; padding: 16px; margin: 24px auto; box-shadow: 0 4px 24px #0002; border-radius: 6px; } }
+        @@media print { .acciones { display: none; } body { margin: 0; } }
+    </style>
+</head>
+<body data-auto="@(c.ImprimirAutomatico && Model.Items.Count > 0 ? "true" : "false")">
+    <div class="c b" style="font-size:15px">@c.NombreNegocio</div>
+    <div class="c b">LISTA DE COMPRAS</div>
+    <div class="c">@(string.IsNullOrEmpty(Model.Sede) ? "" : "Sede " + Model.Sede + " · ")@Model.Fecha</div>
+    <hr />
+    @if (Model.Items.Count == 0)
+    {
+        <div class="c">No hay insumos por comprar.</div>
+    }
+    @foreach (var g in grupos)
+    {
+        <div class="b">@g.Key.Proveedor.ToUpper()</div>
+        @if (!string.IsNullOrEmpty(g.Key.TelefonoProveedor)) { <div>Tel: @g.Key.TelefonoProveedor</div> }
+        <table>
+            @foreach (var o in g)
+            {
+                <tr><td class="chulo">[ ]</td><td>@o.Nombre</td><td class="r b">@Q(o.CantidadSugerida) @o.UnidadMedida</td></tr>
+                <tr class="det precio"><td></td><td>quedan @Q(o.Stock)@(o.CostoUnitario > 0 ? " · " + M(o.CostoUnitario) + " c/u" : "")</td><td class="r">@(o.CostoEstimado > 0 ? M(o.CostoEstimado) : "")</td></tr>
+            }
+            @if (grupos.Count > 1) { <tr class="b precio"><td></td><td>Subtotal</td><td class="r">@M(g.Sum(o => o.CostoEstimado))</td></tr> }
+        </table>
+        <hr />
+    }
+    @if (Model.Items.Count > 0)
+    {
+        <table>
+            <tr class="b"><td>@Model.Items.Count @(Model.Items.Count == 1 ? "insumo" : "insumos")</td><td></td></tr>
+            <tr class="grande precio"><td>TOTAL ESTIMADO</td><td class="r">@M(total)</td></tr>
+        </table>
+        <div class="det precio">Precios del último costo registrado; pueden cambiar.</div>
+        <hr />
+    }
+    <div>Hizo la lista: @Model.Usuario</div>
+    <div style="margin-top:14px">Pagado: ____________________</div>
+    <div class="acciones">
+        <div class="guia">Papel @(c.AnchoTicket) mm · Imprime @(c.AreaImpresion) mm · Escala 100 % · Márgenes: ninguno · Sin encabezados ni pies</div>
+        <button id="btnImprimir" disabled>Imprimir</button>
+        <button onclick="document.body.classList.add('sin-precios'); window.print(); document.body.classList.remove('sin-precios');">Imprimir sin precios</button>
+        <button onclick="window.close()">Cerrar</button>
+    </div>
+<script src="~/js/impresion.js" asp-append-version="true"></script>
+</body>
+</html>

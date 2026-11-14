@@ -27,7 +27,10 @@
         </div>
 
         <!-- Caja abierta: resumen y cierre -->
-        <div class="card shadow-sm" id="panelCerrar" hidden>
+        @* Yesenia Quejada Rojas - Claude — 11/11/2026: la caja abierta se organiza en bloques que se leen de arriba abajo: lo vendido, el efectivo
+           del cajón (solo lo que entra y sale en efectivo, así la cuenta da el esperado), otros medios de pago, el saldo del negocio, las cajas de
+           empaque y al final el cierre en su propia tarjeta. Antes todo iba en una sola tabla y los gastos de transferencia se mezclaban con el efectivo. *@
+        <div class="card shadow-sm mb-3" id="panelCerrar" hidden>
             <div class="card-header bg-white d-flex justify-content-between">
                 <strong><i class="bi bi-unlock text-success"></i> Caja abierta</strong>
                 <small class="text-muted" id="lblApertura"></small>
@@ -42,30 +45,51 @@
                     </div>
                     <strong class="text-marca fs-3 text-nowrap" id="lblVendidoTotal">$ 0</strong>
                 </div>
-                @* Yesenia Quejada Rojas - Claude — 30/10/2026: el resumen queda como el cuaderno (Base, Ventas, Gastos, Saldo); tarjeta, transferencia y aportes
-                   solo aparecen si hay valores, y se quitaron "Efectivo disponible ahora" y todo el bloque del fondo para no enredar. *@
-                <table class="table table-sm">
+
+                <h6 class="text-uppercase small fw-bold text-muted mb-1"><i class="bi bi-safe"></i> Efectivo del cajón</h6>
+                <table class="table table-sm mb-3">
                     @* Yesenia Quejada Rojas - Claude — 04/11/2026: la base de caja se ve como primera línea del esperado y el administrador la puede corregir
                        con el lápiz si al abrir se escribió mal o quedó en $ 0. *@
                     <tr><td>Base de caja <small class="text-muted d-block">efectivo con que se abrió el cajón</small><small class="text-warning-emphasis d-block" id="avisoBaseCero" hidden><i class="bi bi-exclamation-triangle"></i> La caja se abrió sin base@(User.IsInRole("ADMINISTRADOR") ? "; toque el lápiz para escribirla" : "")</small></td>
                         <td class="text-end text-nowrap"><span id="lblBase"></span>@if(User.IsInRole("ADMINISTRADOR")){<button type="button" class="btn btn-sm btn-link p-0 ms-2 align-baseline" id="btnEditarBase" title="Corregir la base de caja" aria-label="Corregir la base de caja"><i class="bi bi-pencil"></i></button>}</td></tr>
                     <tr><td>+ Ventas en efectivo</td><td class="text-end" id="lblEfectivo"></td></tr>
                     <tr id="filaIngresos" hidden><td>+ Aportes de efectivo</td><td class="text-end text-success" id="lblIngresos"></td></tr>
-                    @* Yesenia Quejada Rojas - Claude — 31/10/2026: suma gastos de todo medio; debajo va lo pagado en efectivo, que es lo único que resta del cajón. *@
-                    <tr><td>− Gastos y retiros <small class="text-muted d-block" id="lblGastosEfectivo" hidden></small></td><td class="text-end text-danger" id="lblEgresos"></td></tr>
+                    @* Yesenia Quejada Rojas - Claude — 11/11/2026: aquí solo restan los gastos pagados en efectivo; los de transferencia o tarjeta van en "Otros medios de pago". *@
+                    <tr><td>− Gastos y retiros en efectivo</td><td class="text-end text-danger" id="lblEgresosEfectivo"></td></tr>
                     @* Yesenia Quejada Rojas - Claude — 01/11/2026: es solo el efectivo del cajón (base de caja + ventas en efectivo + aportes − gastos en efectivo): lo que se cuenta al cerrar. *@
-                    <tr class="fw-bold table-light"><td>Efectivo esperado en el cajón <small class="fw-normal text-muted d-block">lo que debe haber al contar (no incluye el saldo del negocio)</small></td><td class="text-end" id="lblEsperado"></td></tr>
-                    <tr class="text-muted small"><td>Número de ventas</td><td class="text-end" id="lblNumero"></td></tr>
-                    @* Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque gastadas en esta caja × lo que vale cada una. Es informativo: no resta del saldo. *@
-                    <tr><td><i class="bi bi-box-seam"></i> Cajas gastadas <small class="text-muted d-block">cajas de los pedidos × valor de cada caja</small></td><td class="text-end text-nowrap" id="lblCajasGastadas"></td></tr>
-                    <tr class="text-muted small" id="filaTarjeta" hidden><td>Ventas con tarjeta (no suman al efectivo)</td><td class="text-end" id="lblTarjeta"></td></tr>
-                    <tr class="text-muted small" id="filaTransferencia" hidden><td>Ventas por transferencia (no suman al efectivo)</td><td class="text-end" id="lblTransferencia"></td></tr>
-                    @* Yesenia Quejada Rojas - Claude — 30/10/2026: ventas pagadas en la app de Rappi; tampoco suman al efectivo. *@
-                    <tr class="text-muted small" id="filaRappi" hidden><td>Ventas por Rappi (pagadas en la app, no suman al efectivo)</td><td class="text-end" id="lblRappi"></td></tr>
-                    <tr class="text-muted small" id="filaAnuladas" hidden><td>Pedidos anulados (no suman)</td><td class="text-end" id="lblAnuladas"></td></tr>
-                    @* Yesenia Quejada Rojas - Claude — 31/10/2026: todo el dinero del negocio (lo de arriba es solo el efectivo del cajón). *@
-                    <tr class="fw-bold border-top"><td>Saldo para gastar <small class="fw-normal text-muted d-block">base del saldo <span id="lblBaseNegocio"></span> + todas las ventas − gastos (efectivo, transferencias y Rappi)</small></td><td class="text-end text-marca" id="lblSaldoNegocio"></td></tr>
+                    <tr class="fw-bold table-light"><td>= Efectivo esperado en el cajón <small class="fw-normal text-muted d-block">lo que debe haber al contar (no incluye el saldo del negocio)</small></td><td class="text-end" id="lblEsperado"></td></tr>
                 </table>
+
+                <div id="bloqueOtrosMedios" hidden>
+                    <h6 class="text-uppercase small fw-bold text-muted mb-1"><i class="bi bi-credit-card"></i> Otros medios de pago <small class="fw-normal text-lowercase">(no están en el cajón)</small></h6>
+                    <table class="table table-sm mb-3">
+                        <tr id="filaTransferencia" hidden><td>Ventas por transferencia</td><td class="text-end" id="lblTransferencia"></td></tr>
+                        @* Yesenia Quejada Rojas - Claude — 30/10/2026: ventas pagadas en la app de Rappi; tampoco suman al efectivo. *@
+                        <tr id="filaRappi" hidden><td>Ventas por Rappi <small class="text-muted">(pagadas en la app)</small></td><td class="text-end" id="lblRappi"></td></tr>
+                        <tr id="filaTarjeta" hidden><td>Ventas con tarjeta</td><td class="text-end" id="lblTarjeta"></td></tr>
+                        <tr id="filaGastosOtros" hidden><td>− Gastos por transferencia o tarjeta</td><td class="text-end text-danger" id="lblGastosOtros"></td></tr>
+                    </table>
+                </div>
+
+                @* Yesenia Quejada Rojas - Claude — 31/10/2026: todo el dinero del negocio (lo de arriba es solo el efectivo del cajón). *@
+                <div class="d-flex justify-content-between align-items-start border rounded-3 px-3 py-2 mb-3">
+                    <div><span class="fw-bold">Saldo para gastar</span> <small class="text-muted d-block">base del saldo <span id="lblBaseNegocio"></span> + todas las ventas − todos los gastos <span id="lblGastosTotal" class="text-nowrap"></span></small></div>
+                    <strong class="text-marca fs-5 text-nowrap ms-2" id="lblSaldoNegocio"></strong>
+                </div>
+
+                <table class="table table-sm small mb-0">
+                    @* Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque gastadas en esta caja × lo que vale cada una. Es informativo: no resta del saldo. *@
+                    <tr><td><i class="bi bi-box-seam"></i> Cajas gastadas <small class="text-muted">en los pedidos</small></td><td class="text-end text-nowrap fw-semibold" id="lblCajasGastadas"></td></tr>
+                    <tr class="text-muted"><td>Número de ventas</td><td class="text-end" id="lblNumero"></td></tr>
+                    <tr class="text-muted" id="filaAnuladas" hidden><td>Pedidos anulados (no suman)</td><td class="text-end" id="lblAnuladas"></td></tr>
+                </table>
+            </div>
+        </div>
+
+        @* Yesenia Quejada Rojas - Claude — 11/11/2026: el cierre va en su propia tarjeta, debajo del resumen. *@
+        <div class="card shadow-sm" id="panelCierre" hidden>
+            <div class="card-header bg-white"><strong><i class="bi bi-lock"></i> Cerrar caja</strong></div>
+            <div class="card-body">
                 <div class="alert alert-warning py-2 small" id="avisoDomicilios" hidden></div>
                 <div class="d-flex justify-content-between align-items-end">
                     <label class="form-label" for="txtContado">Efectivo contado en el cajón</label>
@@ -79,6 +103,12 @@
                 </div>
                 <input data-moneda type="number" id="txtContado" class="form-control form-control-lg" min="0" step="100" />
                 <div class="my-2 fw-semibold" id="lblDiferencia"></div>
+                @* Yesenia Quejada Rojas - Claude — 11/11/2026: contar las cajas de empaque al cerrar, igual que se cuenta el efectivo. Lo que se escriba
+                   corrige el inventario de esas cajas (queda como conteo) y se anota en la observación del cierre. *@
+                <div class="border rounded-3 px-3 py-2 mb-3" id="bloqueContarCajas" hidden>
+                    <div class="fw-semibold mb-1"><i class="bi bi-box-seam"></i> Cajas de empaque que quedan <small class="fw-normal text-muted">(cuéntelas; si deja una vacía no se toca)</small></div>
+                    <div id="listaCajas"></div>
+                </div>
                 <input id="txtObservacion" class="form-control mb-3" maxlength="250" placeholder="Observación (opcional)" />
                 <div class="d-flex gap-2">
                     <a class="btn btn-outline-secondary" id="lnkPrevia" target="_blank" title="Ver el reporte antes de cerrar"><i class="bi bi-eye"></i> Vista previa</a>
@@ -146,6 +176,7 @@
             const [c, historial] = await Promise.all([api.get('/Caja/Actual'), api.get('/Caja/Historial')]);
             $('panelAbrir').hidden = !!c;
             $('panelCerrar').hidden = !c;
+            $('panelCierre').hidden = !c;
             $('panelMovimiento').hidden = !c;
             if (!c) {
                 // Yesenia Quejada Rojas - Claude — 01/11/2026: la base de caja ya no se sugiere con lo contado en el último cierre (arrastraba el saldo
@@ -157,13 +188,17 @@
                 esperado = c.baseInicial + c.ventasEfectivo + c.ingresosEfectivo - c.egresosEfectivo;
                 $('lblIngresos').textContent=moneda(c.ingresosEfectivo);
                 $('filaIngresos').hidden = !c.ingresosEfectivo;
-                $('lblEgresos').textContent=moneda(c.gastosTotal);
-                $('lblGastosEfectivo').hidden = c.gastosTotal === c.egresosEfectivo;
-                $('lblGastosEfectivo').textContent = `solo ${moneda(c.egresosEfectivo)} en efectivo restan del cajón`;
+                // Yesenia Quejada Rojas - Claude — 11/11/2026: en el cajón solo restan los gastos en efectivo; el resto va en "Otros medios de pago".
+                $('lblEgresosEfectivo').textContent = moneda(c.egresosEfectivo);
+                const gastosOtros = Math.max(0, c.gastosTotal - c.egresosEfectivo);
+                $('lblGastosOtros').textContent = moneda(gastosOtros);
+                $('filaGastosOtros').hidden = !gastosOtros;
+                $('lblGastosTotal').textContent = c.gastosTotal ? `(${moneda(c.gastosTotal)})` : '';
+                $('bloqueOtrosMedios').hidden = !(c.ventasTarjeta || c.ventasTransferencia || c.ventasRappi || gastosOtros);
                 // Yesenia Quejada Rojas - Claude — 02/11/2026: el cierre ya no se bloquea por domicilios en efectivo sin entregar (antes el botón quedaba
                 // apagado); se avisa en el panel y se pide confirmar al cerrar.
                 efectivoDomicilios = c.efectivoEnDomicilios; $('btnCerrar').disabled = false;
-                await movimientos(c.idCaja);
+                await Promise.all([movimientos(c.idCaja), cargarCajas()]);
                 $('lblApertura').textContent = `${c.fechaApertura} · ${c.usuarioApertura}`;
                 $('lblBase').textContent = moneda(c.baseInicial);
                 baseActual = c.baseInicial; $('avisoBaseCero').hidden = !!c.baseInicial;
@@ -212,6 +247,38 @@
             }, 7);   // Yesenia Quejada Rojas - Claude — 31/10/2026: 7 columnas con "Cajas".
         } catch (e) { errorAlerta(e); }
     }
+
+    // Yesenia Quejada Rojas - Claude — 11/11/2026: cajas de empaque para contar al cerrar; lo que ya se escribió no se borra al refrescar.
+    let cajasEmpaque = [];
+    async function cargarCajas() {
+        try {
+            const anteriores = Object.fromEntries([...document.querySelectorAll('[data-caja]')].map(i => [i.dataset.caja, i.value]));
+            cajasEmpaque = await api.get('/Caja/CajasEmpaque');
+            $('bloqueContarCajas').hidden = !cajasEmpaque.length;
+            $('listaCajas').innerHTML = cajasEmpaque.map(k => `
+                <div class="d-flex align-items-center gap-2 py-1">
+                    <span class="flex-grow-1">${esc(k.nombre)} <small class="text-muted d-block">el sistema dice ${num(k.stock)}</small></span>
+                    <input type="number" min="0" step="1" inputmode="numeric" class="form-control form-control-sm text-end" style="width:5.5rem" data-caja="${k.idInsumo}" value="${esc(anteriores[k.idInsumo] ?? '')}" placeholder="—" aria-label="Cajas contadas: ${esc(k.nombre)}" />
+                    <small class="text-nowrap" style="min-width:5.5rem" data-dif-caja="${k.idInsumo}"></small>
+                </div>`).join('');
+            difCajas();
+        } catch (e) { $('bloqueContarCajas').hidden = true; }
+    }
+    function cajasContadas() {
+        return cajasEmpaque.map(k => ({ k, v: document.querySelector(`[data-caja="${k.idInsumo}"]`)?.value ?? '' }))
+            .filter(x => x.v !== '').map(x => ({ ...x.k, contado: Number(x.v) }));
+    }
+    function difCajas() {
+        cajasEmpaque.forEach(k => {
+            const v = document.querySelector(`[data-caja="${k.idInsumo}"]`)?.value ?? '', el = document.querySelector(`[data-dif-caja="${k.idInsumo}"]`);
+            if (!el) return;
+            if (v === '') { el.textContent = ''; return; }
+            const d = Number(v) - k.stock;
+            el.className = 'text-nowrap ' + (d < 0 ? 'text-danger' : d > 0 ? 'text-primary' : 'text-success');
+            el.textContent = d === 0 ? 'cuadra' : d < 0 ? `faltan ${num(-d)}` : `sobran ${num(d)}`;
+        });
+    }
+    $('listaCajas').addEventListener('input', difCajas);
 
     async function movimientos(idCaja) {
         const lista = await api.get('/Caja/Movimientos?idCaja='+idCaja);
@@ -301,18 +368,29 @@
         const anterior=esperado; await cargar(); if(esperado!==anterior){alerta('Hubo movimientos nuevos. Revise el saldo antes de cerrar.','warning');return;}
         if ($('btnCerrar').disabled) return;
         if ($('txtContado').value === '') { alerta('Ingrese el efectivo contado', 'warning'); return; }
+        const cajas = cajasContadas();
+        if (cajas.some(k => !Number.isInteger(k.contado) || k.contado < 0)) { alerta('Las cajas se cuentan en números enteros', 'warning'); return; }
         // Yesenia Quejada Rojas - Claude — 02/11/2026: con domicilios en efectivo sin entregar se deja cerrar, pero se avisa lo que implica.
         const avisoDom = efectivoDomicilios > 0 ? `\n\nOjo: hay ${moneda(efectivoDomicilios)} de domicilios en efectivo sin entregar. Ese dinero cuenta en el esperado; si no está en el cajón saldrá como faltante.` : '';
-        if (!confirm('¿Cerrar la caja? Después no se podrán registrar ventas hasta abrirla de nuevo.' + avisoDom)) return;
+        const resumenCajas = cajas.map(k => `${k.nombre}: ${k.contado}${k.contado === k.stock ? '' : ` (sistema ${num(k.stock)})`}`).join('; ');
+        const avisoCajas = cajas.length ? `\n\nCajas contadas: ${resumenCajas}. El inventario de esas cajas quedará con lo contado.` : '';
+        if (!confirm('¿Cerrar la caja? Después no se podrán registrar ventas hasta abrirla de nuevo.' + avisoDom + avisoCajas)) return;
         const reporte = window.open('', '_blank');   // se abre ya para que el navegador no la bloquee
         try {
-            const q = new URLSearchParams({ efectivoContado: $('txtContado').value, observacion: $('txtObservacion').value });
+            // Yesenia Quejada Rojas - Claude — 11/11/2026: primero se guardan las cajas contadas (conteo de inventario) y se anotan en la observación.
+            if (cajas.length) {
+                const rc = await api.post('/Caja/ContarCajas', cajas.map(k => ({ idInsumo: k.idInsumo, stockContado: k.contado })));
+                if (!rc.resultado) { reporte?.close(); alerta('No se guardaron las cajas contadas: ' + rc.mensaje, 'warning'); return; }
+            }
+            const observacion = [$('txtObservacion').value.trim(), cajas.length ? 'Cajas contadas: ' + resumenCajas : ''].filter(Boolean).join(' · ').slice(0, 250);
+            const q = new URLSearchParams({ efectivoContado: $('txtContado').value, observacion });
             const r = await api.post(`/Caja/Cerrar?${q}`);
             if (r.resultado) {
                 alerta('Caja cerrada');
                 if (reporte) reporte.location = `/Caja/Reporte/${r.id}`;
                 $('txtContado').value = ''; $('txtObservacion').value = '';
                 $('denominaciones').querySelectorAll('input').forEach(i => i.value = '');
+                $('listaCajas').querySelectorAll('input').forEach(i => i.value = '');
                 cargar();
             }
             else { reporte?.close(); alerta(r.mensaje, 'warning'); }

@@ -220,7 +220,15 @@ namespace CapaNegocio
             return Respuesta.Error(r.Mensaje + " (ejecute BaseDatos/Insumos_PorConfirmar.sql en la base)");
         }
 
-        public Respuesta Eliminar(int id) => _datos.Eliminar(id);
+        // Yesenia Quejada Rojas - Claude — 10/11/2026: si el insumo ya se usó en un conteo, una venta u otro registro, la base
+        // no deja borrarlo y antes salía el error en inglés sin terminar. Ahora se explica y la pantalla ofrece desactivarlo.
+        public Respuesta Eliminar(int id)
+        {
+            var r = _datos.Eliminar(id);
+            if (!r.Resultado && r.Mensaje.Contains("REFERENCE", StringComparison.OrdinalIgnoreCase))
+                return Respuesta.Error("Este insumo ya tiene historial (conteos, compras o ventas) y no se puede borrar. Puede desactivarlo para que no se use más.");
+            return r;
+        }
 
         /// <summary>Código corto a partir del nombre ("Queso mozzarella" = QUEMOZ); agrega un número si ya existe.</summary>
         public static string GenerarCodigo(string nombre, IEnumerable<string> usados)
@@ -430,6 +438,29 @@ namespace CapaNegocio
         public Respuesta Cerrar(int idSede, int idUsuario, decimal efectivoContado, string? observacion) =>
             efectivoContado < 0 ? Respuesta.Error("El efectivo contado no puede ser negativo") : _datos.Cerrar(idSede, idUsuario, efectivoContado, observacion);
 
+        // Yesenia Quejada Rojas - Claude — 11/11/2026: al cerrar la caja también se cuentan las cajas de empaque (insumos activos cuyo nombre
+        // empieza por "Caja", p. ej. "Caja C1 hamburguesa" y "Caja de empaque"). Lo contado queda como un conteo de inventario normal, así
+        // que corrige el stock y se ve en Inventario > Contar inventario. Solo acepta esas cajas, para que el cajero no toque otros insumos.
+        private static readonly Regex NombreCaja = new(@"^\s*cajas?\b", RegexOptions.IgnoreCase);
+
+        public List<Insumo> CajasEmpaque(int idSede) =>
+            new CN_Insumo().Listar(idSede).Where(i => i.Activo && i.ControlaStock && NombreCaja.IsMatch(i.Nombre ?? "")).OrderBy(i => i.Nombre).ToList();
+
+        public Respuesta ContarCajas(int idSede, int idUsuario, List<ConteoItem>? detalle)
+        {
+            var permitidas = CajasEmpaque(idSede).Select(i => i.IdInsumo).ToHashSet();
+            var lista = detalle?.Where(d => permitidas.Contains(d.IdInsumo)).GroupBy(d => d.IdInsumo).Select(g => g.Last()).ToList() ?? new();
+            if (lista.Count == 0) return Respuesta.Error("No llegó ninguna caja contada");
+            if (lista.Any(d => d.StockContado < 0 || d.StockContado > 99999 || d.StockContado != Math.Floor(d.StockContado)))
+                return Respuesta.Error("Las cajas se cuentan en números enteros, sin negativos");
+            var caja = Actual(idSede);
+            return new CN_Conteo().Registrar(idSede, idUsuario, new Conteo
+            {
+                Observacion = caja == null ? "Cajas de empaque contadas" : $"Cajas de empaque contadas al cerrar la caja N° {caja.IdCaja}",
+                Detalle = lista
+            });
+        }
+
         public ReporteCaja? Reporte(int idSede, int idCaja)
         {
             var r = _datos.Reporte(idSede, idCaja);
@@ -508,7 +539,41 @@ namespace CapaNegocio
 
     public class CN_Compra
     {
-        public List<OrdenCompraItem> Sugerida(int idSede) => new CD_Compra().Sugerida(idSede);
+        private readonly CD_Compra _datos = new();
+
+        // Yesenia Quejada Rojas - Claude — 11/11/2026: los insumos quitados de la lista (p. ej. la bolsa ziploc) ya no salen en la pantalla,
+        // el Excel ni la tirilla. Siguen en el inventario y se pueden volver a incluir.
+        public List<OrdenCompraItem> Sugerida(int idSede)
+        {
+            var fuera = _datos.FueraDeLista().Select(f => f.IdInsumo).ToHashSet();
+            return _datos.Sugerida(idSede).Where(o => !fuera.Contains(o.IdInsumo)).ToList();
+        }
+
+        public List<InsumoFueraCompra> FueraDeLista() => _datos.FueraDeLista();
+
+        public Respuesta CambiarEnLista(int idInsumo, bool fuera)
+        {
+            if (idInsumo <= 0) return Respuesta.Error("Insumo no válido");
+            var r = _datos.CambiarEnLista(idInsumo, fuera);
+            if (!r.Resultado && r.Mensaje.Contains("SP_COMPRA_FUERA_GUARDAR", StringComparison.OrdinalIgnoreCase))
+                return Respuesta.Error("Falta ejecutar en la base de datos el script 08_Lista_Compras.sql");
+            return r;
+        }
+
+        /// <summary>Lista para la tirilla: si llegan cantidades (lo que el administrador dejó marcado en pantalla) solo salen esos
+        /// insumos con esa cantidad; si no llega nada sale la lista sugerida completa.</summary>
+        public List<OrdenCompraItem> ParaTirilla(int idSede, Dictionary<int, decimal>? cantidades)
+        {
+            var lista = Sugerida(idSede);
+            if (cantidades == null) return lista;
+            return lista.Where(o => cantidades.TryGetValue(o.IdInsumo, out var c) && c > 0)
+                .Select(o =>
+                {
+                    o.CantidadSugerida = Math.Round(cantidades[o.IdInsumo], 3);
+                    o.CostoEstimado = Math.Round(o.CantidadSugerida * o.CostoUnitario, 2);
+                    return o;
+                }).ToList();
+        }
     }
 
     public class CN_Reporte

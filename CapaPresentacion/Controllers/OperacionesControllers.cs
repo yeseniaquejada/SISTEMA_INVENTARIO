@@ -153,6 +153,10 @@ public class CajaController : Controller
     [HttpPost, Authorize(Roles=Claves.Admin)] public JsonResult EditarBase(decimal baseInicial) => Json(_negocio.EditarBase(User.IdSede(), User.Id(), baseInicial));
     [HttpGet] public JsonResult FondoSugerido() => Json(_negocio.FondoSugerido(User.IdSede()));
 
+    // Yesenia Quejada Rojas - Claude — 11/11/2026: cajas de empaque para contarlas al cerrar (cajero y administrador). Lo contado se guarda como conteo de inventario.
+    [HttpGet] public JsonResult CajasEmpaque() => Json(_negocio.CajasEmpaque(User.IdSede()).Select(i => new { i.IdInsumo, i.Nombre, i.Stock, i.UnidadMedida }));
+    [HttpPost] public JsonResult ContarCajas([FromBody] List<ConteoItem> detalle) => Json(_negocio.ContarCajas(User.IdSede(), User.Id(), detalle));
+
     [HttpPost]
     public JsonResult Cerrar(decimal efectivoContado, string? observacion) =>
         Json(_negocio.Cerrar(User.IdSede(), User.Id(), efectivoContado, observacion));
@@ -207,6 +211,34 @@ public class CompraController : Controller
     private readonly CN_Compra _negocio = new();
     public IActionResult Index() => View();
     [HttpGet] public JsonResult Sugerida() => Json(_negocio.Sugerida(User.IdSede()));
+
+    // Yesenia Quejada Rojas - Claude — 11/11/2026: insumos quitados de la lista de compras (p. ej. la bolsa ziploc) y botón para quitar o volver a incluir.
+    [HttpGet] public JsonResult FueraDeLista() => Json(_negocio.FueraDeLista());
+    [HttpPost] public JsonResult CambiarEnLista(int idInsumo, bool fuera) => Json(_negocio.CambiarEnLista(idInsumo, fuera));
+
+    // Yesenia Quejada Rojas - Claude — 11/11/2026: lista de compras en tirilla para la impresora térmica. Por GET sale la lista sugerida
+    // completa; por POST llegan los insumos marcados en pantalla con la cantidad que dejó el administrador ({ "idInsumo": cantidad }).
+    [HttpGet]
+    public IActionResult Tirilla() => VistaTirilla(null);
+
+    [HttpPost, ActionName("Tirilla")]
+    public IActionResult TirillaMarcada([FromForm] string datos)
+    {
+        Dictionary<int, decimal>? cantidades;
+        try { cantidades = System.Text.Json.JsonSerializer.Deserialize<Dictionary<int, decimal>>(datos ?? ""); }
+        catch (System.Text.Json.JsonException) { return BadRequest(); }
+        if (cantidades == null || cantidades.Count > 500 || cantidades.Values.Any(c => c < 0 || c > 999999)) return BadRequest();
+        return VistaTirilla(cantidades);
+    }
+
+    private IActionResult VistaTirilla(Dictionary<int, decimal>? cantidades) => View("Tirilla", new TirillaCompra
+    {
+        Items = _negocio.ParaTirilla(User.IdSede(), cantidades),
+        Configuracion = new CN_Configuracion().Obtener(),
+        Fecha = DateTime.UtcNow.AddHours(-5).ToString("dd/MM/yyyy h:mm tt", new System.Globalization.CultureInfo("es-CO")),
+        Sede = User.Sede(),
+        Usuario = User.Identity?.Name ?? ""
+    });
 
     [HttpGet]
     public IActionResult Exportar() =>
