@@ -105,8 +105,8 @@
                 <div class="my-2 fw-semibold" id="lblDiferencia"></div>
                 @* Yesenia Quejada Rojas - Claude — 11/11/2026: contar las cajas de empaque al cerrar, igual que se cuenta el efectivo. Lo que se escriba
                    corrige el inventario de esas cajas (queda como conteo) y se anota en la observación del cierre. *@
-                <div class="border rounded-3 px-3 py-2 mb-3" id="bloqueContarCajas" hidden>
-                    <div class="fw-semibold mb-1"><i class="bi bi-box-seam"></i> Cajas de empaque que quedan <small class="fw-normal text-muted">(solo las que salieron con las ventas de hoy; cuéntelas, si deja una vacía no se toca)</small></div>
+                @* Yesenia Quejada Rojas - Claude — 14/11/2026: se quitó del cierre el conteo de cajas de empaque; el bloque queda oculto y sin cargar. *@
+                <div id="bloqueContarCajas" hidden>
                     <div id="listaCajas"></div>
                 </div>
                 <input id="txtObservacion" class="form-control mb-3" maxlength="250" placeholder="Observación (opcional)" />
@@ -301,6 +301,7 @@
     // Yesenia Quejada Rojas - Claude — 11/11/2026: cajas de empaque para contar al cerrar; lo que ya se escribió no se borra al refrescar.
     let cajasEmpaque = [];
     async function cargarCajas() {
+        return;   // Yesenia Quejada Rojas - Claude — 14/11/2026: ya no se cuentan las cajas al cerrar la caja.
         try {
             const anteriores = Object.fromEntries([...document.querySelectorAll('[data-caja]')].map(i => [i.dataset.caja, i.value]));
             cajasEmpaque = await api.get('/Caja/CajasEmpaque');
