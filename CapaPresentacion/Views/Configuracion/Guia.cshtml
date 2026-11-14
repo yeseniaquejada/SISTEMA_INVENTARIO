@@ -1,21 +1,23 @@
 @model CapaEntidad.Configuracion
 @{
     ViewData["Title"] = "Guía de configuración";
-    int insumos = ViewBag.Insumos, categorias = ViewBag.Categorias, productos = ViewBag.Productos,
-        sinReceta = ViewBag.SinReceta, adiciones = ViewBag.Adiciones, usuarios = ViewBag.Usuarios;
+    int categorias = ViewBag.Categorias, productos = ViewBag.Productos,
+        sinReceta = ViewBag.SinReceta, adiciones = ViewBag.Adiciones, usuarios = ViewBag.Usuarios, mesas = ViewBag.Mesas;
     bool negocio = ViewBag.Negocio, cajaAbierta = ViewBag.CajaAbierta;
+    // Yesenia Quejada Rojas - Claude — 13/11/2026: igual que el menú: Insumos sale de los pasos (queda en el día a día)
+    // y entra "Mesas y carta digital" después de las adiciones.
     var pasos = new (bool listo, string titulo, string detalle, string estado, string controlador, string accion)[]
     {
         (negocio, "Datos del negocio", "Nombre, teléfono, logo y colores. Es lo que sale en el ticket y en la pantalla.",
             negocio ? "Listo" : "Falta el nombre o el teléfono", "Configuracion", "Index"),
-        (insumos > 0, "Insumos (lo que compra)", "Pan, carne, queso, gaseosas... Lo más rápido: descargue la plantilla de Excel, llénela con lo que hay hoy y súbala.",
-            insumos > 0 ? $"{insumos} insumos" : "Aún no hay insumos", "Insumo", "Index"),
         (categorias > 0, "Categorías del menú", "Cómo se agrupan los productos al vender: hamburguesas, perros, bebidas...",
             categorias > 0 ? $"{categorias} categorías" : "Aún no hay categorías", "CategoriaMenu", "Index"),
         (productos > 0 && sinReceta == 0, "Productos y recetas", "Cada producto con su precio, foto y receta. La receta dice qué insumos se descuentan al venderlo.",
             productos == 0 ? "Aún no hay productos" : sinReceta > 0 ? $"{productos} productos · {sinReceta} sin receta" : $"{productos} productos con receta", "Producto", "Index"),
         (adiciones > 0, "Adiciones y salsas", "Lo que el cliente puede agregar (extra queso, salsas). Para quitar ingredientes no hace falta crear nada.",
             adiciones > 0 ? $"{adiciones} opciones" : "Opcional", "Modificador", "Index"),
+        (mesas > 0, "Mesas y carta digital", "Las mesas del local y sus QR. El cliente ve la carta en el celular y hace el pedido para la mesa, para llevar o a domicilio.",
+            mesas > 0 ? $"{mesas} mesas" : "Aún no hay mesas", "Mesa", "Index"),
         (usuarios > 1, "Usuarios", "Quién entra al sistema: administrador, cajero (vende y cocina) y domiciliario.",
             $"{usuarios} usuarios", "Usuario", "Index"),
         (cajaAbierta, "Abrir la caja y vender", "Cada día: abra la caja con la base, venda y al final cierre la caja contando el efectivo.",
@@ -50,6 +52,7 @@
     <ul class="mb-0 mt-2">
         <li>Las ventas descuentan los insumos solas, según la receta de cada producto.</li>
         <li>Cuando llegue una compra o algo se dañe: <a asp-controller="Movimiento" asp-action="Index">Registrar compras y salidas</a>.</li>
-        <li>Si cuenta el local y no coincide: suba la plantilla de insumos con lo que contó, o use <a asp-controller="Conteo" asp-action="Index">Contar inventario</a>.</li>
+        <li>Lo que compra (pan, carne, gaseosas...) está en <a asp-controller="Insumo" asp-action="Index">Insumos</a>.</li>
+        <li>Si cuenta el local y no coincide: use <a asp-controller="Conteo" asp-action="Index">Contar inventario</a>.</li>
     </ul>
 </div></div>

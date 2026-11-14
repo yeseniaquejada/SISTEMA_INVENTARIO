@@ -40,10 +40,11 @@
             <h6 class="col-12 mb-0 mt-4">¿Qué usa el negocio?</h6>
             <div class="col-sm-6"><div class="form-check form-switch"><input type="checkbox" class="form-check-input" id="mostrarCocina" name="mostrarCocina" /><label class="form-check-label" for="mostrarCocina">Pantalla de cocina</label></div></div>
             <div class="col-sm-6"><div class="form-check form-switch"><input type="checkbox" class="form-check-input" id="mostrarDomicilios" name="mostrarDomicilios" /><label class="form-check-label" for="mostrarDomicilios">Domicilios</label></div></div>
-            <div class="col-sm-6"><label class="form-label" for="costoDomicilio">Valor del domicilio por defecto</label><input id="costoDomicilio" name="costoDomicilio" type="number" min="0" step="500" class="form-control" data-tipo="numero" /></div>
+            <div class="col-sm-6"><label class="form-label" for="costoDomicilio">Valor del domicilio por defecto</label><input data-moneda id="costoDomicilio" name="costoDomicilio" type="number" min="0" step="500" class="form-control" data-tipo="numero" /></div>
 
             <h6 class="col-12 mb-0 mt-4">Impresora de tickets</h6>
-            <div class="col-sm-6"><label for="anchoTicket" class="form-label">Ancho del papel</label><select class="form-select" id="anchoTicket" name="anchoTicket" data-tipo="numero"><option value="80">80 mm</option><option value="58">58 mm</option></select></div>
+            <div class="col-sm-6"><label for="anchoTicket" class="form-label">Ancho del papel</label><select class="form-select" id="anchoTicket" name="anchoTicket" data-tipo="numero"><option value="80">80 mm · imprime 72 mm</option><option value="58">58 mm · imprime 48 mm (Digital POS DIG-C58)</option></select>
+                <div class="form-text">Ancho del rollo. La impresora imprime 48 mm; el ticket usa 45 mm para no cortarse por la derecha.</div></div>
             <div class="col-sm-6"><div class="form-check form-switch mt-4"><input type="checkbox" class="form-check-input" id="imprimirAutomatico" name="imprimirAutomatico" /><label class="form-check-label" for="imprimirAutomatico">Imprimir apenas se abra el ticket</label></div></div>
 
             <input type="hidden" name="mostrarMultisede" data-tipo="bool" />

@@ -82,6 +82,20 @@ namespace CapaDatos
             leer(dr);
         }
 
+        // Yesenia Quejada Rojas - Claude — 31/10/2026: fechas (yyyy-MM-dd) con las que las páginas filtran "hoy": la de hoy según el reloj del servidor SQL
+        // (el que graba las ventas) y el día en que se abrió la caja que sigue abierta en la sede ("" si no hay caja abierta).
+        // Consulta fija; el único dato que recibe es la sede, como parámetro.
+        public static (string Hoy, string DiaCaja) FechasDeTrabajo(int idSede)
+        {
+            using var cn = Abrir();
+            using var cmd = new SqlCommand(
+                @"SELECT CONVERT(VARCHAR(10), GETDATE(), 23),
+                         (SELECT TOP 1 CONVERT(VARCHAR(10), FechaApertura, 23) FROM CAJA WHERE IdSede = @IdSede AND Estado = 'ABIERTA' ORDER BY IdCaja DESC)", cn);
+            cmd.Parameters.AddWithValue("@IdSede", idSede);
+            using var dr = cmd.ExecuteReader();
+            return dr.Read() ? (dr.IsDBNull(0) ? "" : dr.GetString(0), dr.IsDBNull(1) ? "" : dr.GetString(1)) : ("", "");
+        }
+
         public static DataTable Ids(IEnumerable<int> ids)
         {
             var t = new DataTable();

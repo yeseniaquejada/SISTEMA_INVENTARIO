@@ -20,6 +20,10 @@
                         <img id="imgProducto" class="producto-foto" alt="" hidden />
                         <div id="sinFoto" class="producto-foto sin-foto">🍽️</div>
                     </div>
+                    @* Yesenia Quejada Rojas - Claude — 02/11/2026: "Tomar foto" abre la cámara del celular o la tablet (en computador abre el selector de archivos); la foto se
+                       reduce antes de subirla para que no pase de 3 MB. *@
+                    <button type="button" class="btn btn-marca w-100 mb-2" id="btnTomarFoto"><i class="bi bi-camera"></i> Tomar foto</button>
+                    <input type="file" id="archivoCamara" accept="image/*" capture="environment" hidden />
                     <input type="file" id="archivoFoto" accept="image/png,image/jpeg,image/webp,image/gif" class="form-control form-control-sm" />
                     <div class="d-flex justify-content-between mt-1">
                         <span class="form-text" id="ayudaFoto">JPG o PNG, máximo 3 MB.</span>
@@ -32,9 +36,11 @@
                         <div class="col-md-7"><label class="form-label">Nombre</label><input name="nombre" class="form-control" maxlength="100" required /></div>
                         <div class="col-md-5"><label class="form-label">Categoría del menú</label><select name="idCategoriaMenu" id="cboCategoria" class="form-select" data-tipo="numero"></select></div>
                         <div class="col-12"><label class="form-label">Descripción (opcional)</label><input name="descripcion" class="form-control" maxlength="250" placeholder="Carne de res, tocineta, queso mozzarella..." /></div>
-                        <div class="col-md-4"><label class="form-label">Precio de venta</label><input name="precio" id="txtPrecio" type="number" min="1" step="100" class="form-control" data-tipo="numero" required /></div>
+                        <div class="col-md-4"><label class="form-label">Precio de venta</label><input data-moneda name="precio" id="txtPrecio" type="number" min="1" step="100" class="form-control" data-tipo="numero" required /></div>
                         <div class="col-md-5 d-flex align-items-end"><div class="small" id="lblMargen"></div></div>
                         <div class="col-md-3 d-flex align-items-end"><div class="form-check"><input type="checkbox" name="activo" class="form-check-input" id="chkActivo" /><label class="form-check-label" for="chkActivo">Activo</label></div></div>
+                        @* Yesenia Quejada Rojas - Claude — 02/11/2026: sin la marca, el producto solo se vende desde Vender y no sale en la carta que ven los clientes. *@
+                        <div class="col-12"><div class="form-check"><input type="checkbox" name="enCarta" class="form-check-input" id="chkEnCarta" /><label class="form-check-label" for="chkEnCarta">Mostrar en la carta del cliente (QR) <small class="text-muted">— si la quita, solo se vende desde Vender</small></label></div></div>
                     </form>
                 </div>
             </div>

@@ -24,7 +24,7 @@
                 <div class="col-md-8"><label class="form-label" for="txtNombreMod">Nombre</label><input id="txtNombreMod" name="nombre" class="form-control" maxlength="80" required placeholder="Ej: Salsa de ajo, Extra queso" /></div>
                 <div class="col-md-4"><label class="form-label" for="cboGrupo">Grupo</label>
                     <select id="cboGrupo" name="grupo" class="form-select"><option value="Salsas">Salsas</option><option value="Adiciones">Adiciones</option><option value="Preferencias">Preferencias</option></select></div>
-                <div class="col-md-4"><label class="form-label" for="txtPrecioMod">Precio</label><input id="txtPrecioMod" name="precio" type="number" min="0" step="100" class="form-control" data-tipo="numero" />
+                <div class="col-md-4"><label class="form-label" for="txtPrecioMod">Precio</label><input data-moneda id="txtPrecioMod" name="precio" type="number" min="0" step="100" class="form-control" data-tipo="numero" />
                     <div class="form-text">0 = gratis</div></div>
                 <div class="col-md-8"><label class="form-label" for="cboInsumo">¿Usa algún insumo del inventario?</label><select name="idInsumo" id="cboInsumo" class="form-select" data-tipo="numero"></select></div>
                 <div class="col-12" id="bloqueCantidad" hidden>

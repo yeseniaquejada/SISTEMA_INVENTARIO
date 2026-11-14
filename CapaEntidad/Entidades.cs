@@ -21,6 +21,15 @@ namespace CapaEntidad
         public bool MostrarMultisede { get; set; } = true;
         public bool MostrarAvanzado { get; set; } = true;
         public int AnchoTicket { get; set; } = 80;
+        // Yesenia Quejada Rojas - Claude — 29/10/2026: ancho que de verdad imprime la cabeza térmica. En 58 mm (p. ej. Digital POS
+        // DIG-C58) son 48 mm y en 80 mm son 72 mm; con el ancho del papel el ticket se cortaba por la derecha.
+        // Yesenia Quejada Rojas - Claude — 30/10/2026: con 48 mm la DIG-C58 cortaba un poco a la derecha (el driver deja un margen);
+        // se usan 45 mm (y 70 mm en 80 mm) para que quepa completo.
+        // Yesenia Quejada Rojas - Claude — 30/10/2026: con 45 mm aún se cortaba el último 0 de los precios; se bajan a 42 mm.
+        public int AreaImpresion => AnchoTicket == 58 ? 42 : 70;
+        /// <summary>Letra del ticket en px: más pequeña en 58 mm para que quepan ~32 caracteres por línea.</summary>
+        // Yesenia Quejada Rojas - Claude — 30/10/2026: un punto más grande (12 y 13 px) porque se leía muy pequeña.
+        public int LetraTicket => AnchoTicket == 58 ? 12 : 13;
         public bool ImprimirAutomatico { get; set; } = true;
     }
 
@@ -84,6 +93,10 @@ namespace CapaEntidad
         public string ProximoVencimiento { get; set; } = "";
         /// <summary>Lo que falta confirmar de este insumo con el cliente; vacío = todo confirmado.</summary>
         public string PorConfirmar { get; set; } = "";
+        // Yesenia Quejada Rojas - Claude — 28/10/2026: solo para unidad PAQ; cuántas unidades trae el paquete (las recetas descuentan fracción).
+        public decimal? UnidadesPorPaquete { get; set; }
+        /// <summary>Si es falso no se descuenta al vender ni bloquea la venta (porciones preparadas).</summary>
+        public bool ControlaStock { get; set; } = true;
     }
 
     public class Movimiento
@@ -123,6 +136,14 @@ namespace CapaEntidad
         public int ConDiferencia { get; set; }
         public decimal ValorDiferencia { get; set; }
         public List<ConteoItem> Detalle { get; set; } = new();
+        /// <summary>Costos por unidad corregidos al contar (Yesenia Quejada Rojas - Claude — 28/10/2026).</summary>
+        public List<CostoInsumo> Costos { get; set; } = new();
+    }
+
+    public class CostoInsumo
+    {
+        public int IdInsumo { get; set; }
+        public decimal CostoUnitario { get; set; }
     }
 
     public class CategoriaMenu
@@ -154,6 +175,8 @@ namespace CapaEntidad
         public decimal Precio { get; set; }
         public string ImagenUrl { get; set; } = "";
         public bool Activo { get; set; } = true;
+        // Yesenia Quejada Rojas - Claude — 02/11/2026: false = el producto solo sale en Vender; la carta pública (QR) no lo muestra ni deja pedirlo.
+        public bool EnCarta { get; set; } = true;
         public int TotalInsumos { get; set; }
         public decimal Costo { get; set; }
         public List<RecetaItem> Receta { get; set; } = new();
@@ -223,6 +246,10 @@ namespace CapaEntidad
         public decimal CostoDomicilio { get; set; }
         public string MetodoPago { get; set; } = "EFECTIVO";
         public decimal MontoRecibido { get; set; }
+        // Yesenia Quejada Rojas - Claude — 13/11/2026: pago mixto, parte del total pagada por transferencia (el resto es efectivo).
+        public decimal MontoTransferencia { get; set; }
+        // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque que lleva el pedido (0 a 99); al cerrar la caja se cuentan como "cajas gastadas".
+        public int Cajas { get; set; }
         public List<LineaVenta> Lineas { get; set; } = new();
     }
 
@@ -237,6 +264,7 @@ namespace CapaEntidad
         public decimal Total { get; set; }
         public decimal MontoRecibido { get; set; }
         public decimal Cambio { get; set; }
+        public decimal MontoTransferencia { get; set; }   // Yesenia Quejada Rojas - Claude — 13/11/2026: pago mixto.
         public string EstadoPedido { get; set; } = "";
         public string ClienteNombre { get; set; } = "";
         public string ClienteTelefono { get; set; } = "";
@@ -256,6 +284,11 @@ namespace CapaEntidad
         public int MinutosEnCamino { get; set; }
         public string HoraDespacho { get; set; } = "";
         public string HoraEntrega { get; set; } = "";
+        // Yesenia Quejada Rojas - Claude — 30/10/2026: el pago de Rappi ya entró a la cuenta.
+        public bool PagoConfirmado { get; set; }
+        public string FechaPagoConfirmado { get; set; } = "";
+        // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque del pedido.
+        public int Cajas { get; set; }
     }
 
     /// <summary>Pedido en la pantalla de cocina.</summary>
@@ -316,6 +349,19 @@ namespace CapaEntidad
         public decimal VentasEfectivo { get; set; }
         public decimal VentasTarjeta { get; set; }
         public decimal VentasTransferencia { get; set; }
+        // Yesenia Quejada Rojas - Claude — 30/10/2026: pagadas en la app de Rappi; no entran al efectivo esperado.
+        public decimal VentasRappi { get; set; }
+        // Yesenia Quejada Rojas - Claude — 31/10/2026: saldo del negocio (efectivo + tarjeta + transferencias + Rappi − gastos);
+        // la base de cada caja es el saldo de la anterior. El efectivo del cajón sigue en EfectivoEsperado.
+        public decimal BaseNegocio { get; set; }
+        public decimal SaldoNegocio { get; set; }
+        public decimal VentasTotal { get; set; }
+        public decimal GastosTotal { get; set; }
+        // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque gastadas en esta caja; cada una vale lo que cuesta el insumo "Caja de empaque".
+        // Es informativo: no se descuenta del saldo.
+        public int Cajas { get; set; }
+        public decimal CostoCaja { get; set; }
+        public decimal TotalCajas => Cajas * CostoCaja;
         public int NumeroVentas { get; set; }
         public decimal EfectivoEsperado { get; set; }
         public decimal IngresosEfectivo { get; set; }
@@ -328,6 +374,11 @@ namespace CapaEntidad
         /// <summary>Efectivo de domicilios que aún no han vuelto (lo tiene el repartidor).</summary>
         public decimal EfectivoEnDomicilios { get; set; }
         public decimal Domicilios { get; set; }
+        // Yesenia Quejada Rojas - Claude — 28/10/2026: fondo del negocio (plata para compras y pagos), aparte del efectivo del cajón.
+        public decimal FondoNegocio { get; set; }
+        public decimal IngresosFondo { get; set; }
+        public decimal EgresosFondo { get; set; }
+        public decimal FondoDisponible => FondoNegocio + IngresosFondo - EgresosFondo;
         public string Estado { get; set; } = "";
         public string Sede { get; set; } = "";
     }
@@ -375,12 +426,41 @@ namespace CapaEntidad
         public string UnidadMedida { get; set; } = "";
         public decimal Stock { get; set; }
         public decimal StockMinimo { get; set; }
+        public decimal ConsumoDia { get; set; }
         public decimal CantidadSugerida { get; set; }
         public decimal CostoUnitario { get; set; }
         public decimal CostoEstimado { get; set; }
         public int IdProveedor { get; set; }
         public string Proveedor { get; set; } = "";
         public string TelefonoProveedor { get; set; } = "";
+    }
+
+    // Yesenia Quejada Rojas - Claude — 11/11/2026: insumo que el administrador quitó de "Qué debo comprar" (p. ej. la bolsa ziploc).
+    public class InsumoFueraCompra
+    {
+        public int IdInsumo { get; set; }
+        public string Codigo { get; set; } = "";
+        public string Nombre { get; set; } = "";
+    }
+
+    // Yesenia Quejada Rojas - Claude — 11/11/2026: lista de compras para imprimir en tirilla (impresora térmica).
+    // Yesenia Quejada Rojas - Claude — 13/11/2026: hoja de conteo en tirilla.
+    public class TirillaConteo
+    {
+        public List<Insumo> Items { get; set; } = new();
+        public Configuracion Configuracion { get; set; } = new();
+        public string Fecha { get; set; } = "";
+        public string Sede { get; set; } = "";
+        public string Usuario { get; set; } = "";
+    }
+
+    public class TirillaCompra
+    {
+        public List<OrdenCompraItem> Items { get; set; } = new();
+        public Configuracion Configuracion { get; set; } = new();
+        public string Fecha { get; set; } = "";
+        public string Sede { get; set; } = "";
+        public string Usuario { get; set; } = "";
     }
 
     public class LoteAlerta
@@ -422,6 +502,10 @@ namespace CapaEntidad
         public decimal CostoInsumos { get; set; }
         public decimal Ganancia { get; set; }
         public decimal Mermas { get; set; }
+        // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque gastadas en el periodo y lo que valen (informativo, no resta de la ganancia).
+        public int Cajas { get; set; }
+        public decimal CostoCaja { get; set; }
+        public decimal TotalCajas => Cajas * CostoCaja;
         public List<PuntoReporte> PorDia { get; set; } = new();
         public List<PuntoReporte> TopProductos { get; set; } = new();
         // Yesenia Quejada Rojas - Claude — 19/10/2026: productos que menos salen, para decidir qué promocionar o retirar.

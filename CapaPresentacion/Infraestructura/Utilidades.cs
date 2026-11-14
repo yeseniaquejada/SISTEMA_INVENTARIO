@@ -284,3 +284,11 @@ public static class Excel
         return new string(d.Where(ch => CharUnicodeInfo.GetUnicodeCategory(ch) != UnicodeCategory.NonSpacingMark).ToArray());
     }
 }
+
+/// <summary>Versión de la aplicación publicada (fecha del ensamblado). Cambia con cada publicación y las páginas la comparan
+/// para recargarse solas.</summary>
+// Yesenia Quejada Rojas - Claude — 30/10/2026: así nadie tiene que recargar a mano después de publicar.
+public static class VersionApp
+{
+    public static readonly string Valor = File.GetLastWriteTimeUtc(typeof(VersionApp).Assembly.Location).Ticks.ToString(CultureInfo.InvariantCulture);
+}

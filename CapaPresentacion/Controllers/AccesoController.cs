@@ -19,7 +19,7 @@ public class AccesoController : Controller
     }
 
     [AllowAnonymous, HttpPost]
-    public async Task<IActionResult> Login(string usuario, string clave, string? returnUrl)
+    public async Task<IActionResult> Login(string usuario, string clave, string? returnUrl, bool recordar = false)
     {
         var u = new CN_Usuario().Autenticar(usuario, clave);
         if (u == null)
@@ -28,12 +28,16 @@ public class AccesoController : Controller
             return View(new CN_Configuracion().Obtener());
         }
 
-        await IniciarSesion(u.IdUsuario, u.NombreCompleto, u.Rol, u.IdSede, u.Sede);
+        await IniciarSesion(u.IdUsuario, u.NombreCompleto, u.Rol, u.IdSede, u.Sede, recordar);
         if (!string.IsNullOrEmpty(returnUrl) && Url.IsLocalUrl(returnUrl)) return Redirect(returnUrl);
         return RedirectToAction("Index", "Home");
     }
 
-    private Task IniciarSesion(int id, string nombre, string rol, int idSede, string sede)
+    // Yesenia Quejada Rojas - Claude — 13/11/2026: "Recordarme en este equipo". La clave no se guarda: queda una cookie cifrada
+    // y persistente (sobrevive a cerrar el navegador) por DiasRecordar días, que se renueva sola con el uso. "Salir" la borra.
+    private const int DiasRecordar = 30;
+
+    private Task IniciarSesion(int id, string nombre, string rol, int idSede, string sede, bool recordar)
     {
         var claims = new List<Claim>
         {
@@ -44,7 +48,9 @@ public class AccesoController : Controller
             new(Claves.Sede, sede)
         };
         var identidad = new ClaimsIdentity(claims, CookieAuthenticationDefaults.AuthenticationScheme);
-        return HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identidad));
+        var propiedades = new AuthenticationProperties { IsPersistent = recordar };
+        if (recordar) propiedades.ExpiresUtc = DateTimeOffset.UtcNow.AddDays(DiasRecordar);
+        return HttpContext.SignInAsync(CookieAuthenticationDefaults.AuthenticationScheme, new ClaimsPrincipal(identidad), propiedades);
     }
 
     /// <summary>El administrador puede trabajar sobre cualquier sede.</summary>
@@ -53,7 +59,11 @@ public class AccesoController : Controller
     {
         var sede = new CN_Sede().Listar().FirstOrDefault(s => s.IdSede == idSede && s.Activo);
         if (sede != null)
-            await IniciarSesion(User.Id(), User.Identity!.Name!, Claves.Admin, sede.IdSede, sede.Nombre);
+        {
+            // Al cambiar de sede se conserva el "Recordarme" que tenía la sesión.
+            var actual = await HttpContext.AuthenticateAsync(CookieAuthenticationDefaults.AuthenticationScheme);
+            await IniciarSesion(User.Id(), User.Identity!.Name!, Claves.Admin, sede.IdSede, sede.Nombre, actual.Properties?.IsPersistent == true);
+        }
         return !string.IsNullOrEmpty(volver) && Url.IsLocalUrl(volver) ? Redirect(volver) : RedirectToAction("Index", "Home");
     }
 

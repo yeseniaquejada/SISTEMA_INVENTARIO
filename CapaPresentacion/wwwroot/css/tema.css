@@ -296,12 +296,21 @@
    pastillas de opciones con colores, fotos sin recorte y pasos numerados en Configuración. */
 @media screen {
     /* El panel ocupa el alto disponible; solo el cuerpo hace scroll y el pie (total y Cobrar) queda fijo. */
-    .pedido { display: flex; flex-direction: column; max-height: max(26rem, calc(100vh - 13.5rem)); }
+    /* Yesenia Quejada Rojas - Claude — 30/10/2026: el panel llega hasta abajo de la pantalla (antes dejaba 13.5rem libres); con Domicilio
+       los datos del cliente dejaban la lista del pedido casi sin espacio. */
+    .pedido { display: flex; flex-direction: column; max-height: max(34rem, calc(100vh - 7.5rem)); }
     .pedido .pedido-cuerpo { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding-right: 1.1rem; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--texto-suave) 35%, transparent) transparent; scrollbar-gutter: stable; }
     .pedido .pedido-cuerpo::-webkit-scrollbar { width: 6px; }
     .pedido .pedido-cuerpo::-webkit-scrollbar-thumb { background: color-mix(in srgb, var(--texto-suave) 35%, transparent); border-radius: 6px; }
     .pedido .pedido-cuerpo::-webkit-scrollbar-track { background: transparent; }
     .pedido .lineas { max-height: none; overflow: visible; }
+    /* Yesenia Quejada Rojas - Claude — 30/10/2026: pie y encabezado más bajos (botones en una sola línea) para dejarle más alto a la
+       lista del pedido; los pedidos por cobrar muestran Comanda y Cuenta a la vista. */
+    .pedido .card-header { padding-top: .55rem; padding-bottom: .55rem; gap: .5rem; }
+    .pedido .pedido-pie .btn { white-space: nowrap; }
+    .pedido #btnCobrar { font-size: 1.05rem; }
+    .pedido #btnPonerEspera { font-size: .85rem; }
+    #listaEspera { min-width: min(30rem, 92vw); }
     #ayudaCobro:empty { display: none; }
     @media (max-height: 820px) { .pedido .pedido-pie #billetes { display: none !important; } .pedido .pedido-cuerpo { padding-top: .75rem; } }
     .pedido .pedido-pie #billetes .btn { padding: .1rem .45rem; font-size: .78rem; }
@@ -326,6 +335,18 @@
     .opcion-pastilla.es-quitar { border-style: dashed; }
     .btn-check:checked + .opcion-pastilla.es-quitar { background: #b3261e; border-color: #b3261e; border-style: solid; text-decoration: line-through; text-decoration-thickness: 1.5px; }
     .btn-check:focus-visible + .opcion-pastilla { outline: 3px solid var(--marca); outline-offset: 2px; }
+    /* Yesenia Quejada Rojas - Claude — 01/11/2026: salsas por sabor. Cada una lleva el color de su sabor (borde y fondo suave; al elegirla se rellena
+       con ese color) y un ícono al lado; el texto elegido va blanco u oscuro según qué tan claro sea el color. "Sin salsas" y "Sin ..." van en rojo. */
+    .opcion-pastilla .icono-opcion { font-size: 1.15em; line-height: 1; }
+    .opcion-pastilla.es-salsa { border-color: var(--color-opcion); background: color-mix(in srgb, var(--color-opcion) 16%, var(--superficie-alta)); }
+    .btn-check:checked + .opcion-pastilla.es-salsa { background: var(--color-opcion); border-color: var(--color-opcion); color: var(--texto-elegida, #fff);
+        box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-opcion) 35%, transparent); }
+    .btn-check:checked + .opcion-pastilla.es-salsa .precio-opcion, .btn-check:checked + .opcion-pastilla.es-salsa .marca-elegida { color: var(--texto-elegida, #fff); }
+    .opcion-pastilla .icono-gota { color: var(--color-opcion); }
+    .btn-check:checked + .opcion-pastilla .icono-gota { color: currentColor; }
+    .opcion-pastilla.es-sin-salsas, .opcion-pastilla.es-quitar { border-style: dashed; border-color: color-mix(in srgb, #e5534b 80%, var(--borde));
+        background: color-mix(in srgb, #e5534b 9%, var(--superficie-alta)); }
+    .btn-check:checked + .opcion-pastilla.es-sin-salsas { background: #b3261e; border-color: #b3261e; border-style: solid; color: #fff; font-weight: 700; }
 
     /* Fotos completas: se ajustan sin recortar (antes "cover" cortaba parte de la foto). */
     .producto-foto { object-fit: contain; background: var(--superficie-alta); }
@@ -347,4 +368,166 @@
 
     /* Montos en una sola línea ("$" y el valor juntos) */
     .monto { white-space: nowrap; }
+}
+
+/* Yesenia Quejada Rojas - Claude — 28/10/2026: ajustes pedidos por el cliente.
+   - El menú desplegable de la barra quedaba debajo del encabezado fijo de las tablas (no se veía el paso 4): la barra va encima.
+   - Tablas en celular como tarjetas (las marca renderTabla con .table-apilada) para no desplazarse de lado.
+   - Conteo: tabla más alta y títulos de categoría. */
+@media screen {
+    .barra-marca { z-index: 1035; }
+    .table-responsive .sticky-top { z-index: 2; }
+    .tabla-conteo { max-height: 78vh; }
+    .fila-categoria th { background: color-mix(in srgb, var(--marca) 14%, var(--superficie)); color: var(--texto); font-size: .82rem; letter-spacing: .02em; padding-block: .45rem !important; }
+    @media (max-width: 767px) {
+        .table > :not(caption) > * > * { padding: .5rem .6rem; }
+        .table-apilada thead { display: none; }
+        .table-apilada, .table-apilada tbody { display: block; width: 100%; }
+        .table-apilada tr { display: block; padding: .55rem .2rem; border-bottom: 1px solid var(--borde); }
+        .table-apilada tr:last-child { border-bottom: 0; }
+        .table-apilada td { display: flex; justify-content: space-between; align-items: center; gap: .75rem; border: 0 !important; padding: .2rem .6rem !important; text-align: right !important; }
+        .table-apilada td[data-label]::before { content: attr(data-label); flex: 0 0 auto; max-width: 45%; text-align: left; font-size: .76rem; font-weight: 650; color: var(--texto-suave); }
+        .table-apilada td:first-child { display: block; font-size: 1rem; text-align: left !important; }
+        .table-apilada td:first-child::before { display: none; }
+        .table-apilada td:not([data-label]):empty { display: none; }
+        .table-apilada td .form-control { max-width: 9.5rem; }
+        .table-apilada .fila-categoria { padding: 0; }
+        .table-apilada .fila-categoria th { display: block; }
+        .tabla-conteo { max-height: none; }
+    }
+}
+@media print { .tabla-conteo { max-height: none !important; overflow: visible !important; } }
+
+/* Yesenia Quejada Rojas - Claude — 28/10/2026: en Cocina y Domicilios las tres columnas quedaban de alturas distintas según los
+   pedidos. Ahora miden lo mismo y cada una se desplaza por dentro; en celular vuelven a ir una debajo de otra. */
+@media screen and (min-width: 992px) {
+    .tablero { align-items: stretch; }
+    .tablero-col { display: flex; flex-direction: column; min-height: 62vh; max-height: calc(100vh - 220px); overflow-y: auto; scrollbar-width: thin; }
+    .tablero-col > h6 { position: sticky; top: -.75rem; z-index: 1; padding-block: .5rem; margin-top: -.5rem; background: inherit; }
+}
+
+/* Yesenia Quejada Rojas - Claude — 29/10/2026: ajustes de celular pedidos por el cliente.
+   - Vender: la columna de productos no podía ser más angosta que su contenido y la página se desbordaba a la derecha (se veía
+     media tarjeta y la barra de arriba quedaba corrida respecto al contenido). Ahora una tarjeta por fila y el pedido arriba.
+   - Cocina y Domicilios: las tres columnas de estado miden lo mismo en las dos pantallas.
+   - Insumos: tarjetas más compactas.
+   - Pedidos de la carta digital en Vender. */
+@media screen {
+    .pos { grid-template-columns: minmax(0, 1fr) 390px; }
+    .pos > section { min-width: 0; }
+    .lista-carta { width: min(380px, calc(100vw - 2rem)); max-height: 70vh; overflow-y: auto; color: var(--texto); }
+    .pedido-carta { padding: .6rem; border: 1px solid var(--borde); border-left: 4px solid #f0ad00; border-radius: 10px; }
+    .pedido-carta.CONFIRMADO { border-left-color: #0dcaf0; }
+    .pedido-carta + .pedido-carta { margin-top: .5rem; }
+    @media (min-width: 992px) { .cocina .tablero-col { min-height: 62vh; } }
+
+    @media (max-width: 991px) {
+        .pos { grid-template-columns: minmax(0, 1fr); }
+        .pos > .pedido { order: -1; }
+        .pedido .pedido-pie { position: static; box-shadow: none; }
+        .pedido .lineas { max-height: 32vh; overflow-y: auto; }
+        .tablero-col, .cocina .tablero-col { min-height: 7.5rem; }
+    }
+    @media (max-width: 767px) {
+        .pos-toolbar { padding: .75rem; }
+        .pos-toolbar .input-group { max-width: none !important; flex: 1 1 100%; }
+        .pos-grid { grid-template-columns: minmax(0, 1fr); gap: .6rem; }
+        .pos-grid .producto-card { flex-direction: row; align-items: stretch; }
+        .pos-grid .producto-foto { flex: 0 0 104px; width: 104px; aspect-ratio: 1; height: auto; }
+        .pos-grid .producto-foto.sin-foto { font-size: 2.4rem; }
+        .pos-grid .producto-info { flex: 1 1 auto; min-width: 0; padding: .6rem .75rem; padding-right: 2.8rem; }
+        .pos-grid .producto-top { top: auto; bottom: .4rem; left: .4rem; }
+
+        /* Indicadores sin ícono (Domicilios): bajos, como el resto de la pantalla. */
+        .kpi:not(:has(.kpi-icon)) { min-height: 0; }
+
+        .table-apilada.tabla-compacta tr { display: flex; flex-wrap: wrap; align-items: center; gap: .1rem .5rem; padding: .45rem .1rem; }
+        .table-apilada.tabla-compacta td { padding: .05rem .4rem !important; font-size: .84rem; }
+        .table-apilada.tabla-compacta td:first-child { flex: 1 1 100%; font-size: .93rem; }
+        .table-apilada.tabla-compacta td[data-label] { flex: 1 1 calc(50% - .5rem); flex-direction: column; align-items: flex-start; gap: 0; text-align: left !important; }
+        .table-apilada.tabla-compacta td[data-label]::before { max-width: none; font-size: .68rem; }
+        .table-apilada.tabla-compacta td:not([data-label]) { flex: 0 0 auto; }
+        .table-apilada.tabla-compacta .btn-sm { padding: .15rem .45rem; }
+    }
+}
+
+/* Yesenia Quejada Rojas - Claude — 29/10/2026: ojo para ver la contraseña (js/clave.js). */
+.campo-clave { position: relative; }
+.campo-clave .form-control { padding-right: 2.8rem; }
+.campo-clave .btn-ojo { position: absolute; top: 50%; right: .35rem; transform: translateY(-50%); width: 2.2rem; height: 2.2rem; display: grid; place-items: center; border: 0; border-radius: 8px; background: transparent; color: var(--texto-suave, #6c757d); font-size: 1.1rem; }
+.campo-clave .btn-ojo:hover { color: var(--texto, inherit); }
+.campo-clave .btn-ojo:focus-visible { outline: 3px solid var(--marca); outline-offset: 1px; }
+
+/* Yesenia Quejada Rojas - Claude — 29/10/2026: asterisco de costo estimado en Insumos. */
+.costo-estimado { color: #f0ad00; font-weight: 800; margin-left: .15rem; cursor: help; }
+html[data-tema="claro"] .costo-estimado { color: #b07a00; }
+
+/* Yesenia Quejada Rojas - Claude — 29/10/2026: logo más grande en la pantalla de inicio de sesión y en la barra. */
+@media screen {
+    .login-brand .logo-nav { height: 96px; border-radius: 16px; padding: 4px; }
+    .barra-marca .navbar-brand .logo-nav { height: 44px; border-radius: 8px; }
+    @media (max-width: 767px) { .login-brand .logo-nav { height: 72px; } .barra-marca .navbar-brand .logo-nav { height: 40px; } }
+}
+
+/* Yesenia Quejada Rojas - Claude — 29/10/2026: en celular el menú abierto (barra fija arriba) se salía de la pantalla y para ver
+   el final había que desplazar toda la página. Ahora el menú se desplaza por dentro. */
+@media screen and (max-width: 1199px) {
+    .barra-marca .navbar-collapse { max-height: calc(100dvh - 72px); overflow-y: auto; overscroll-behavior: contain; }
+    .barra-marca .dropdown-menu { max-height: none; }
+}
+
+/* Yesenia Quejada Rojas - Claude — 30/10/2026. Letra un poco más grande en Vender (tarjetas, pedido y opciones) para leerla bien
+   en la tablet del local. */
+@media screen {
+    .pos .producto-nombre { font-size: 1.08rem; }
+    .pos .producto-precio { font-size: 1.15rem; }
+    .pos .producto-desc { font-size: .88rem; }
+    .pos-categorias .btn { font-size: .95rem; }
+    .pedido .linea { font-size: 1.05rem; }
+    .pedido .linea small { font-size: .9rem; }
+    .pedido .form-control-sm { font-size: .95rem; }
+    /* Yesenia Quejada Rojas - Claude — 01/11/2026: pastillas del cuadro de producto más grandes (letra 1.12rem y alto táctil) y cuadro más ancho
+       para que quepan en menos filas; los títulos de grupo también suben. */
+    #modalProducto .opcion-pastilla { font-size: 1.12rem; padding: .55rem 1.05rem; min-height: 3rem; gap: .5rem; }
+    #modalProducto .grupo-titulo { font-size: 1.08rem; }
+    #modalProducto .modal-dialog { --bs-modal-width: 640px; }
+}
+
+/* Yesenia Quejada Rojas - Claude — 30/10/2026. Panel "Mesas ahora" de Vender: una tarjeta por mesa con sus pedidos. */
+@media screen {
+    .mesas-ahora { display: grid; grid-template-columns: repeat(auto-fill, minmax(155px, 1fr)); gap: .6rem; }
+    .mesa-ahora { border: 1px solid var(--borde); border-radius: 12px; padding: .6rem; background: var(--superficie-alta); }
+    .mesa-ahora.ocupada { border-color: #f0ad00; }
+    .mesa-item { display: block; width: 100%; text-align: left; margin-top: .45rem; padding: .45rem .55rem; border-radius: 8px;
+        border: 1px solid var(--borde); border-left: 4px solid #f0ad00; background: var(--superficie); color: var(--texto); font-size: .9rem; }
+    .mesa-item.carta { border-left-color: #0dcaf0; }
+    .mesa-item:hover, .mesa-item:focus-visible { border-color: var(--marca); }
+    .mesa-item .mesa-total { font-weight: 700; color: var(--acento-texto); white-space: nowrap; }
+}
+
+/* Yesenia Quejada Rojas - Claude — 30/10/2026. Filtros de Facturas y ventas en una sola línea (en pantallas angostas se acomodan). */
+@media screen {
+    .filtros-linea { display: flex; flex-wrap: wrap; gap: .5rem; align-items: flex-end; }
+    .filtros-linea > div { min-width: 0; }
+    .filtros-linea .form-select, .filtros-linea .form-control[type="date"] { width: auto; }
+    @media (min-width: 1200px) { .filtros-linea { flex-wrap: nowrap; } }
+}
+
+/* Yesenia Quejada Rojas - Claude — 30/10/2026. Cuadro "Pedidos por cobrar": una tarjeta por pedido con sus productos. */
+@media screen {
+    .espera-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 360px)); justify-content: center; gap: .8rem; }
+    .espera-card { display: flex; flex-direction: column; gap: .4rem; border: 1px solid var(--borde); border-left: 5px solid #f0ad00;
+        border-radius: 14px; padding: .8rem .9rem; background: var(--superficie-alta); }
+    .espera-card.en-pantalla { border-left-color: #0dcaf0; }
+    .espera-lineas { list-style: none; padding: 0; margin: 0; font-size: .95rem; }
+    .espera-lineas li { padding: .3rem 0; border-bottom: 1px dashed var(--borde); }
+    .espera-lineas li small { color: var(--texto-suave); }
+    .espera-lineas li small.text-danger { color: #ff6b6b !important; }
+}
+/* Yesenia Quejada Rojas - Claude — 30/10/2026. Tarjetas de la carta digital: amarillo sin confirmar, azul confirmado. */
+@media screen { .carta-card { border-left-color: #0dcaf0; } .carta-card.PENDIENTE { border-left-color: #f0ad00; } }
+/* Yesenia Quejada Rojas - Claude — 30/10/2026. Categoría "Adiciones" anclada a la izquierda de la barra de categorías. */
+@media screen {
+    .pos-categorias .cat-anclada { position: sticky; left: 0; z-index: 2; box-shadow: 6px 0 10px -4px #0008; }
+    .pos-categorias .cat-anclada:not(.btn-marca) { background: var(--superficie) !important; border-color: var(--marca); color: var(--texto); }
 }
