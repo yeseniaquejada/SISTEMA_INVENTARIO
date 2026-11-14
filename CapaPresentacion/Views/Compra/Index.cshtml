@@ -12,6 +12,21 @@
     </div>
 </div>
 <p class="small text-muted no-imprimir">Desmarque lo que hoy no va a comprar. Con <i class="bi bi-x-lg"></i> el insumo sale de esta lista para siempre (sigue en el inventario y se puede volver a incluir abajo).</p>
+@* Yesenia Quejada Rojas - Claude — 14/11/2026: agregar a mano a la lista un insumo que no salió sugerido (queda en "Agregados a mano"
+   y sale en la tirilla, el Excel no). Se pierde al recargar la página. *@
+<div class="card shadow-sm mb-3 no-imprimir">
+    <div class="card-body py-2 d-flex flex-wrap gap-2 align-items-end">
+        <div class="flex-grow-1" style="min-width:220px">
+            <label class="form-label small mb-1" for="cboAgregar"><i class="bi bi-plus-circle"></i> Agregar un producto a la lista</label>
+            <select id="cboAgregar" class="form-select form-select-sm"><option value="">Elija un insumo...</option></select>
+        </div>
+        <div style="width:7rem">
+            <label class="form-label small mb-1" for="txtAgregar">Cantidad</label>
+            <input id="txtAgregar" type="number" min="0" step="any" class="form-control form-control-sm text-end" value="1" />
+        </div>
+        <button type="button" class="btn btn-sm btn-marca" id="btnAgregar"><i class="bi bi-plus-lg"></i> Agregar</button>
+    </div>
+</div>
 <div id="grupos"></div>
 <div class="text-end fs-5 fw-bold" id="lblTotal"></div>
 
@@ -25,12 +40,16 @@
 <script>
 (function () {
     const $ = id => document.getElementById(id);
-    let lista = [];
+    let lista = [], insumos = [], manuales = [];
 
     async function cargar() {
         try {
-            const [sugerida, fuera] = await Promise.all([api.get('/Compra/Sugerida'), api.get('/Compra/FueraDeLista')]);
-            lista = sugerida;
+            const [sugerida, fuera, todos] = await Promise.all([api.get('/Compra/Sugerida'), api.get('/Compra/FueraDeLista'), api.get('/Insumo/Listar')]);
+            insumos = todos.filter(i => i.activo);
+            // Los agregados a mano se conservan al recargar la lista (salvo los que ya salieron sugeridos).
+            manuales = manuales.filter(m => !sugerida.some(s => s.idInsumo === m.idInsumo));
+            lista = [...sugerida, ...manuales];
+            llenarAgregar();
             pintar();
             $('panelFuera').hidden = !fuera.length;
             $('listaFuera').innerHTML = fuera.map(f => `<li class="list-group-item d-flex justify-content-between align-items-center">
@@ -38,6 +57,23 @@
                 <button class="btn btn-sm btn-outline-secondary" data-incluir="${f.idInsumo}"><i class="bi bi-arrow-counterclockwise"></i> Volver a incluir</button></li>`).join('');
         } catch (e) { errorAlerta(e); }
     }
+
+    function llenarAgregar() {
+        const enLista = new Set(lista.map(o => o.idInsumo));
+        $('cboAgregar').innerHTML = '<option value="">Elija un insumo...</option>' + insumos.filter(i => !enLista.has(i.idInsumo))
+            .sort((a, b) => a.nombre.localeCompare(b.nombre, 'es')).map(i => `<option value="${i.idInsumo}">${esc(i.nombre)} (hay ${num(Math.round(i.stock))} ${esc(i.unidadMedida)})</option>`).join('');
+    }
+    $('btnAgregar').addEventListener('click', () => {
+        const i = insumos.find(x => x.idInsumo === Number($('cboAgregar').value));
+        const cant = Number($('txtAgregar').value);
+        if (!i) { alerta('Elija el insumo que quiere agregar', 'warning'); return; }
+        if (!(cant > 0)) { alerta('Escriba la cantidad a pedir', 'warning'); return; }
+        const o = { idInsumo: i.idInsumo, codigo: i.codigo, nombre: i.nombre, unidadMedida: i.unidadMedida, stock: i.stock, stockMinimo: i.stockMinimo,
+            consumoDia: 0, cantidadSugerida: cant, costoUnitario: i.costoUnitario, costoEstimado: cant * i.costoUnitario, proveedor: 'Agregados a mano', telefonoProveedor: '' };
+        manuales.push(o); lista.push(o);
+        $('txtAgregar').value = '1';
+        llenarAgregar(); pintar();
+    });
 
     function pintar() {
         const grupos = {};
@@ -109,6 +145,8 @@
     $('grupos').addEventListener('click', async ev => {
         const b = ev.target.closest('[data-quitar]'); if (!b) return;
         const o = lista.find(x => x.idInsumo === Number(b.dataset.quitar));
+        // Un insumo agregado a mano solo sale de esta pantalla (no se manda a "quitados para siempre").
+        if (o && manuales.includes(o)) { manuales = manuales.filter(m => m !== o); lista = lista.filter(x => x !== o); llenarAgregar(); pintar(); return; }
         if (!confirm(`¿Quitar "${o?.nombre}" de la lista de compras? No volverá a salir aunque se acabe. Se puede volver a incluir abajo.`)) return;
         await cambiar(b, b.dataset.quitar, true);
     });

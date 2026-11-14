@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using CapaDatos;
 using CapaEntidad;
 
@@ -580,6 +580,15 @@ namespace CapaNegocio
         {
             var lista = Sugerida(idSede);
             if (cantidades == null) return lista;
+            // Yesenia Quejada Rojas - Claude â€” 14/11/2026: insumos que se agregaron a mano en la pantalla (no estaban sugeridos) tambiÃ©n salen en la tirilla.
+            var yaEstan = lista.Select(o => o.IdInsumo).ToHashSet();
+            var manuales = cantidades.Where(k => k.Value > 0 && !yaEstan.Contains(k.Key)).Select(k => k.Key).ToHashSet();
+            if (manuales.Count > 0)
+                lista.AddRange(new CN_Insumo().Listar(idSede).Where(i => i.Activo && manuales.Contains(i.IdInsumo)).Select(i => new OrdenCompraItem
+                {
+                    IdInsumo = i.IdInsumo, Codigo = i.Codigo, Nombre = i.Nombre, UnidadMedida = i.UnidadMedida, Stock = i.Stock,
+                    StockMinimo = i.StockMinimo, CostoUnitario = i.CostoUnitario, Proveedor = "Agregados a mano"
+                }));
             return lista.Where(o => cantidades.TryGetValue(o.IdInsumo, out var c) && c > 0)
                 .Select(o =>
                 {
