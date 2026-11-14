@@ -17,9 +17,9 @@ public class CartaController : Controller
     {
         var carta = new CN_Carta().Obtener(sede, mesa);
         if (carta == null) return NotFound();
-        // Yesenia Quejada Rojas - Claude — 30/10/2026: con el enlace general (sin QR de mesa) el cliente elige su mesa al enviar el pedido.
-        if (carta.IdMesa == 0)
-            ViewBag.Mesas = new CN_Mesa().Listar(sede).Where(m => m.Activo).ToList();
+        // Yesenia Quejada Rojas - Claude — 13/11/2026: el cliente siempre elige al enviar: una mesa (botones), para llevar o a domicilio.
+        // El QR de mesa ya no deja la mesa puesta sola; la sede sale de la carta (con QR de mesa es la sede de esa mesa).
+        ViewBag.Mesas = new CN_Mesa().Listar(carta.IdSede).Where(m => m.Activo).ToList();
         return View(carta);
     }
 

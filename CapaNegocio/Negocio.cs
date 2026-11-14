@@ -443,8 +443,14 @@ namespace CapaNegocio
         // que corrige el stock y se ve en Inventario > Contar inventario. Solo acepta esas cajas, para que el cajero no toque otros insumos.
         private static readonly Regex NombreCaja = new(@"^\s*cajas?\b", RegexOptions.IgnoreCase);
 
-        public List<Insumo> CajasEmpaque(int idSede) =>
-            new CN_Insumo().Listar(idSede).Where(i => i.Activo && i.ControlaStock && NombreCaja.IsMatch(i.Nombre ?? "")).OrderBy(i => i.Nombre).ToList();
+        // Yesenia Quejada Rojas - Claude — 13/11/2026: solo las cajas que salieron con las ventas de esta caja (las que no se usaron no se piden).
+        public List<Insumo> CajasEmpaque(int idSede)
+        {
+            var vendidas = _datos.InsumosVendidos(idSede).ToHashSet();
+            return new CN_Insumo().Listar(idSede)
+                .Where(i => i.Activo && i.ControlaStock && NombreCaja.IsMatch(i.Nombre ?? "") && vendidas.Contains(i.IdInsumo))
+                .OrderBy(i => i.Nombre).ToList();
+        }
 
         public Respuesta ContarCajas(int idSede, int idUsuario, List<ConteoItem>? detalle)
         {

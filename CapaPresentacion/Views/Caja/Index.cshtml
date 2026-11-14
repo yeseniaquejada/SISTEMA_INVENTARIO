@@ -106,7 +106,7 @@
                 @* Yesenia Quejada Rojas - Claude — 11/11/2026: contar las cajas de empaque al cerrar, igual que se cuenta el efectivo. Lo que se escriba
                    corrige el inventario de esas cajas (queda como conteo) y se anota en la observación del cierre. *@
                 <div class="border rounded-3 px-3 py-2 mb-3" id="bloqueContarCajas" hidden>
-                    <div class="fw-semibold mb-1"><i class="bi bi-box-seam"></i> Cajas de empaque que quedan <small class="fw-normal text-muted">(cuéntelas; si deja una vacía no se toca)</small></div>
+                    <div class="fw-semibold mb-1"><i class="bi bi-box-seam"></i> Cajas de empaque que quedan <small class="fw-normal text-muted">(solo las que salieron con las ventas de hoy; cuéntelas, si deja una vacía no se toca)</small></div>
                     <div id="listaCajas"></div>
                 </div>
                 <input id="txtObservacion" class="form-control mb-3" maxlength="250" placeholder="Observación (opcional)" />
@@ -136,6 +136,21 @@
             </div>
             <div class="table-responsive"><table class="table table-sm mb-0"><thead class="table-light"><tr><th>Fecha / usuario</th><th>Concepto</th><th>Medio</th><th class="text-end">Monto</th><th></th></tr></thead><tbody id="tablaMovimientos"></tbody></table></div>
         </div>
+        @* Yesenia Quejada Rojas - Claude — 13/11/2026: cuadre semanal (lunes a domingo) con los cierres de esa semana: ventas por medio,
+           gastos, cajas, lo que faltó o sobró en los conteos y el saldo con que terminó la semana. Se arma con los mismos cierres de abajo. *@
+        <div class="card shadow-sm mb-3" id="cardSemana" hidden>
+            <div class="card-header bg-white d-flex flex-wrap gap-2 justify-content-between align-items-center">
+                <strong><i class="bi bi-calendar-week"></i> Cuadre semanal</strong>
+                <div class="d-flex align-items-center gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSemanaAntes" aria-label="Semana anterior"><i class="bi bi-chevron-left"></i></button>
+                    <span class="small fw-semibold text-nowrap px-1" id="lblSemana" aria-live="polite"></span>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnSemanaDespues" aria-label="Semana siguiente"><i class="bi bi-chevron-right"></i></button>
+                </div>
+            </div>
+            <div class="card-body py-2">
+                <table class="table table-sm mb-0"><tbody id="tablaSemana"></tbody></table>
+            </div>
+        </div>
         <div class="card shadow-sm">
             <div class="card-header bg-white d-flex justify-content-between align-items-center">
                 <strong>Cierres anteriores</strong>
@@ -158,6 +173,39 @@
 (function () {
     const $ = id => document.getElementById(id);
     let esperado = 0, baseActual = 0, referencia = crypto.randomUUID(), listaMovimientos = [], idEditando = 0, efectivoDomicilios = 0;
+
+    /* Yesenia Quejada Rojas - Claude — 13/11/2026. Cuadre semanal: agrupa los cierres por semana (lunes a domingo, según el día en que se
+       abrió la caja) y suma ventas por medio, gastos, cajas y diferencias. El saldo es el del último cierre de esa semana. */
+    let cierres = [], semanaVista = 0;   // 0 = la semana del cierre más reciente; 1 = la anterior...
+    const lunesDe = f => { const d = new Date(f.slice(0, 10) + 'T12:00:00'); d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); return d.toLocaleDateString('en-CA'); };
+    function pintarSemana() {
+        const semanas = [...new Set(cierres.map(h => lunesDe(h.fechaApertura)))].sort().reverse();
+        $('cardSemana').hidden = !semanas.length;
+        if (!semanas.length) return;
+        semanaVista = Math.min(Math.max(semanaVista, 0), semanas.length - 1);
+        const lunes = semanas[semanaVista], dom = new Date(lunes + 'T12:00:00'); dom.setDate(dom.getDate() + 6);
+        const de = cierres.filter(h => lunesDe(h.fechaApertura) === lunes);
+        const suma = k => de.reduce((s, h) => s + Number(h[k] || 0), 0);
+        const corta = f => new Date(f + 'T12:00:00').toLocaleDateString('es-CO', { day: 'numeric', month: 'short' });
+        $('lblSemana').textContent = `${corta(lunes)} – ${corta(dom.toLocaleDateString('en-CA'))}`;
+        $('btnSemanaAntes').disabled = semanaVista >= semanas.length - 1;
+        $('btnSemanaDespues').disabled = semanaVista === 0;
+        const dif = suma('diferencia'), ultimo = de.slice().sort((a, b) => b.fechaApertura.localeCompare(a.fechaApertura))[0];
+        const fila = (t, v, clase = '') => `<tr><td>${t}</td><td class="text-end text-nowrap ${clase}">${v}</td></tr>`;
+        $('tablaSemana').innerHTML =
+            fila('Cierres de la semana', de.length) +
+            fila('<b>Ventas</b>', `<b>${moneda(suma('ventasTotal'))}</b>`) +
+            fila('<span class="ps-3 text-muted">Efectivo</span>', moneda(suma('ventasEfectivo')), 'text-muted') +
+            fila('<span class="ps-3 text-muted">Transferencia</span>', moneda(suma('ventasTransferencia')), 'text-muted') +
+            fila('<span class="ps-3 text-muted">Tarjeta</span>', moneda(suma('ventasTarjeta')), 'text-muted') +
+            fila('<span class="ps-3 text-muted">Rappi</span>', moneda(suma('ventasRappi')), 'text-muted') +
+            fila('Gastos', '− ' + moneda(suma('gastosTotal'))) +
+            fila('Cajas gastadas', `${suma('cajas')} <small class="text-muted">(${moneda(suma('totalCajas'))})</small>`) +
+            fila('Conteos del efectivo', dif === 0 ? 'Cuadra' : dif < 0 ? `Faltan ${moneda(-dif)}` : `Sobran ${moneda(dif)}`, dif < 0 ? 'text-danger' : dif > 0 ? 'text-primary' : 'text-success') +
+            fila('<b>Saldo al cerrar la semana</b>', `<b>${moneda(ultimo.saldoNegocio)}</b>`);
+    }
+    document.getElementById('btnSemanaAntes').addEventListener('click', () => { semanaVista++; pintarSemana(); });
+    document.getElementById('btnSemanaDespues').addEventListener('click', () => { semanaVista--; pintarSemana(); });
     const DENOMINACIONES = [100000, 50000, 20000, 10000, 5000, 2000, 1000, 500, 200, 100, 50];
     $('denominaciones').innerHTML = DENOMINACIONES.map(d => `
         <div class="col-6 d-flex align-items-center gap-1">
@@ -230,6 +278,8 @@
             // Yesenia Quejada Rojas - Claude — 30/10/2026: Día, Base, Ventas, Gastos y Saldo como en el cuaderno. Gastos = base + ventas en efectivo − esperado
             // (compras, pagos y retiros menos aportes); tarjeta y transferencia no suman al efectivo, así que van en letra pequeña bajo las ventas
             // y la diferencia del cierre (cuadra / faltan / sobran) va en letra pequeña bajo el saldo.
+            cierres = historial;
+            pintarSemana();
             renderTabla($('tablaHistorial'), historial, h => {
                 // Yesenia Quejada Rojas - Claude — 31/10/2026: el cierre cuenta todo el dinero del negocio. Base = saldo del cierre anterior;
                 // Ventas = efectivo + tarjeta + transferencias + Rappi; Gastos de cualquier medio; Saldo = base + ventas − gastos (± diferencia).

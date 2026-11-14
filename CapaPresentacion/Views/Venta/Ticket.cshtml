@@ -99,7 +99,8 @@
         <tr><td>Pago</td><td class="r">@(pago.GetValueOrDefault(v.MetodoPago, v.MetodoPago))</td></tr>
         @if (v.MetodoPago == "EFECTIVO")
         {
-            <tr><td>Recibido</td><td class="r">@M(v.MontoRecibido)</td></tr>
+            @if (v.MontoTransferencia > 0) { <tr><td>Transferencia</td><td class="r">@M(v.MontoTransferencia)</td></tr> }
+            <tr><td>Efectivo recibido</td><td class="r">@M(v.MontoRecibido)</td></tr>
             <tr><td>Cambio</td><td class="r">@M(v.Cambio)</td></tr>
         }
     </table>

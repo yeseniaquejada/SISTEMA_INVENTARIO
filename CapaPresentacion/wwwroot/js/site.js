@@ -196,6 +196,9 @@ function Mantenimiento(op) {
 const fechaHace = dias => { if (dias === 0) return inicioDia(); const d = new Date(hoy() + 'T12:00:00'); d.setDate(d.getDate() - dias); return d.toLocaleDateString('en-CA'); };
 const etiquetaPago = { EFECTIVO: 'Efectivo', TARJETA: 'Tarjeta', TRANSFERENCIA: 'Transferencia', RAPPI: 'Rappi' };
 const etiquetaPedido = { MESA: 'En mesa', LLEVAR: 'Para llevar', DOMICILIO: 'Domicilio' };
+// Yesenia Quejada Rojas - Claude — 13/11/2026: a dónde va un pedido de la carta ("Mesa 3", "Para llevar" o "Domicilio"), con el nombre del cliente.
+const destinoCarta = p => (p.tipoPedido === 'LLEVAR' ? 'Para llevar' : p.tipoPedido === 'DOMICILIO' ? 'Domicilio' : `Mesa ${p.mesa}`)
+    + (p.clienteNombre ? ' · ' + p.clienteNombre : '');
 const etiquetaEstado = { PENDIENTE: 'Pendiente', EN_CAMINO: 'En camino', ENTREGADO: 'Entregado' };
 const etiquetaCocina = { PENDIENTE: 'En cola', PREPARANDO: 'Preparando', LISTO: 'Listo', ENTREGADO: 'Entregado' };
 const claseCocina = { PENDIENTE: 'text-bg-secondary', PREPARANDO: 'text-bg-warning', LISTO: 'text-bg-success', ENTREGADO: 'text-bg-light' };

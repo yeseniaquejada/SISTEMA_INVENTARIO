@@ -365,6 +365,10 @@ namespace CapaDatos
 
     public class CD_Caja
     {
+        /// <summary>Insumos que salieron por ventas en la caja abierta (Yesenia Quejada Rojas - Claude — 13/11/2026: para contar solo esas cajas al cerrar).</summary>
+        public List<int> InsumosVendidos(int idSede) =>
+            Conexion.Listar("SP_CAJA_INSUMOS_VENDIDOS", dr => dr.Entero("IdInsumo"), P("@IdSede", idSede));
+
         public Caja? Actual(int idSede) =>
             Conexion.Listar("SP_CAJA_ACTUAL", dr => new Caja
             {
@@ -507,7 +511,7 @@ namespace CapaDatos
 
             return Ejecutar("SP_VENTA_REGISTRAR", P("@IdSede", idSede), P("@IdUsuario", idUsuario), P("@TipoPedido", v.TipoPedido),
                 P("@ClienteNombre", v.ClienteNombre), P("@ClienteTelefono", v.ClienteTelefono), P("@Direccion", v.Direccion),
-                P("@CostoDomicilio", v.CostoDomicilio), P("@MetodoPago", v.MetodoPago), P("@MontoRecibido", v.MontoRecibido),
+                P("@CostoDomicilio", v.CostoDomicilio), P("@MetodoPago", v.MetodoPago), P("@MontoRecibido", v.MontoRecibido), P("@MontoTransferencia", v.MontoTransferencia),
                 Tabla("@Lineas", "ELineaVenta", lineas), Tabla("@Modificadores", "ELineaModificador", mods),
                 P("@IdVenta", v.IdVenta), Tabla("@Quitados", "ELineaQuitado", quitados),
                 // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque del pedido.
@@ -566,7 +570,7 @@ namespace CapaDatos
                         CostoDomicilio = dr.Decimal("CostoDomicilio"),
                         Total = dr.Decimal("Total"),
                         MontoRecibido = dr.Decimal("MontoRecibido"),
-                        Cambio = dr.Decimal("Cambio"),
+                        Cambio = dr.Decimal("Cambio"), MontoTransferencia = dr.Decimal("MontoTransferencia"),
                         EstadoPedido = dr.Texto("EstadoPedido"),
                         ClienteNombre = dr.Texto("ClienteNombre"),
                         ClienteTelefono = dr.Texto("ClienteTelefono"),
@@ -623,7 +627,7 @@ namespace CapaDatos
                 Total = dr.Decimal("Total"),
                 MetodoPago = dr.Texto("MetodoPago"),
                 MontoRecibido = dr.Decimal("MontoRecibido"),
-                Cambio = dr.Decimal("Cambio"),
+                Cambio = dr.Decimal("Cambio"), MontoTransferencia = dr.Decimal("MontoTransferencia"),
                 EstadoPedido = dr.Texto("EstadoPedido"),
                 EstadoCocina = dr.Texto("EstadoCocina"),
                 Repartidor = dr.Texto("Repartidor"),

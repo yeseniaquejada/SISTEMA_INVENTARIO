@@ -69,26 +69,27 @@
                             </ul>
                         </li>
                         <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle @Activo("Producto", "Modificador", "CategoriaMenu", "Proveedor", "Usuario", "Sede", "Configuracion", "Insumo", "Movimiento", "Conteo", "Compra")" href="#" data-bs-toggle="dropdown" data-bs-auto-close="outside"><i class="bi bi-gear"></i> Configuración</a>
+                            <a class="nav-link dropdown-toggle @Activo("Producto", "Modificador", "CategoriaMenu", "Proveedor", "Usuario", "Sede", "Configuracion", "Insumo", "Movimiento", "Conteo", "Compra", "Mesa")" href="#" data-bs-toggle="dropdown" data-bs-auto-close="outside"><i class="bi bi-gear"></i> Configuración</a>
                             @* Yesenia Quejada Rojas - Claude — 30/10/2026: arriba queda lo del día a día; los pasos de la puesta en marcha
                                (y proveedores, mientras tanto) van en un desplegable cerrado. auto-close "outside" deja abrirlo sin cerrar el menú. *@
                             <ul class="dropdown-menu menu-config">
                                 <li><h6 class="dropdown-header">Del día a día</h6></li>
+                                @* Yesenia Quejada Rojas - Claude — 13/11/2026: Insumos sale de los pasos y queda con lo del día a día;
+                                   "Mesas y carta digital" pasa a los pasos (paso 5). *@
+                                <li><a class="dropdown-item" asp-controller="Insumo" asp-action="Index"><i class="bi bi-box-seam"></i> Insumos</a></li>
                                 <li><a class="dropdown-item" asp-controller="Movimiento" asp-action="Index"><i class="bi bi-box-arrow-in-down"></i> Registrar compras y salidas</a></li>
                                 @if(cfg.MostrarAvanzado){ <li><a class="dropdown-item" asp-controller="Conteo" asp-action="Index"><i class="bi bi-clipboard-check"></i> Contar inventario</a></li> }
                                 @if(cfg.MostrarAvanzado){ <li><a class="dropdown-item" asp-controller="Compra" asp-action="Index"><i class="bi bi-cart-check"></i> Qué debo comprar</a></li> }
-                                @* Yesenia Quejada Rojas - Claude — 28/10/2026: mesas, QR y carta digital pública. *@
-                                <li><a class="dropdown-item" asp-controller="Mesa" asp-action="Index"><i class="bi bi-qr-code"></i> Mesas y carta digital</a></li>
                                 <li><hr class="dropdown-divider" /></li>
                                 <li><button type="button" class="dropdown-item d-flex align-items-center gap-2" data-bs-toggle="collapse" data-bs-target="#menuPasos" aria-expanded="false" aria-controls="menuPasos"><i class="bi bi-list-ol"></i> Pasos para empezar <i class="bi bi-chevron-down ms-auto small"></i></button></li>
                                 <li class="collapse" id="menuPasos">
                                     <ul class="list-unstyled mb-0">
                                         <li><a class="dropdown-item fw-semibold" asp-controller="Configuracion" asp-action="Guia"><i class="bi bi-signpost-split"></i> Guía: por dónde empezar</a></li>
                                         <li><a class="dropdown-item" asp-controller="Configuracion" asp-action="Index"><span class="paso-menu">1</span> Datos del negocio</a></li>
-                                        <li><a class="dropdown-item" asp-controller="Insumo" asp-action="Index"><span class="paso-menu">2</span> Insumos (lo que compras)</a></li>
-                                        <li><a class="dropdown-item" asp-controller="CategoriaMenu" asp-action="Index"><span class="paso-menu">3</span> Categorías del menú</a></li>
-                                        <li><a class="dropdown-item" asp-controller="Producto" asp-action="Index"><span class="paso-menu">4</span> Productos y recetas</a></li>
-                                        <li><a class="dropdown-item" asp-controller="Modificador" asp-action="Index"><span class="paso-menu">5</span> Adiciones y salsas</a></li>
+                                        <li><a class="dropdown-item" asp-controller="CategoriaMenu" asp-action="Index"><span class="paso-menu">2</span> Categorías del menú</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Producto" asp-action="Index"><span class="paso-menu">3</span> Productos y recetas</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Modificador" asp-action="Index"><span class="paso-menu">4</span> Adiciones y salsas</a></li>
+                                        <li><a class="dropdown-item" asp-controller="Mesa" asp-action="Index"><span class="paso-menu">5</span> Mesas y carta digital</a></li>
                                         <li><a class="dropdown-item" asp-controller="Usuario" asp-action="Index"><span class="paso-menu">6</span> Usuarios</a></li>
                                         <li><a class="dropdown-item" asp-controller="Proveedor" asp-action="Index"><i class="bi bi-truck"></i> Proveedores</a></li>
                                         @if(cfg.MostrarMultisede){ <li><a class="dropdown-item" asp-controller="Sede" asp-action="Index"><i class="bi bi-shop"></i> Sedes</a></li> }

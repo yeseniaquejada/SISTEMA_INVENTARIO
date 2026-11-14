@@ -9,7 +9,8 @@
     // Yesenia Quejada Rojas - Claude — 30/10/2026: el "+" sale siempre (como en las apps de domicilio); sin QR de mesa, la mesa se
     // elige al enviar el pedido.
     var mesasCarta = ViewBag.Mesas as List<CapaEntidad.Mesa> ?? new List<CapaEntidad.Mesa>();
-    var puedePedir = Model.IdMesa > 0 || mesasCarta.Count > 0;
+    // Yesenia Quejada Rojas - Claude — 13/11/2026: siempre se puede pedir (también para llevar o a domicilio, sin mesa).
+    var puedePedir = true;
 }
 @* Yesenia Quejada Rojas - Claude — 28/10/2026: carta digital pública (QR de las mesas). Página propia, sin menú del sistema ni sesión;
    pensada primero para el celular: categorías arriba para saltar, tarjetas con foto y precio, y los agotados marcados. *@
@@ -98,7 +99,7 @@
     <header class="cabecera">
         @if (!string.IsNullOrEmpty(cfg.LogoUrl)) { <img src="@cfg.LogoUrl" alt="Logo de @cfg.NombreNegocio" /> }
         <h1>@cfg.NombreNegocio</h1>
-        @if (!string.IsNullOrEmpty(Model.Mesa)) { <span class="mesa"><i class="bi bi-geo-alt-fill"></i> Mesa @Model.Mesa</span> }
+        @* Yesenia Quejada Rojas - Claude — 13/11/2026: ya no se muestra la mesa del QR; el cliente la elige (o llevar / domicilio) al enviar. *@
     </header>
 
     @if (categorias.Count > 1)
@@ -166,7 +167,7 @@
         <div>@Model.Sede@(string.IsNullOrEmpty(Model.Direccion) ? "" : " · " + Model.Direccion)</div>
         @{ var telefono = string.IsNullOrEmpty(Model.Telefono) ? cfg.Telefono : Model.Telefono; }
         @if (!string.IsNullOrEmpty(telefono)) { <div class="mt-1"><i class="bi bi-telephone"></i> <a href="tel:@telefono.Replace(" ", "")">@telefono</a></div> }
-        <div class="mt-2 small">@(puedePedir ? "Toque + para armar su pedido y envíelo; el personal lo confirma y se lo lleva a la mesa." : "Haga su pedido al personal o en la caja.")</div>
+        <div class="mt-2 small">Toque + para armar su pedido y envíelo: para la mesa, para llevar@(cfg.MostrarDomicilios ? " o a domicilio" : ""). El personal lo confirma.</div>
     </footer>
 
     @if (puedePedir)
@@ -177,26 +178,41 @@
         <button type="button" class="carrito-barra" id="barraCarrito" hidden><span><i class="bi bi-bag"></i> Ver mi pedido (<span id="lblCantidad">0</span>)</span><span id="lblTotalBarra"></span></button>
         <div class="velo" id="velo" hidden></div>
         <section class="hoja" id="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloHoja" hidden>
-            <div class="hoja-cab"><h2 class="m-0" id="tituloHoja" style="font-size:1.15rem">Mi pedido@(Model.IdMesa > 0 ? " · Mesa " + Model.Mesa : "")</h2><button type="button" class="btn-cerrar" id="btnCerrarHoja" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></div>
+            <div class="hoja-cab"><h2 class="m-0" id="tituloHoja" style="font-size:1.15rem">Mi pedido</h2><button type="button" class="btn-cerrar" id="btnCerrarHoja" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></div>
             <div class="hoja-cuerpo" id="cuerpoCarrito">
                 <div id="lineasCarrito"></div>
-                @if (Model.IdMesa == 0)
-                {
-                    <label class="form-label small mt-3 mb-1" for="cboMesa" style="color:var(--suave)">¿En qué mesa está?</label>
-                    <select id="cboMesa" class="form-select">
-                        <option value="">Elija su mesa</option>
-                        @foreach (var m in mesasCarta) { <option value="@m.IdMesa">Mesa @m.Nombre</option> }
-                    </select>
-                }
-                <label class="form-label small mt-3 mb-1" for="txtNombre" style="color:var(--suave)">Su nombre (opcional)</label>
-                <input id="txtNombre" class="form-control" maxlength="60" autocomplete="given-name" placeholder="Para llamarlo cuando esté listo" />
+                @* Yesenia Quejada Rojas - Claude — 13/11/2026: Mesa / Para llevar / Domicilio y las mesas como botones (igual que en Vender),
+                   en lugar del desplegable. Nada viene marcado: ni con el QR de una mesa. *@
+                <fieldset class="mt-3">
+                    <legend class="form-label small mb-1" style="color:var(--suave);font-size:.875rem">¿Cómo lo quiere?</legend>
+                    <div class="d-flex flex-wrap gap-2" id="tipoPedido">
+                        @if (mesasCarta.Count > 0) { <label class="pastilla"><input type="radio" name="tipoPedido" value="MESA" /><span><i class="bi bi-cup-hot"></i> En la mesa</span></label> }
+                        <label class="pastilla"><input type="radio" name="tipoPedido" value="LLEVAR" /><span><i class="bi bi-bag-check"></i> Para llevar</span></label>
+                        @if (cfg.MostrarDomicilios) { <label class="pastilla"><input type="radio" name="tipoPedido" value="DOMICILIO" /><span><i class="bi bi-bicycle"></i> Domicilio</span></label> }
+                    </div>
+                </fieldset>
+                <fieldset class="mt-3" id="grupoMesas" hidden>
+                    <legend class="form-label small mb-1" style="color:var(--suave);font-size:.875rem">¿En qué mesa está?</legend>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var m in mesasCarta) { <label class="pastilla"><input type="radio" name="mesaPedido" value="@m.IdMesa" /><span>Mesa @m.Nombre</span></label> }
+                    </div>
+                </fieldset>
+                <label class="form-label small mt-3 mb-1" for="txtNombre" style="color:var(--suave)">Su nombre <span id="lblNombreOpcional">(opcional)</span></label>
+                <input id="txtNombre" class="form-control" maxlength="60" autocomplete="name" placeholder="Para llamarlo cuando esté listo" />
+                <div id="grupoDomicilio" hidden>
+                    <label class="form-label small mt-2 mb-1" for="txtTelefono" style="color:var(--suave)">Teléfono</label>
+                    <input id="txtTelefono" class="form-control" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="Para confirmar el domicilio" />
+                    <label class="form-label small mt-2 mb-1" for="txtDireccion" style="color:var(--suave)">Dirección y barrio</label>
+                    <input id="txtDireccion" class="form-control" maxlength="200" autocomplete="street-address" placeholder="Ej: Cra 10 # 20-30, barrio Centro" />
+                    @if (cfg.CostoDomicilio > 0) { <div class="small mt-1" style="color:var(--suave)">El domicilio cuesta @M(cfg.CostoDomicilio) y se suma al confirmar.</div> }
+                </div>
                 <label class="form-label small mt-2 mb-1" for="txtNota" style="color:var(--suave)">Nota para el pedido (opcional)</label>
                 <input id="txtNota" class="form-control" maxlength="150" placeholder="Ej: traer todo junto" />
             </div>
             <div class="hoja-cuerpo estado-pedido" id="estadoPedido" hidden aria-live="polite"></div>
             <div class="hoja-pie" id="pieCarrito">
                 <div class="d-flex justify-content-between fw-bold fs-5 mb-2"><span>Total</span><span id="lblTotal"></span></div>
-                <p class="small mb-2" style="color:var(--suave)">El personal revisa y confirma su pedido. Se paga en la caja o con el mesero.</p>
+                <p class="small mb-2" style="color:var(--suave)">El personal revisa y confirma su pedido. Se paga en la caja, con el mesero o al recibir el domicilio.</p>
                 <p class="small text-warning mb-2" id="lblError" hidden></p>
                 <button type="button" class="btn btn-enviar btn-lg w-100" id="btnEnviar"><i class="bi bi-send"></i> Enviar pedido</button>
             </div>
@@ -216,14 +232,15 @@
         <script>
             (function () {
                 const $ = id => document.getElementById(id);
-                const MESA = @Model.IdMesa, MONEDA = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(cfg.SimboloMoneda));
+                // Yesenia Quejada Rojas - Claude — 13/11/2026: el pedido guardado en el celular va por sede (antes por mesa del QR).
+                const SEDE = @Model.IdSede, MONEDA = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(cfg.SimboloMoneda));
                 const OPCIONES = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Opciones, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)));
                 const INGREDIENTES = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Ingredientes, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)));
                 // Yesenia Quejada Rojas - Claude — 30/10/2026: las adiciones van de primeras.
                 const ORDEN_GRUPOS = ['Adiciones', 'Salsas', 'Preferencias', 'Vasos'];
                 // "Queso mozzarella (porción)" se muestra como "queso mozzarella" en "Sin ..."
                 const nombreCorto = n => n.replace(/\s*\(.*\)\s*$/, '').toLowerCase();
-                const CLAVE = 'carta-pedido-' + MESA;
+                const CLAVE = 'carta-pedido-s' + SEDE;
                 const moneda = n => MONEDA + ' ' + Number(n || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 });
                 const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
                 const leer = () => { try { return JSON.parse(localStorage.getItem(CLAVE) || 'null'); } catch { return null; } };
@@ -375,17 +392,39 @@
                     if (estado === 'PENDIENTE' || estado === 'CONFIRMADO') reloj = setTimeout(consultar, 10000);
                 }
 
+                /* Yesenia Quejada Rojas - Claude — 13/11/2026. Mesa / Para llevar / Domicilio: con Mesa salen los botones de las mesas;
+                   con Domicilio, teléfono y dirección (y el nombre deja de ser opcional). */
+                const elegido = n => document.querySelector(`input[name="${n}"]:checked`)?.value || '';
+                function alCambiarTipo() {
+                    const t = elegido('tipoPedido');
+                    $('grupoMesas').hidden = t !== 'MESA';
+                    $('grupoDomicilio').hidden = t !== 'DOMICILIO';
+                    $('lblNombreOpcional').hidden = t === 'DOMICILIO';
+                    $('lblError').hidden = true;
+                }
+                $('tipoPedido').addEventListener('change', alCambiarTipo);
+                const error = (texto, foco) => { $('lblError').textContent = texto; $('lblError').hidden = false; foco?.focus(); };
+
                 async function enviar() {
                     if (!carrito.length || enviando) return;
-                    const mesa = MESA || Number($('cboMesa')?.value || 0);
-                    if (!mesa) { $('lblError').textContent = 'Elija su mesa para enviar el pedido.'; $('lblError').hidden = false; $('cboMesa')?.focus(); return; }
+                    const tipo = elegido('tipoPedido'), mesa = Number(elegido('mesaPedido') || 0);
+                    const nombre = $('txtNombre').value.trim(), telefono = $('txtTelefono').value.trim(), direccion = $('txtDireccion').value.trim();
+                    if (!tipo) return error('Elija si es para la mesa, para llevar o a domicilio.', $('tipoPedido').querySelector('input'));
+                    if (tipo === 'MESA' && !mesa) return error('Elija su mesa para enviar el pedido.', $('grupoMesas').querySelector('input'));
+                    if (tipo === 'DOMICILIO') {
+                        if (!nombre) return error('Escriba su nombre para el domicilio.', $('txtNombre'));
+                        if (telefono.replace(/\D/g, '').length < 7) return error('Escriba un teléfono válido.', $('txtTelefono'));
+                        if (direccion.length < 5) return error('Escriba la dirección y el barrio.', $('txtDireccion'));
+                    }
                     enviando = true; $('lblError').hidden = true; pintar();
                     try {
                         const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
                         const r = await fetch('/Carta/Pedir', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
-                            body: JSON.stringify({ idMesa: mesa, clienteNombre: $('txtNombre').value.trim(), nota: $('txtNota').value.trim(),
+                            body: JSON.stringify({ tipoPedido: tipo, idMesa: tipo === 'MESA' ? mesa : 0, idSede: SEDE,
+                                telefono: tipo === 'DOMICILIO' ? telefono : '', direccion: tipo === 'DOMICILIO' ? direccion : '',
+                                clienteNombre: nombre, nota: $('txtNota').value.trim(),
                                 lineas: carrito.map(l => ({ idProducto: l.id, cantidad: l.cantidad, notas: l.notas,
                                     modificadores: l.mods.map(m => m.idModificador), quitados: l.sin.map(i => i.idInsumo) })) })
                         }).then(x => { if (!x.ok) throw new Error(); return x.json(); });

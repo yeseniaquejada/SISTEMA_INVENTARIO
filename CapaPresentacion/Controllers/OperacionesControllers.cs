@@ -203,6 +203,26 @@ public class ConteoController : Controller
     public IActionResult Index() => View();
     [HttpGet] public JsonResult Listar() => Json(_negocio.Listar(User.IdSede()));
     [HttpPost] public JsonResult Registrar([FromBody] Conteo obj) => Json(_negocio.Registrar(User.IdSede(), User.Id(), obj));
+
+    // Yesenia Quejada Rojas - Claude — 13/11/2026: tirilla con los insumos que el administrador ve en pantalla (ids por POST).
+    [HttpPost]
+    public IActionResult Tirilla([FromForm] string datos)
+    {
+        List<int>? ids;
+        try { ids = System.Text.Json.JsonSerializer.Deserialize<List<int>>(datos ?? ""); }
+        catch (System.Text.Json.JsonException) { return BadRequest(); }
+        if (ids == null || ids.Count == 0 || ids.Count > 1000) return BadRequest();
+        var pedidos = ids.ToHashSet();
+        return View(new TirillaConteo
+        {
+            Items = new CN_Insumo().Listar(User.IdSede()).Where(i => i.Activo && pedidos.Contains(i.IdInsumo))
+                .OrderBy(i => i.Categoria).ThenBy(i => i.Nombre).ToList(),
+            Configuracion = new CN_Configuracion().Obtener(),
+            Fecha = DateTime.UtcNow.AddHours(-5).ToString("dd/MM/yyyy h:mm tt", new System.Globalization.CultureInfo("es-CO")),
+            Sede = User.Sede(),
+            Usuario = User.Identity?.Name ?? ""
+        });
+    }
 }
 
 [Authorize(Roles = Claves.Admin)]

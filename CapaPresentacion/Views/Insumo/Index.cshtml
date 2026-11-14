@@ -6,32 +6,17 @@
 <div class="d-flex flex-wrap gap-2 mb-3 align-items-center">
     <button class="btn btn-marca" id="btnNuevo"><i class="bi bi-plus-lg"></i> Nuevo insumo</button>
     <div class="vr d-none d-md-block mx-1"></div>
-    <a href="/Insumo/Plantilla" class="btn btn-outline-success" title="Excel para llenar o actualizar los insumos y la cantidad que hay hoy"><i class="bi bi-download"></i> Descargar plantilla para llenar</a>
-    <label class="btn btn-success mb-0" title="Subir la plantilla ya llena"><i class="bi bi-upload"></i> Subir plantilla llena
-        <input type="file" id="archivoExcel" accept=".xlsx" hidden /></label>
+    @* Yesenia Quejada Rojas - Claude — 13/11/2026: se quitan los botones de la plantilla de Excel (descargar y subir); queda solo descargar el inventario. *@
     <a href="/Insumo/Exportar" class="btn btn-outline-secondary" title="Descargar en Excel el inventario como está hoy"><i class="bi bi-file-earmark-spreadsheet"></i> Descargar inventario actual</a>
     <input type="search" id="buscar" class="form-control ms-auto" style="max-width:260px" placeholder="Buscar insumo..." aria-label="Buscar insumo" />
 </div>
 <div class="alert alert-info py-2 small mb-3">
     <div><i class="bi bi-info-circle"></i> <b>Insumos</b> es la lista de lo que compra (pan, carne, gaseosas...) y cuánto hay. La cantidad baja sola con cada venta.</div>
     <div class="mt-1">Cuando llegue una compra o algo se dañe, regístrelo en <a asp-controller="Movimiento" asp-action="Index">Registrar compras y salidas</a> (o con el botón <i class="bi bi-arrow-left-right"></i> de cada fila).
-        Si contó el local y la cantidad no coincide, use <b>Subir plantilla llena</b> con lo que contó.</div>
+        Si contó el local y la cantidad no coincide, use <a asp-controller="Conteo" asp-action="Index">Contar inventario</a>.</div>
 </div>
 
-@* Yesenia Quejada Rojas - Claude — 23/10/2026: los insumos con datos por confirmar se resaltan y se pueden ver solos. *@
-<div class="alert alert-warning py-2 mb-3 d-flex flex-wrap align-items-center gap-2" id="avisoPorConfirmar" hidden>
-    <i class="bi bi-exclamation-triangle-fill"></i>
-    <span class="me-auto"><b id="totalPorConfirmar"></b> tienen datos por confirmar con el cliente. Abra cada uno con <i class="bi bi-pencil"></i>, corrija el dato y borre la nota. <span class="text-nowrap"><span class="costo-estimado">*</span> = costo estimado.</span></span>
-    <button class="btn btn-sm btn-warning" id="btnSoloPorConfirmar" type="button">Ver solo esos</button>
-</div>
-
-<div class="modal fade" id="modalImportar" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
-        <div class="modal-header"><h5 class="modal-title" id="tituloImportar">Resultado de la carga</h5><button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button></div>
-        <div class="modal-body" id="cuerpoImportar"></div>
-        <div class="modal-footer"><button class="btn btn-marca" data-bs-dismiss="modal">Aceptar</button></div>
-    </div></div>
-</div>
+@* Yesenia Quejada Rojas - Claude — 13/11/2026: se quitan las advertencias de "dato por confirmar" (aviso, nota en cada fila y asterisco de costo estimado). *@
 <div class="card"><div class="card-body p-0 table-responsive">
     <table class="table table-hover mb-0 tabla-compacta" id="tabla">
         <thead class="table-light"><tr><th>Insumo</th><th class="text-end">Hay</th><th class="text-end">Avisar con</th><th class="text-end">Costo unit.</th><th>Próximo vencimiento</th><th>Estado</th><th></th><th></th></tr></thead>
@@ -65,9 +50,9 @@
                 @* Yesenia Quejada Rojas - Claude — 30/10/2026: en paquetes se ven los dos costos; al escribir uno se calcula el otro. *@
                 <div class="col-md-6" id="grupoCostoUnidad" hidden><label class="form-label" for="txtCostoUnidad">Costo por unidad</label><input data-moneda id="txtCostoUnidad" type="number" min="0" step="0.01" class="form-control" />
                     <div class="form-text">Costo del paquete ÷ unidades que trae.</div></div>
-                <div class="col-12"><label class="form-label" for="txtPorConfirmar"><i class="bi bi-exclamation-triangle text-warning"></i> Dato por confirmar <small class="text-muted">(opcional)</small></label>
-                    <textarea id="txtPorConfirmar" name="porConfirmar" class="form-control" rows="2" maxlength="300" placeholder="Ej: no se leía la cantidad en el conteo"></textarea>
-                    <div class="form-text">Cuando lo confirme, corrija el dato arriba y borre este texto.</div></div>
+                @* Yesenia Quejada Rojas - Claude — 13/11/2026: ya no se escribe el "dato por confirmar". Va oculto para que al guardar
+                   no se borre la nota que ya tenía el insumo (quedan en la base para revisarlas con calma). *@
+                <input type="hidden" id="txtPorConfirmar" name="porConfirmar" />
                 <div class="col-12 form-check ms-2"><input type="checkbox" name="activo" class="form-check-input" id="chkActivo" /><label class="form-check-label" for="chkActivo">Activo</label></div>
                 @* Yesenia Quejada Rojas - Claude — 28/10/2026: lo que no se controla (porciones preparadas) no se descuenta al vender ni bloquea la venta. *@
                 <div class="col-12 form-check ms-2"><input type="checkbox" name="controlaStock" class="form-check-input" id="chkControla" /><label class="form-check-label" for="chkControla">Descontar al vender <small class="text-muted">(desmarque para porciones preparadas que no se cuentan)</small></label></div>
@@ -85,18 +70,9 @@
             base: '/Insumo', id: 'idInsumo', columnas: 8,
             nuevo: () => ({ idInsumo: 0, idCategoria: 0, unidadMedida: 'UND', stockMinimo: 0, costoUnitario: 0, activo: true, controlaStock: true, porConfirmar: '' }),
             alAbrir: obj => { original = obj ?? null; },
-            alCargar: lista => {
-                const n = lista.filter(i => i.porConfirmar).length;
-                document.getElementById('avisoPorConfirmar').hidden = n === 0;
-                document.getElementById('totalPorConfirmar').textContent = n === 1 ? '1 insumo' : `${n} insumos`;
-                if (n === 0) mostrarSoloPorConfirmar(false);
-            },
-            // Yesenia Quejada Rojas - Claude — 29/10/2026: los costos que se cargaron estimados (nota "* Costo estimado") llevan
-            // un asterisco junto al costo; al corregir el costo y borrar la nota, desaparece.
-            fila: i => `<td><div class="fw-semibold">${esc(i.nombre)}</div><small class="text-muted">${esc(i.categoria)} · ${esc(i.codigo)}</small>
-                ${i.porConfirmar ? `<div class="por-confirmar small mt-1"><i class="bi bi-exclamation-triangle-fill"></i> Por confirmar: ${esc(i.porConfirmar)}</div>` : ''}</td>
+            fila: i => `<td><div class="fw-semibold">${esc(i.nombre)}</div><small class="text-muted">${esc(i.categoria)} · ${esc(i.codigo)}</small></td>
                 <td class="text-end text-nowrap ${i.stock <= i.stockMinimo ? 'stock-bajo' : ''}">${num(i.stock)} ${esc(i.unidadMedida)}${i.unidadesPorPaquete ? `<div class="small text-muted">de ${num(i.unidadesPorPaquete)} und.</div>` : ''}</td>
-                <td class="text-end text-nowrap">${num(i.stockMinimo)}</td><td class="text-end text-nowrap">${i.unidadMedida === 'PAQ' && i.unidadesPorPaquete > 1 ? `${moneda(i.costoUnitario)} <small class="text-muted">paq.</small><div class="small text-muted">${moneda(i.costoUnitario / i.unidadesPorPaquete)} c/u</div>` : moneda(i.costoUnitario)}${/Costo estimado/.test(i.porConfirmar || '') ? '<span class="costo-estimado" title="Costo estimado: confirmar con la factura">*</span>' : ''}</td>
+                <td class="text-end text-nowrap">${num(i.stockMinimo)}</td><td class="text-end text-nowrap">${i.unidadMedida === 'PAQ' && i.unidadesPorPaquete > 1 ? `${moneda(i.costoUnitario)} <small class="text-muted">paq.</small><div class="small text-muted">${moneda(i.costoUnitario / i.unidadesPorPaquete)} c/u</div>` : moneda(i.costoUnitario)}</td>
                 <td>${i.proximoVencimiento ? esc(i.proximoVencimiento) : '<span class="text-muted">-</span>'}</td>
                 <td>${badgeActivo(i.activo)}${i.controlaStock ? '' : ' <span class="badge text-bg-secondary" title="No se descuenta al vender">Sin control</span>'}</td>
                 <td class="text-end"><a class="btn btn-sm btn-outline-secondary" href="/Movimiento?idInsumo=${i.idInsumo}" title="Registrar compra, salida o daño de ${esc(i.nombre)}"><i class="bi bi-arrow-left-right"></i></a></td>`
@@ -143,32 +119,6 @@
         document.getElementById('modal').addEventListener('show.bs.modal', pintarPaquete);
 
         api.get('/Categoria/Listar').then(c => llenarSelect(document.getElementById('cboCategoria'), c.filter(x => x.activo), 'idCategoria', 'descripcion', 'Seleccione...')).catch(errorAlerta);
-
-        const tabla = document.getElementById('tabla'), btnSolo = document.getElementById('btnSoloPorConfirmar');
-        function mostrarSoloPorConfirmar(solo) {
-            tabla.classList.toggle('solo-por-confirmar', solo);
-            btnSolo.textContent = solo ? 'Ver todos' : 'Ver solo esos';
-        }
-        btnSolo.addEventListener('click', () => mostrarSoloPorConfirmar(!tabla.classList.contains('solo-por-confirmar')));
-
-        const modalImportar = new bootstrap.Modal(document.getElementById('modalImportar'));
-        document.getElementById('archivoExcel').addEventListener('change', async ev => {
-            const archivo = ev.target.files[0]; if (!archivo) return;
-            ev.target.value = '';
-            const datos = new FormData(); datos.append('archivo', archivo);
-            try {
-                alerta('Cargando el archivo...', 'info');
-                const r = await fetch('/Insumo/Importar', { method: 'POST', body: datos, headers: { 'RequestVerificationToken': token() } }).then(x => x.json());
-                document.getElementById('tituloImportar').textContent = r.resultado ? 'Inventario cargado' : 'Revise el archivo';
-                document.getElementById('cuerpoImportar').innerHTML = (r.resultado || r.creados || r.actualizados
-                    ? `<ul class="mb-3"><li>${r.creados} insumos nuevos</li><li>${r.actualizados} insumos actualizados</li>
-                        <li>${r.stockAjustado} con la cantidad corregida según lo que contó</li></ul>` : '')
-                    + (r.errores.length ? `<div class="alert alert-warning mb-0"><strong>${r.resultado ? '' : 'No se guardó nada. '}Corrija y vuelva a subirla:</strong>
-                        <ul class="mb-0 small">${r.errores.map(e => `<li>${esc(e)}</li>`).join('')}</ul></div>` : '');
-                modalImportar.show();
-                mant.cargar();
-            } catch (e) { errorAlerta(e); }
-        });
     })();
 </script>
 }

@@ -216,15 +216,15 @@
                     </label>`; }).join('')}</div>
             </div>`;
         }).join('');
-        $('seccionQuitar').hidden = !sin.length;
+        // Yesenia Quejada Rojas - Claude — 13/11/2026: ya no se ofrece "Empaque y cubiertos" (sin caja, sin bolsa, sin servilleta...): solo ingredientes.
+        const empaque = sin.filter(i => EMPAQUE.test(sinTildes(sinParentesis(i.nombre))));
+        $('seccionQuitar').hidden = sin.length === empaque.length;
         // Yesenia Quejada Rojas - Claude — 01/11/2026: primero lo que el cliente suele quitar (pepino, cebolla, tomate...) y al final, aparte, el empaque y los
         // cubiertos (caja, bolsa, servilleta...), que también se pueden quitar para no descontarlos del inventario.
         const pastillaSin = i => `
             <input type="checkbox" class="btn-check" id="sin${i.idInsumo}" value="${i.idInsumo}" autocomplete="off" />
             <label class="opcion-pastilla es-quitar" for="sin${i.idInsumo}"><i class="bi bi-x-lg marca-elegida" aria-hidden="true"></i>${iconoOpcion(i.nombre)}Sin ${esc(nombreCorto(i.nombre))}</label>`;
-        const empaque = sin.filter(i => EMPAQUE.test(sinTildes(sinParentesis(i.nombre))));
-        $('quitar').innerHTML = sin.filter(i => !empaque.includes(i)).map(pastillaSin).join('')
-            + (empaque.length ? `<div class="w-100 small text-muted mt-1">Empaque y cubiertos</div>${empaque.map(pastillaSin).join('')}` : '');
+        $('quitar').innerHTML = sin.filter(i => !empaque.includes(i)).map(pastillaSin).join('');
         actualizarOpciones();
         modalProducto.show();
     }
@@ -360,6 +360,8 @@
     });
     $('btnVaciar').addEventListener('click', () => { if (!pedido.length || confirm('¿Vaciar el pedido?')) limpiar(); });
 
+    // Yesenia Quejada Rojas - Claude — 13/11/2026: parte pagada por transferencia (solo con "Efectivo"; 0 si está vacía).
+    const transferencia = () => pago === 'EFECTIVO' ? Math.max(0, Number($('txtTransferencia').value || 0)) : 0;
     function totales() {
         const t = total();
         $('lblSubtotal').textContent = moneda(subtotal());
@@ -374,21 +376,26 @@
         $('btnCajasMas').disabled = nCajas >= 99;
         $('lblCajasNota').textContent = cajasManual === null && nCajas ? '· según los productos' : cajasManual !== null ? '· ajustado' : '';
         $('btnCajasAuto').hidden = cajasManual === null;
+        // Yesenia Quejada Rojas - Claude — 13/11/2026: pago mixto; el efectivo solo cubre lo que no se pagó por transferencia.
+        const transf = transferencia(), te = t - transf;
         const recibido = Number($('txtRecibido').value || 0);
-        $('lblCambio').textContent = moneda(Math.max(0, recibido - t));
-        $('lblCambio').classList.toggle('text-danger', recibido > 0 && recibido < t);
-        // Atajos de billetes según el total
-        const billetes = [...new Set([t, ...[10000, 20000, 50000, 100000].map(b => Math.ceil(t / b) * b)])].filter(v => v > 0).slice(0, 4);
+        const transfMal = transf > 0 && transf >= t;
+        $('lblPorEfectivo').textContent = transf > 0 && !transfMal ? `En efectivo: ${moneda(te)}` : '';
+        $('lblCambio').textContent = moneda(Math.max(0, recibido - te));
+        $('lblCambio').classList.toggle('text-danger', recibido > 0 && recibido < te);
+        // Atajos de billetes según lo que se paga en efectivo
+        const billetes = [...new Set([te, ...[10000, 20000, 50000, 100000].map(b => Math.ceil(te / b) * b)])].filter(v => v > 0).slice(0, 4);
         $('billetes').innerHTML = billetes.map(v => `<button type="button" class="btn btn-sm btn-light border" data-billete="${v}">${moneda(v)}</button>`).join('');
         const vencida = edicion && Date.now() >= edicion.vence;
-        const insuficiente = pago === 'EFECTIVO' && $('txtRecibido').value !== '' && recibido < t;
+        const insuficiente = pago === 'EFECTIVO' && (transfMal || ($('txtRecibido').value !== '' && recibido < te));
         $('btnCobrar').disabled = !pedido.length || !cajaAbierta || vencida || insuficiente || procesando;
         $('lblCobrar').textContent = procesando ? 'Procesando…' : edicion ? 'Guardar cambios' : `Cobrar${pedido.length ? ' · ' + moneda(t) : ''}`;
         $('ayudaCobro').textContent = procesando ? 'Espera mientras registramos el pedido.'
             : !cajaAbierta ? 'Abre la caja para registrar la venta.'
             : vencida ? 'Terminó el tiempo para editar este pedido.'
             : !pedido.length ? ''
-            : insuficiente ? `Faltan ${moneda(t - recibido)} para completar el pago.`
+            : insuficiente && transfMal ? 'La parte en transferencia debe ser menor que el total (si pagó todo así, elija "Transf.").'
+            : insuficiente ? `Faltan ${moneda(te - recibido)} para completar el pago.`
             : '';  // Yesenia Quejada Rojas - Claude — 19/10/2026: solo se muestra cuando algo impide cobrar, para que el pie ocupe menos.
         $('btnPonerEspera').disabled = !pedido.length || !!edicion;
     }
@@ -397,6 +404,7 @@
         if (b) { $('txtRecibido').value = b.dataset.billete; totales(); }
     });
     $('txtRecibido').addEventListener('input', totales);
+    $('txtTransferencia').addEventListener('input', totales);
     $('txtCostoDomicilio').addEventListener('input', totales);
     // Yesenia Quejada Rojas - Claude — 31/10/2026: − / + de las cajas y "restablecer" (vuelve a contarlas según los productos).
     $('btnCajasMenos').addEventListener('click', () => { fijarCajas(cajas() - 1); totales(); guardarPantalla(); });
@@ -453,8 +461,10 @@
     async function cobrar() {
         if ($('btnCobrar').disabled) return;
         const t = total();
-        const recibido = pago === 'EFECTIVO' ? Number($('txtRecibido').value || t) : t;
-        if (pago === 'EFECTIVO' && recibido < t) { alerta('El valor recibido es menor al total', 'warning'); return; }
+        const transf = transferencia(), te = t - transf;
+        if (transf > 0 && transf >= t) { alerta('La parte en transferencia debe ser menor que el total', 'warning'); return; }
+        const recibido = pago === 'EFECTIVO' ? Number($('txtRecibido').value || te) : t;
+        if (pago === 'EFECTIVO' && recibido < te) { alerta('El valor recibido es menor al total', 'warning'); return; }
         const venta = {
             idVenta: edicion?.idVenta ?? 0,
             tipoPedido: tipo,
@@ -464,6 +474,7 @@
             costoDomicilio: envio(),
             metodoPago: pago,
             montoRecibido: recibido,
+            montoTransferencia: transf,
             cajas: cajas(),   // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque del pedido.
             lineas: pedido.map(l => ({ idProducto: l.idProducto, cantidad: l.cantidad, notas: notasDe(l),
                 modificadores: l.mods.map(m => m.idModificador), quitados: (l.sin || []).map(s => s.idInsumo) }))
@@ -594,7 +605,7 @@
         pedido = [];
         cajasManual = null;
         esperaActual = null;
-        ['txtCliente', 'txtTelefono', 'txtDireccion', 'txtCostoDomicilio', 'txtRecibido', 'txtNombreMesa', 'txtBuscar'].forEach(id => $(id).value = '');
+        ['txtCliente', 'txtTelefono', 'txtDireccion', 'txtCostoDomicilio', 'txtRecibido', 'txtTransferencia', 'txtNombreMesa', 'txtBuscar'].forEach(id => $(id).value = '');
         $('lblClienteFrecuente').hidden = true;
         marcarCarta(null);
         seleccionar($('tipoPedido'), 'MESA', alCambiarTipo);
@@ -749,14 +760,15 @@
         $('btnCarta').classList.toggle('borde-marca', nuevos.length > 0);
         // Aviso solo de los que llegaron desde la última consulta (no al abrir la página).
         if (cartaVistos) nuevos.filter(p => !cartaVistos.has(p.idPedidoCarta))
-            .forEach(p => alerta(`Nuevo pedido de la carta: mesa ${p.mesa}${p.clienteNombre ? ' · ' + p.clienteNombre : ''}`, 'warning'));
+            .forEach(p => alerta(`Nuevo pedido de la carta: ${destinoCarta(p)}`, 'warning'));
         cartaVistos = new Set(nuevos.map(p => p.idPedidoCarta));
         // Yesenia Quejada Rojas - Claude — 30/10/2026: tarjetas como las de "Por cobrar" (productos, opciones, total y botones grandes).
         $('listaCarta').innerHTML = cartaPendientes.length ? cartaPendientes.map(p => `
             <div class="espera-card carta-card ${p.estado}">
                 <div class="d-flex justify-content-between align-items-start gap-2">
-                    <div><strong class="fs-6">Mesa ${esc(p.mesa)}${p.clienteNombre ? ' · ' + esc(p.clienteNombre) : ''}</strong>
+                    <div><strong class="fs-6">${esc(destinoCarta(p))}</strong>
                         <div class="small text-muted">N° ${p.idPedidoCarta} · ${haceCuanto(Math.floor(p.segundos / 60))}</div>
+                        ${p.tipoPedido === 'DOMICILIO' ? `<div class="small"><i class="bi bi-telephone"></i> ${esc(p.telefono)} · <i class="bi bi-geo-alt"></i> ${esc(p.direccion)}</div>` : ''}
                         <span class="badge ${p.estado === 'PENDIENTE' ? 'text-bg-warning' : 'text-bg-info'}">${p.estado === 'PENDIENTE' ? 'Sin confirmar' : 'Confirmado'}</span>${espera.some(e => e.carta === p.idPedidoCarta) ? ' <span class="badge text-bg-secondary">Ya está en Por cobrar</span>' : ''}</div>
                     <strong class="text-marca text-nowrap fs-5">${moneda(p.total)}</strong>
                 </div>
@@ -788,7 +800,7 @@
         if (!p) return;
         try {
             if (rechazar) {
-                if (!confirm(`¿Rechazar el pedido de la mesa ${p.mesa}? El cliente verá que no fue aceptado.`)) return;
+                if (!confirm(`¿Rechazar el pedido N° ${p.idPedidoCarta} (${destinoCarta(p)})? El cliente verá que no fue aceptado.`)) return;
                 if (await atenderCarta(id, 'RECHAZADO')) { if (origenCarta === id) limpiar(); alerta('Pedido rechazado', 'info'); }
                 return cargarPedidosCarta();
             }
@@ -804,10 +816,15 @@
                 const sin = ingredientes.filter(i => i.idProducto === prod.idProducto && (l.quitados || []).includes(i.idInsumo));
                 agregar(prod, l.cantidad, l.notas || '', mods, sin);
             }
-            seleccionar($('tipoPedido'), 'MESA', alCambiarTipo);
-            $('txtNombreMesa').value = `Mesa ${p.mesa}${p.clienteNombre ? ' · ' + p.clienteNombre : ''}`.slice(0, 100);
+            // Yesenia Quejada Rojas - Claude — 13/11/2026: el pedido de la carta puede ser para mesa, para llevar o a domicilio.
+            const tipoCarta = ['LLEVAR', 'DOMICILIO'].includes(p.tipoPedido) ? p.tipoPedido : 'MESA';
+            seleccionar($('tipoPedido'), tipoCarta, alCambiarTipo);
+            if (tipoCarta === 'DOMICILIO') {
+                $('txtCliente').value = p.clienteNombre || ''; $('txtTelefono').value = p.telefono || ''; $('txtDireccion').value = p.direccion || '';
+            } else $('txtNombreMesa').value = (tipoCarta === 'MESA' ? destinoCarta(p) : p.clienteNombre || '').slice(0, 100);
             sincronizarMesa();
-            marcarCarta(id, `Pedido N° ${id} de la carta (mesa ${p.mesa}). Ya trae salsas, adiciones y lo que no quiere; se cierra al cobrarlo.${p.nota ? ' Nota: ' + p.nota : ''}`);
+            totales();
+            marcarCarta(id, `Pedido N° ${id} de la carta (${destinoCarta(p)}). Ya trae salsas, adiciones y lo que no quiere; se cierra al cobrarlo.${p.nota ? ' Nota: ' + p.nota : ''}`);
             bootstrap.Modal.getOrCreateInstance($('modalCarta')).hide();
             cargarPedidosCarta();
         } catch (e) { errorAlerta(e); }
@@ -929,7 +946,7 @@
             $('txtCliente').value = v.clienteNombre; $('txtTelefono').value = v.clienteTelefono;
             $('txtDireccion').value = v.direccion; $('txtCostoDomicilio').value = v.costoDomicilio;
         } else $('txtNombreMesa').value = v.clienteNombre;
-        if (v.metodoPago === 'EFECTIVO') $('txtRecibido').value = v.montoRecibido;
+        if (v.metodoPago === 'EFECTIVO') { $('txtRecibido').value = v.montoRecibido; $('txtTransferencia').value = v.montoTransferencia || ''; }
         edicion = { idVenta: v.idVenta, vence: Date.now() + v.segundosEdicion * 1000 };
         $('avisoEdicion').hidden = false;
         $('lblEdicionId').textContent = `N° ${v.idVenta}`;

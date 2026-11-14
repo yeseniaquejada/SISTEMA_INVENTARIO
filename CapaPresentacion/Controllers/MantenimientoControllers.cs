@@ -154,7 +154,8 @@ public class ConfiguracionController : Controller
         var cfg = _negocio.Obtener();
         var productos = new CN_Producto().Listar().Where(p => p.Activo).ToList();
         ViewBag.Negocio = !string.IsNullOrWhiteSpace(cfg.NombreNegocio) && !string.IsNullOrWhiteSpace(cfg.Telefono);
-        ViewBag.Insumos = new CN_Insumo().Listar(User.IdSede()).Count(i => i.Activo);
+        // Yesenia Quejada Rojas - Claude — 13/11/2026: Insumos ya no es un paso de la guía; entra el paso de las mesas.
+        ViewBag.Mesas = new CN_Mesa().Listar(User.IdSede()).Count(m => m.Activo);
         ViewBag.Categorias = new CN_CategoriaMenu().Listar().Count(c => c.Activo);
         ViewBag.Productos = productos.Count;
         ViewBag.SinReceta = productos.Count(p => p.TotalInsumos == 0);

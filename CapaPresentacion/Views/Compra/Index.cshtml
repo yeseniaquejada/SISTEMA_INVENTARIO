@@ -3,7 +3,7 @@
 }
 <div class="d-flex flex-wrap gap-2 mb-3 align-items-center no-imprimir">
     <p class="text-muted small mb-0">@* Yesenia Quejada Rojas - Claude — 31/10/2026: la cantidad se estima con lo que el negocio gasta de verdad (lo calcula SP_ORDEN_COMPRA_SUGERIDA). *@
-        Insumos en el mínimo o que no alcanzan para 3 días. "A pedir" es un estimado para cubrir 7 días según lo que se gastó en los últimos 14 (nunca menos del doble del mínimo). Ajústelo según lo que espere vender.</p>
+        Insumos en el mínimo o que no alcanzan para 3 días. "A pedir" alcanza para unos 7 días; ajústelo según lo que espere vender. Los costos son aproximados.</p>
     @* Yesenia Quejada Rojas - Claude — 11/11/2026: "Imprimir tirilla" saca en la impresora térmica solo lo que está marcado, con la cantidad escrita. *@
     <div class="ms-auto d-flex gap-2">
         <button class="btn btn-sm btn-marca" id="btnTirilla" disabled><i class="bi bi-receipt"></i> Imprimir tirilla</button>
@@ -49,17 +49,17 @@
                     <span class="text-muted">${esc(items[0].telefonoProveedor)}</span>
                 </div>
                 <div class="card-body p-0 table-responsive">
+                    @* Yesenia Quejada Rojas - Claude — 13/11/2026: tabla más limpia: el nombre va primero (sin código), sin "se gasta al día"
+                       ni columnas de stock/mínimo/costo unitario; lo que hay y el mínimo van en pequeño bajo el nombre y el costo es aproximado. *@
                     <table class="table table-sm mb-0 align-middle">
-                        <thead class="table-light"><tr><th class="no-imprimir" title="Marcado = sale en la tirilla"><i class="bi bi-check2-square"></i></th><th>Código</th><th>Insumo</th><th class="text-end">Stock</th><th class="text-end">Mínimo</th><th class="text-end">Se gasta al día</th><th class="text-end">A pedir</th><th class="text-end">Costo unit.</th><th class="text-end">Costo estimado</th><th class="no-imprimir"></th></tr></thead>
+                        <thead class="table-light"><tr><th>Insumo</th><th class="text-end">A pedir</th><th class="text-end">Aprox.</th><th class="no-imprimir" title="Marcado = sale en la tirilla"><i class="bi bi-check2-square"></i></th><th class="no-imprimir"></th></tr></thead>
                         <tbody>${items.map(o => `<tr data-fila="${o.idInsumo}">
+                            <td><div class="fw-semibold">${esc(o.nombre)}</div><small class="text-muted">Hay ${num(Math.round(o.stock))} · mínimo ${num(o.stockMinimo)}</small></td>
+                            <td class="text-end fw-bold text-nowrap"><input type="number" min="0" step="any" class="form-control form-control-sm d-inline-block text-end fw-bold" style="width:5.5rem" data-cantidad="${o.idInsumo}" value="${Number(o.cantidadSugerida)}" aria-label="Cantidad a pedir de ${esc(o.nombre)}" /> ${esc(o.unidadMedida)}</td>
+                            <td class="text-end text-nowrap text-muted" data-costo="${o.idInsumo}"></td>
                             <td class="no-imprimir"><input type="checkbox" class="form-check-input" data-marcar="${o.idInsumo}" checked aria-label="Comprar ${esc(o.nombre)}" /></td>
-                            <td>${esc(o.codigo)}</td><td>${esc(o.nombre)}</td>
-                            <td class="text-end stock-bajo">${num(Math.round(o.stock))}</td><td class="text-end">${num(o.stockMinimo)}</td>
-                            <td class="text-end">${o.consumoDia ? o.consumoDia.toLocaleString('es-CO', { maximumFractionDigits: 1 }) : '—'}</td>
-                            <td class="text-end fw-bold text-nowrap"><input type="number" min="0" step="any" class="form-control form-control-sm d-inline-block text-end fw-bold" style="width:6rem" data-cantidad="${o.idInsumo}" value="${Number(o.cantidadSugerida)}" aria-label="Cantidad a pedir de ${esc(o.nombre)}" /> ${esc(o.unidadMedida)}</td>
-                            <td class="text-end">${moneda(o.costoUnitario)}</td><td class="text-end" data-costo="${o.idInsumo}">${moneda(o.costoEstimado)}</td>
                             <td class="no-imprimir"><button class="btn btn-sm btn-outline-danger" data-quitar="${o.idInsumo}" title="Quitar de la lista de compras" aria-label="Quitar ${esc(o.nombre)} de la lista de compras"><i class="bi bi-x-lg"></i></button></td></tr>`).join('')}</tbody>
-                        <tfoot><tr><th class="no-imprimir"></th><th colspan="7" class="text-end">Subtotal</th><th class="text-end" data-subtotal="${esc(prov)}"></th><th class="no-imprimir"></th></tr></tfoot>
+                        <tfoot><tr><th colspan="2" class="text-end">Subtotal aprox.</th><th class="text-end text-nowrap" data-subtotal="${esc(prov)}"></th><th class="no-imprimir" colspan="2"></th></tr></tfoot>
                     </table>
                 </div>
             </div>`).join('') : '<div class="alert alert-success"><i class="bi bi-check-circle"></i> No hay insumos por pedir. Todo alcanza por ahora.</div>';
@@ -80,14 +80,16 @@
     function totales() {
         const m = marcados();
         const costo = o => (m[o.idInsumo] ?? 0) * o.costoUnitario;
+        // Yesenia Quejada Rojas - Claude — 13/11/2026: costos aproximados (redondeados a mil) para que la tabla se lea fácil.
+        const aprox = v => v > 0 ? '≈ ' + moneda(Math.max(1000, Math.round(v / 1000) * 1000)) : '—';
         lista.forEach(o => {
             const celda = document.querySelector(`[data-costo="${o.idInsumo}"]`);
-            if (celda) celda.textContent = moneda(costo(o));
+            if (celda) celda.textContent = aprox(costo(o));
             document.querySelector(`[data-fila="${o.idInsumo}"]`)?.classList.toggle('text-muted', !(o.idInsumo in m));
         });
-        document.querySelectorAll('[data-subtotal]').forEach(c => c.textContent = moneda(lista.filter(o => o.proveedor === c.dataset.subtotal).reduce((s, o) => s + costo(o), 0)));
+        document.querySelectorAll('[data-subtotal]').forEach(c => c.textContent = aprox(lista.filter(o => o.proveedor === c.dataset.subtotal).reduce((s, o) => s + costo(o), 0)));
         const n = Object.keys(m).length;
-        $('lblTotal').textContent = lista.length ? `${n} ${n === 1 ? 'insumo' : 'insumos'} · Total estimado: ${moneda(lista.reduce((s, o) => s + costo(o), 0))}` : '';
+        $('lblTotal').textContent = lista.length ? `${n} ${n === 1 ? 'insumo' : 'insumos'} · Total aproximado: ${aprox(lista.reduce((s, o) => s + costo(o), 0))}` : '';
         $('btnTirilla').disabled = !n;
     }
     $('grupos').addEventListener('input', totales);

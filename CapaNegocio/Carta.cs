@@ -39,11 +39,21 @@ public class CN_Carta
 public class CN_PedidoCarta
 {
     private static readonly string[] EstadosPersonal = { "CONFIRMADO", "CERRADO", "RECHAZADO" };
+    private static readonly string[] Tipos = { "MESA", "LLEVAR", "DOMICILIO" };
     private readonly CD_PedidoCarta _datos = new();
 
     public PedidoCartaEnviado Registrar(PedidoCartaNuevo? p)
     {
-        if (p == null || p.IdMesa <= 0) return new PedidoCartaEnviado { Mensaje = "Para pedir desde la carta escanee el QR de su mesa." };
+        // Yesenia Quejada Rojas - Claude — 13/11/2026: además de mesa, para llevar y a domicilio (sin mesa, con la sede de la carta).
+        if (p == null) return new PedidoCartaEnviado { Mensaje = "El pedido no es válido" };
+        p.TipoPedido = (p.TipoPedido ?? "MESA").Trim().ToUpperInvariant();
+        if (!Tipos.Contains(p.TipoPedido)) return new PedidoCartaEnviado { Mensaje = "Elija si es para mesa, para llevar o a domicilio." };
+        if (p.TipoPedido == "MESA" && p.IdMesa <= 0) return new PedidoCartaEnviado { Mensaje = "Elija su mesa para enviar el pedido." };
+        if (p.TipoPedido != "MESA" && p.IdSede <= 0) return new PedidoCartaEnviado { Mensaje = "El pedido no es válido" };
+        p.Telefono = Recortar(p.Telefono, 20);
+        p.Direccion = Recortar(p.Direccion, 200);
+        if (p.TipoPedido == "DOMICILIO" && (Recortar(p.ClienteNombre, 60) == "" || p.Telefono.Length < 7 || p.Direccion.Length < 5))
+            return new PedidoCartaEnviado { Mensaje = "Para el domicilio escriba su nombre, teléfono y dirección." };
         p.Lineas = (p.Lineas ?? new()).Where(l => l.IdProducto > 0 && l.Cantidad > 0).ToList();
         if (p.Lineas.Count == 0) return new PedidoCartaEnviado { Mensaje = "El carrito está vacío" };
         if (p.Lineas.Count > 30 || p.Lineas.Any(l => l.Cantidad > 20)) return new PedidoCartaEnviado { Mensaje = "Cada producto admite de 1 a 20 unidades" };

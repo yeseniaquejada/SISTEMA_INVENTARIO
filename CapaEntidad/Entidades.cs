@@ -246,6 +246,8 @@ namespace CapaEntidad
         public decimal CostoDomicilio { get; set; }
         public string MetodoPago { get; set; } = "EFECTIVO";
         public decimal MontoRecibido { get; set; }
+        // Yesenia Quejada Rojas - Claude — 13/11/2026: pago mixto, parte del total pagada por transferencia (el resto es efectivo).
+        public decimal MontoTransferencia { get; set; }
         // Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque que lleva el pedido (0 a 99); al cerrar la caja se cuentan como "cajas gastadas".
         public int Cajas { get; set; }
         public List<LineaVenta> Lineas { get; set; } = new();
@@ -262,6 +264,7 @@ namespace CapaEntidad
         public decimal Total { get; set; }
         public decimal MontoRecibido { get; set; }
         public decimal Cambio { get; set; }
+        public decimal MontoTransferencia { get; set; }   // Yesenia Quejada Rojas - Claude — 13/11/2026: pago mixto.
         public string EstadoPedido { get; set; } = "";
         public string ClienteNombre { get; set; } = "";
         public string ClienteTelefono { get; set; } = "";
@@ -441,6 +444,16 @@ namespace CapaEntidad
     }
 
     // Yesenia Quejada Rojas - Claude — 11/11/2026: lista de compras para imprimir en tirilla (impresora térmica).
+    // Yesenia Quejada Rojas - Claude — 13/11/2026: hoja de conteo en tirilla.
+    public class TirillaConteo
+    {
+        public List<Insumo> Items { get; set; } = new();
+        public Configuracion Configuracion { get; set; } = new();
+        public string Fecha { get; set; } = "";
+        public string Sede { get; set; } = "";
+        public string Usuario { get; set; } = "";
+    }
+
     public class TirillaCompra
     {
         public List<OrdenCompraItem> Items { get; set; } = new();

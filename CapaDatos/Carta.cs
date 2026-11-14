@@ -35,6 +35,7 @@ public class CD_Carta
             if (!dr.Read()) return;
             c = new CartaPublica
             {
+                IdSede = dr.Entero("IdSede"),
                 Sede = dr.Texto("Sede"),
                 Direccion = dr.Texto("Direccion"),
                 Telefono = dr.Texto("Telefono"),
@@ -99,9 +100,11 @@ public class CD_PedidoCarta
 
         var codigo = new Microsoft.Data.SqlClient.SqlParameter("@Codigo", System.Data.SqlDbType.UniqueIdentifier)
             { Direction = System.Data.ParameterDirection.Output };
-        var r = Ejecutar("SP_PEDIDO_CARTA_REGISTRAR", P("@IdMesa", p.IdMesa), P("@ClienteNombre", p.ClienteNombre ?? ""),
+        // Yesenia Quejada Rojas - Claude — 13/11/2026: tipo de pedido, sede y datos del domicilio (script 012).
+        var r = Ejecutar("SP_PEDIDO_CARTA_REGISTRAR", P("@IdMesa", p.IdMesa > 0 ? p.IdMesa : (object?)null), P("@ClienteNombre", p.ClienteNombre ?? ""),
             P("@Nota", p.Nota ?? ""), Tabla("@Lineas", "ELineaVenta", lineas),
-            Tabla("@Modificadores", "ELineaModificador", mods), Tabla("@Quitados", "ELineaQuitado", quitados), codigo);
+            Tabla("@Modificadores", "ELineaModificador", mods), Tabla("@Quitados", "ELineaQuitado", quitados), codigo,
+            P("@IdSede", p.IdSede), P("@TipoPedido", p.TipoPedido ?? "MESA"), P("@Telefono", p.Telefono ?? ""), P("@Direccion", p.Direccion ?? ""));
         return new PedidoCartaEnviado
         {
             Resultado = r.Resultado, Mensaje = r.Mensaje, Id = r.Id, Estado = r.Resultado ? "PENDIENTE" : "",
@@ -128,7 +131,8 @@ public class CD_PedidoCarta
                 lista.Add(new PedidoCarta
                 {
                     IdPedidoCarta = dr.Entero("IdPedidoCarta"), Mesa = dr.Texto("Mesa"), ClienteNombre = dr.Texto("ClienteNombre"),
-                    Nota = dr.Texto("Nota"), Total = dr.Decimal("Total"), Estado = dr.Texto("Estado"), Segundos = dr.Entero("Segundos")
+                    Nota = dr.Texto("Nota"), Total = dr.Decimal("Total"), Estado = dr.Texto("Estado"), Segundos = dr.Entero("Segundos"),
+                    TipoPedido = dr.Texto("TipoPedido"), Telefono = dr.Texto("Telefono"), Direccion = dr.Texto("Direccion")
                 });
             var porId = lista.ToDictionary(x => x.IdPedidoCarta);
             dr.NextResult();

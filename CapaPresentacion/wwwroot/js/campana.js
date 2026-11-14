@@ -9,8 +9,11 @@
 
     const cuenta = $('campanaCuenta'), icono = $('campanaIcono'), lista = $('campanaLista'), resumen = $('campanaResumen'), btnSonido = $('campanaSonido');
     const tituloBase = document.title;
-    let pedidos = [], vistos = null, sonido = false, audio = null;
-    try { sonido = localStorage.getItem('campana-sonido') === '1'; } catch { /* sin almacenamiento: el sonido queda apagado */ }
+    let pedidos = [], vistos = null, sonido = true, audio = null, ultimoAviso = 0, parpadeo = null;
+    // Yesenia Quejada Rojas - Claude — 13/11/2026: el sonido viene activado; solo se apaga si la persona lo apagó en este equipo.
+    try { sonido = localStorage.getItem('campana-sonido') !== '0'; } catch { /* sin almacenamiento: el sonido queda activado */ }
+    const btnAvisos = $('campanaAvisos');
+    const puedeNotificar = () => 'Notification' in window && Notification.permission === 'granted';
 
     const hace = seg => {
         const min = Math.floor(seg / 60);
@@ -23,6 +26,8 @@
     function pintarSonido() {
         btnSonido.innerHTML = sonido ? '<i class="bi bi-volume-up"></i> Sonido activado' : '<i class="bi bi-volume-mute"></i> Sonido apagado';
         btnSonido.setAttribute('aria-pressed', sonido ? 'true' : 'false');
+        // El botón de avisos del navegador solo sale mientras no se haya dado (ni negado) el permiso.
+        if (btnAvisos) btnAvisos.hidden = !('Notification' in window) || Notification.permission !== 'default';
     }
 
     function pintar() {
@@ -42,7 +47,7 @@
                 <span class="badge rounded-pill text-bg-secondary campana-numero" title="Orden de llegada">${i + 1}</span>
                 <div class="flex-grow-1 min-w-0">
                     <div class="d-flex justify-content-between align-items-start gap-2">
-                        <strong>Mesa ${esc(p.mesa)}${p.clienteNombre ? ' · ' + esc(p.clienteNombre) : ''}</strong>
+                        <strong>${esc(destinoCarta(p))}</strong>
                         <span class="badge ${p.estado === 'PENDIENTE' ? 'text-bg-warning' : 'text-bg-info'}">${p.estado === 'PENDIENTE' ? 'Nuevo' : 'Confirmado'}</span>
                     </div>
                     <div class="small text-muted">${hace(p.segundos)} · ${unidades(p)} producto${unidades(p) === 1 ? '' : 's'} · ${moneda(p.total)}</div>
@@ -81,22 +86,51 @@
     }
     document.addEventListener('pointerdown', () => { if (sonido) preparar(); });
 
+    /* Yesenia Quejada Rojas - Claude — 13/11/2026. Avisos más fuertes:
+       - Aviso del navegador (con permiso) cuando la pestaña no está a la vista o el navegador está minimizado.
+       - El título de la pestaña parpadea "Nuevo pedido" mientras no se mire.
+       - Mientras haya pedidos sin confirmar, la campana suena y se sacude otra vez cada minuto (recordatorio). */
+    function notificar(llegaron) {
+        if (!puedeNotificar() || !document.hidden) return;
+        try {
+            const n = new Notification(llegaron.length === 1 ? 'Nuevo pedido de la carta' : `${llegaron.length} pedidos nuevos de la carta`, {
+                body: llegaron.map(p => `${destinoCarta(p)} · ${moneda(p.total)}`).join('\n'),
+                tag: 'pedido-carta', renotify: true, icon: document.querySelector('link[rel="icon"]')?.href || undefined
+            });
+            n.onclick = () => { window.focus(); n.close(); };
+        } catch { /* algunos celulares solo permiten avisos desde una app instalada */ }
+    }
+    function parpadearTitulo(activo) {
+        clearInterval(parpadeo); parpadeo = null;
+        if (!activo) return;
+        let alterno = false;
+        parpadeo = setInterval(() => {
+            if (!document.hidden) { clearInterval(parpadeo); parpadeo = null; pintar(); return; }
+            alterno = !alterno;
+            document.title = alterno ? '🔔 Nuevo pedido' : tituloBase;
+        }, 1000);
+    }
     function avisarNuevos() {
         const nuevos = pedidos.filter(p => p.estado === 'PENDIENTE');
         // Solo los que llegaron desde la última consulta: al abrir la página no se avisa de lo que ya estaba.
         if (vistos) {
             const llegaron = nuevos.filter(p => !vistos.has(p.idPedidoCarta));
             if (llegaron.length) {
-                sacudir(); sonar();
+                sacudir(); sonar(); ultimoAviso = Date.now();
+                notificar(llegaron);
+                if (document.hidden) parpadearTitulo(true);
                 // En Vender el aviso en pantalla ya lo da venta.js; aquí solo se evita repetirlo.
-                if (!$('modalCarta')) llegaron.forEach(p => alerta(`Nuevo pedido de la carta: mesa ${p.mesa}${p.clienteNombre ? ' · ' + p.clienteNombre : ''}`, 'warning'));
+                if (!$('modalCarta')) llegaron.forEach(p => alerta(`Nuevo pedido de la carta: ${destinoCarta(p)}`, 'warning'));
+            } else if (nuevos.length && Date.now() - ultimoAviso >= 60000) {
+                sacudir(); sonar(); ultimoAviso = Date.now();
             }
         }
         vistos = new Set(nuevos.map(p => p.idPedidoCarta));
     }
 
+    // Yesenia Quejada Rojas - Claude — 13/11/2026: ya no se deja de consultar con la pestaña oculta; así el aviso llega aunque
+    // estén en otra pestaña (el navegador puede espaciar las consultas a una por minuto).
     async function cargar() {
-        if (document.hidden) return;
         let datos;
         try { datos = await api.get('/Venta/PedidosCarta'); } catch { return; /* sin conexión o sesión vencida: se reintenta en el siguiente ciclo */ }
         if (!Array.isArray(datos)) return;
@@ -110,6 +144,11 @@
         try { localStorage.setItem('campana-sonido', sonido ? '1' : '0'); } catch { /* se queda solo en esta página */ }
         pintarSonido();
         if (sonido) { preparar(); sonar(); }
+    });
+    btnAvisos?.addEventListener('click', async () => {
+        try { await Notification.requestPermission(); } catch { /* navegador sin avisos */ }
+        pintarSonido();
+        if (puedeNotificar()) alerta('Listo: le avisaremos aunque esté en otra pestaña.', 'success');
     });
     // Al tocar un pedido: en Vender se abre la lista de la carta ahí mismo; en las demás páginas el enlace lleva a Vender con la lista abierta.
     lista.addEventListener('click', ev => {

@@ -12,6 +12,8 @@ public class Mesa
 public class CartaPublica
 {
     public Configuracion Configuracion { get; set; } = new();
+    /// <summary>Sede de la carta (Yesenia Quejada Rojas - Claude — 13/11/2026: la necesitan los pedidos sin mesa).</summary>
+    public int IdSede { get; set; }
     public string Sede { get; set; } = "";
     public string Direccion { get; set; } = "";
     public string Telefono { get; set; } = "";
@@ -66,6 +68,11 @@ public class CartaAdicion
 public class PedidoCartaNuevo
 {
     public int IdMesa { get; set; }
+    // Yesenia Quejada Rojas - Claude — 13/11/2026: también para llevar y a domicilio (sin mesa: la sede viene de la carta).
+    public int IdSede { get; set; }
+    public string? TipoPedido { get; set; }
+    public string? Telefono { get; set; }
+    public string? Direccion { get; set; }
     public string? ClienteNombre { get; set; }
     public string? Nota { get; set; }
     public List<PedidoCartaLinea> Lineas { get; set; } = new();
@@ -92,6 +99,10 @@ public class PedidoCarta
     public string Mesa { get; set; } = "";
     public string ClienteNombre { get; set; } = "";
     public string Nota { get; set; } = "";
+    /// <summary>MESA, LLEVAR o DOMICILIO (Yesenia Quejada Rojas - Claude — 13/11/2026).</summary>
+    public string TipoPedido { get; set; } = "MESA";
+    public string Telefono { get; set; } = "";
+    public string Direccion { get; set; } = "";
     public decimal Total { get; set; }
     public string Estado { get; set; } = "";
     public int Segundos { get; set; }
