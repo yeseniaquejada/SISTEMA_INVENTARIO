@@ -225,6 +225,8 @@ namespace CapaEntidad
         public int IdProducto { get; set; }
         public int IdInsumo { get; set; }
         public string Nombre { get; set; } = "";
+        // Yesenia Quejada Rojas - Claude — 24/11/2026: categoría del insumo (vacía si la base aún no tiene el script 016).
+        public string Categoria { get; set; } = "";
     }
 
     public class LineaVenta

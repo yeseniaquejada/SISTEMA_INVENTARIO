@@ -338,6 +338,9 @@
     /* Yesenia Quejada Rojas - Claude — 01/11/2026: salsas por sabor. Cada una lleva el color de su sabor (borde y fondo suave; al elegirla se rellena
        con ese color) y un ícono al lado; el texto elegido va blanco u oscuro según qué tan claro sea el color. "Sin salsas" y "Sin ..." van en rojo. */
     .opcion-pastilla .icono-opcion { font-size: 1.15em; line-height: 1; }
+    /* Yesenia Quejada Rojas - Claude — 24/11/2026: "¿Le quitamos algo?" agrupado (Pan y base, Carnes, Verduras y frutas...). */
+    .grupo-quitar + .grupo-quitar { margin-top: .7rem; }
+    .subgrupo-titulo { font-size: .8rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--texto-suave); margin-bottom: .35rem; }
     .opcion-pastilla.es-salsa { border-color: var(--color-opcion); background: color-mix(in srgb, var(--color-opcion) 16%, var(--superficie-alta)); }
     .btn-check:checked + .opcion-pastilla.es-salsa { background: var(--color-opcion); border-color: var(--color-opcion); color: var(--texto-elegida, #fff);
         box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-opcion) 35%, transparent); }
