@@ -335,7 +335,26 @@ namespace CapaDatos
                         Nombre = dr.Texto("Nombre")
                     });
             }, P("@IdSede", idSede));
+            if (Quitables() is { } quitables) c.Ingredientes = quitables;
             return c;
+        }
+
+        /* Yesenia Quejada Rojas - Claude — 24/11/2026. Ingredientes que el cliente puede pedir quitar ("Sin ensalada", "Sin ripio"...):
+           toda la receta de cada producto activo, menos bebidas y empaques (script 016). Se usa en Vender y en la carta.
+           Si la base aún no tiene el script, devuelve null y se sigue usando la lista de antes. */
+        public List<IngredienteReceta>? Quitables()
+        {
+            try
+            {
+                return Conexion.Listar("SP_RECETA_QUITABLES", dr => new IngredienteReceta
+                {
+                    IdProducto = dr.Entero("IdProducto"),
+                    IdInsumo = dr.Entero("IdInsumo"),
+                    Nombre = dr.Texto("Nombre"),
+                    Categoria = dr.Texto("Categoria")
+                });
+            }
+            catch (SqlException) { return null; }
         }
     }
 

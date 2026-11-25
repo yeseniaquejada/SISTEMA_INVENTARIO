@@ -218,13 +218,21 @@
         }).join('');
         // Yesenia Quejada Rojas - Claude — 13/11/2026: ya no se ofrece "Empaque y cubiertos" (sin caja, sin bolsa, sin servilleta...): solo ingredientes.
         const empaque = sin.filter(i => EMPAQUE.test(sinTildes(sinParentesis(i.nombre))));
-        $('seccionQuitar').hidden = sin.length === empaque.length;
         // Yesenia Quejada Rojas - Claude — 01/11/2026: primero lo que el cliente suele quitar (pepino, cebolla, tomate...) y al final, aparte, el empaque y los
         // cubiertos (caja, bolsa, servilleta...), que también se pueden quitar para no descontarlos del inventario.
+        // Yesenia Quejada Rojas - Claude — 24/11/2026: todos los "Sin ..." llevan ícono (iconos-insumo.js; 🍽️ si no se reconoce) y van agrupados
+        // (Pan y base, Carnes, Quesos, Verduras y frutas, Toppings...). La porción de salsas no se repite aquí cuando ya está el botón "Sin salsas".
+        const conBotonSinSalsas = mods.some(m => m.grupo.toLowerCase().startsWith('salsa'));
+        const quitables = sin.filter(i => !empaque.includes(i) && !(conBotonSinSalsas && IconosInsumo.de(i.nombre).grupo === 'Salsas'));
         const pastillaSin = i => `
             <input type="checkbox" class="btn-check" id="sin${i.idInsumo}" value="${i.idInsumo}" autocomplete="off" />
-            <label class="opcion-pastilla es-quitar" for="sin${i.idInsumo}"><i class="bi bi-x-lg marca-elegida" aria-hidden="true"></i>${iconoOpcion(i.nombre)}Sin ${esc(nombreCorto(i.nombre))}</label>`;
-        $('quitar').innerHTML = sin.filter(i => !empaque.includes(i)).map(pastillaSin).join('');
+            <label class="opcion-pastilla es-quitar" for="sin${i.idInsumo}"><i class="bi bi-x-lg marca-elegida" aria-hidden="true"></i><span class="icono-opcion" aria-hidden="true">${IconosInsumo.de(i.nombre).icono}</span>Sin ${esc(nombreCorto(i.nombre))}</label>`;
+        const gruposSin = IconosInsumo.agrupar(quitables);
+        $('quitar').innerHTML = gruposSin.map(g => `
+            <div class="grupo-quitar">${gruposSin.length > 1 ? `<div class="subgrupo-titulo">${g.icono} ${esc(g.grupo)}</div>` : ''}
+                <div class="d-flex flex-wrap gap-2">${g.items.map(pastillaSin).join('')}</div>
+            </div>`).join('');
+        $('seccionQuitar').hidden = !quitables.length;
         actualizarOpciones();
         modalProducto.show();
     }

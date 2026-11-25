@@ -70,6 +70,14 @@ public class CD_Carta
             while (dr.Read())
                 c.Ingredientes.Add(new CartaIngrediente { IdProducto = dr.Entero("IdProducto"), IdInsumo = dr.Entero("IdInsumo"), Nombre = dr.Texto("Nombre") });
         }, P("@IdSede", idSede), P("@IdMesa", idMesa));
+        // Yesenia Quejada Rojas - Claude — 24/11/2026: los mismos "Sin ..." que en Vender (script 016), solo de los productos de la carta.
+        if (c != null && new CD_Producto().Quitables() is { } quitables)
+        {
+            var enCarta = c.Productos.Select(p => p.IdProducto).ToHashSet();
+            c.Ingredientes = quitables.Where(i => enCarta.Contains(i.IdProducto))
+                .Select(i => new CartaIngrediente { IdProducto = i.IdProducto, IdInsumo = i.IdInsumo, Nombre = i.Nombre, Categoria = i.Categoria })
+                .ToList();
+        }
         return c;
     }
 }

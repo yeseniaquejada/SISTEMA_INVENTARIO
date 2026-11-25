@@ -85,11 +85,14 @@
         .btn-cerrar { background: none; border: 0; color: var(--texto); font-size: 1.4rem; }
         .pastilla { display: inline-flex; cursor: pointer; margin: 0; }
         .pastilla input { position: absolute; opacity: 0; pointer-events: none; }
-        .pastilla span { display: inline-block; padding: .4rem .85rem; border: 1.5px solid var(--borde); border-radius: 999px; background: var(--fondo); font-size: .9rem; }
+        .pastilla > span { display: inline-block; padding: .4rem .85rem; border: 1.5px solid var(--borde); border-radius: 999px; background: var(--fondo); font-size: .9rem; }
         .pastilla small { color: var(--suave); font-weight: 600; }
         .pastilla input:checked + span { background: var(--marca); border-color: var(--marca); color: var(--marca-texto); font-weight: 600; }
         .pastilla input:checked + span small { color: inherit; }
-        .pastilla.quitar span { border-style: dashed; }
+        .pastilla.quitar > span { border-style: dashed; }
+        .pastilla .icono-sin { margin-right: .35rem; }
+        .grupo-quitar + .grupo-quitar { margin-top: .6rem; }
+        .subgrupo-titulo { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); margin-bottom: .3rem; }
         .pastilla.quitar input:checked + span { background: #b3261e; border-color: #b3261e; color: #fff; text-decoration: line-through; }
         .pastilla input:focus-visible + span { outline: 3px solid #fff; outline-offset: 2px; }
         .cantidad button:disabled { opacity: .4; }
@@ -229,6 +232,7 @@
                 </div>
             </div>
         </section>
+        <script src="~/js/iconos-insumo.js" asp-append-version="true"></script>
         <script>
             (function () {
                 const $ = id => document.getElementById(id);
@@ -301,6 +305,7 @@
                 let editando = null;   // índice de la línea del carrito que se está cambiando
                 function abrirOpciones(p, linea = null, marcar = null) {
                     const mods = OPCIONES.filter(o => o.idProducto === p.id), sin = INGREDIENTES.filter(i => i.idProducto === p.id);
+                    const gruposSin = IconosInsumo.agrupar(sin);
                     if (!mods.length && !sin.length) { agregarLinea(p, 1, [], [], ''); return; }
                     actual = p; cantidadOp = linea !== null ? carrito[linea].cantidad : 1; editando = linea;
                     $('tituloOpciones').textContent = p.precio ? `${p.nombre} · ${moneda(p.precio)}` : p.nombre;
@@ -311,9 +316,12 @@
                             ${mods.filter(m => m.grupo === g).map(m => `<label class="pastilla"><input type="checkbox" data-mod="${m.idModificador}" />
                                 <span>${esc(m.nombre)}${m.precio ? ` <small>+${moneda(m.precio)}</small>` : ''}</span></label>`).join('')}
                         </div></div>`).join('') +
-                        (sin.length ? `<div class="mb-3"><div class="fw-semibold mb-2">¿Le quitamos algo?</div><div class="d-flex flex-wrap gap-2">
-                            ${sin.map(i => `<label class="pastilla quitar"><input type="checkbox" data-sin="${i.idInsumo}" /><span>Sin ${esc(nombreCorto(i.nombre))}</span></label>`).join('')}
-                        </div></div>` : '') +
+                        // Yesenia Quejada Rojas - Claude — 24/11/2026: "Sin ..." con ícono y agrupado (Pan y base, Carnes, Verduras y frutas...), igual que en Vender.
+                        (sin.length ? `<div class="mb-3"><div class="fw-semibold mb-2">¿Le quitamos algo?</div>
+                            ${gruposSin.map(g => `<div class="grupo-quitar">${gruposSin.length > 1 ? `<div class="subgrupo-titulo">${g.icono} ${esc(g.grupo)}</div>` : ''}<div class="d-flex flex-wrap gap-2">
+                                ${g.items.map(i => `<label class="pastilla quitar"><input type="checkbox" data-sin="${i.idInsumo}" /><span><span class="icono-sin" aria-hidden="true">${IconosInsumo.de(i.nombre).icono}</span>Sin ${esc(nombreCorto(i.nombre))}</span></label>`).join('')}
+                            </div></div>`).join('')}
+                        </div>` : '') +
                         `<label class="form-label small mb-1" for="txtNotaLinea" style="color:var(--suave)">Nota (opcional)</label>
                          <input id="txtNotaLinea" class="form-control" maxlength="150" placeholder="Ej: bien asada, salsas aparte" />`;
                     const l = linea !== null ? carrito[linea] : null;
