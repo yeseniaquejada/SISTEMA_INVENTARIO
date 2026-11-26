@@ -24,14 +24,22 @@
                 <input id="txtBuscar" class="form-control" placeholder="Buscar producto... (F2)" autocomplete="off" aria-label="Buscar producto" />
             </div>
             @* Yesenia Quejada Rojas - Claude — 19/10/2026: aquí se retoman los pedidos guardados sin cobrar; el botón se resalta cuando hay alguno. *@
-            <div class="dropdown">
-                <button class="btn btn-outline-secondary bg-white" data-bs-toggle="dropdown" id="btnEspera" title="Pedidos guardados sin cobrar en este equipo">
-                    <i class="bi bi-pause-circle"></i> Por cobrar <span class="badge rounded-pill text-bg-secondary" id="lblEspera">0</span>
-                </button>
-                <ul class="dropdown-menu" id="listaEspera"></ul>
-            </div>
+            @* Yesenia Quejada Rojas - Claude — 30/10/2026: abre un cuadro grande (modal) con cada pedido y sus productos, en vez de la lista pequeña. *@
+            <button class="btn btn-outline-secondary bg-white" data-bs-toggle="modal" data-bs-target="#modalEspera" id="btnEspera" title="Pedidos guardados sin cobrar">
+                <i class="bi bi-pause-circle"></i> Por cobrar <span class="badge rounded-pill text-bg-secondary" id="lblEspera">0</span>
+            </button>
             <button class="btn btn-outline-secondary bg-white" data-bs-toggle="offcanvas" data-bs-target="#panelComandas" hidden="@(!cfg.MostrarCocina)" title="Pedidos que están en cocina">
                 <i class="bi bi-fire"></i> Comandas <span class="badge rounded-pill text-bg-danger" id="lblComandas">0</span>
+            </button>
+            @* Yesenia Quejada Rojas - Claude — 29/10/2026: pedidos que los clientes hacen desde la carta digital (QR de la mesa).
+               Llegan en espera; se revisan aquí, se pasan al pedido para confirmarlos y se cierran al cobrar. *@
+            @* Yesenia Quejada Rojas - Claude — 30/10/2026: igual que "Por cobrar", abre un cuadro grande con una tarjeta por pedido. *@
+            <button class="btn btn-outline-secondary bg-white" data-bs-toggle="modal" data-bs-target="#modalCarta" id="btnCarta" title="Pedidos hechos desde la carta digital">
+                <i class="bi bi-qr-code"></i> Carta <span class="badge rounded-pill text-bg-secondary" id="lblCarta">0</span>
+            </button>
+            @* Yesenia Quejada Rojas - Claude — 30/10/2026: qué tiene cada mesa en este momento (por cobrar y carta) y la cola sin mesa. *@
+            <button class="btn btn-outline-secondary bg-white" data-bs-toggle="offcanvas" data-bs-target="#panelMesas" id="btnMesas" title="Qué tiene cada mesa ahora">
+                <i class="bi bi-grid-3x3-gap"></i> Mesas <span class="badge rounded-pill text-bg-secondary" id="lblMesas" title="Mesas ocupadas">0</span>
             </button>
         </div>
         <div id="categorias" class="pos-categorias mb-3"></div>
@@ -42,8 +50,13 @@
        y el total y "Cobrar" quedan siempre a la vista. *@
     <aside class="card pedido shadow-sm">
         <div class="card-header bg-white d-flex justify-content-between align-items-center">
-            <h5 class="mb-0"><i class="bi bi-bag"></i> <span id="lblTituloPedido">Pedido</span></h5>
-            <button class="btn btn-sm btn-link text-danger" id="btnVaciar">Vaciar</button>
+            <h5 class="mb-0 text-nowrap"><i class="bi bi-bag"></i> <span id="lblTituloPedido">Pedido</span> <span class="badge rounded-pill text-bg-secondary fs-6" id="lblUnidades" title="Productos en el pedido" hidden></span></h5>
+            @* Yesenia Quejada Rojas - Claude — 30/10/2026: comanda y cuenta "por cobrar" del pedido en pantalla, sin cobrarlo ni salir de aquí. *@
+            <div class="d-flex align-items-center gap-1">
+                <button class="btn btn-sm btn-outline-marca" id="btnComandaPedido" title="Imprimir la comanda para cocina"><i class="bi bi-fire"></i> Comanda</button>
+                <button class="btn btn-sm btn-outline-secondary" id="btnCuentaPedido" title="Imprimir la cuenta con el pago por cobrar (para la mesa o el domiciliario)"><i class="bi bi-receipt"></i> Cuenta</button>
+                <button class="btn btn-sm btn-link text-danger" id="btnVaciar">Vaciar</button>
+            </div>
         </div>
         <div class="card-body pedido-cuerpo">
             <div class="btn-group btn-group-sm segmentado w-100 mb-2" role="group" id="tipoPedido" aria-label="Tipo de pedido">
@@ -56,30 +69,57 @@
                 <div class="col-5"><input id="txtTelefono" class="form-control form-control-sm" placeholder="Teléfono" maxlength="20" inputmode="tel" autocomplete="off" aria-label="Teléfono del cliente" /></div>
                 <div class="col-7"><input id="txtCliente" class="form-control form-control-sm" placeholder="Nombre del cliente" maxlength="100" aria-label="Nombre del cliente" /></div>
                 <div class="col-8"><input id="txtDireccion" class="form-control form-control-sm" placeholder="Dirección y barrio" maxlength="200" aria-label="Dirección" /></div>
-                <div class="col-4"><input id="txtCostoDomicilio" type="number" min="0" step="500" class="form-control form-control-sm" placeholder="Envío" title="Valor del domicilio" aria-label="Valor del domicilio" /></div>
+                <div class="col-4"><input data-moneda id="txtCostoDomicilio" type="number" min="0" step="500" class="form-control form-control-sm" placeholder="Envío" title="Valor del domicilio" aria-label="Valor del domicilio" /></div>
                 <div class="col-12 small text-success" id="lblClienteFrecuente" hidden></div>
             </div>
-            <div id="datosNombre" class="mb-3">
-                <input id="txtNombreMesa" class="form-control form-control-sm" placeholder="Nombre o mesa (opcional)" maxlength="100" aria-label="Nombre o mesa" />
+            @* Yesenia Quejada Rojas - Claude — 30/10/2026: elegir la mesa escribe "Mesa X" en el nombre; así el pedido sale en "Mesas". *@
+            @* Yesenia Quejada Rojas - Claude — 31/10/2026: se quitó el nombre del pedido y el desplegable de mesas. Con "Mesa" salen los botones de las mesas
+               (como los de Mesa / Llevar / Domicilio) y tocar una la elige; "txtNombreMesa" ahora es un campo oculto donde queda "Mesa X". *@
+            <div id="datosNombre" class="mb-3" hidden>
+                <div class="btn-group btn-group-sm segmentado w-100 flex-wrap" role="group" id="mesaPedido" aria-label="Mesa del pedido"></div>
+                <input type="hidden" id="txtNombreMesa" />
             </div>
 
+            <div class="alert alert-info py-1 px-2 small mb-2" id="avisoCarta" hidden><i class="bi bi-qr-code"></i> <span id="lblAvisoCarta"></span></div>
             <div class="small text-muted mb-2" id="resumenPedido" aria-live="polite"></div>
             <div class="lineas" id="lineas"></div>
         </div>
         <div class="card-footer pedido-pie">
-            <div class="d-flex justify-content-between small" id="filaSubtotal" hidden><span>Subtotal</span><span id="lblSubtotal">$ 0</span></div>
-            <div class="d-flex justify-content-between small" id="filaEnvio" hidden><span>Domicilio</span><span id="lblEnvio">$ 0</span></div>
+            @* Yesenia Quejada Rojas - Claude — 30/10/2026: subtotal y domicilio en una sola línea para que el pie ocupe menos. *@
+            <div class="d-flex justify-content-between small text-muted"><span id="filaSubtotal" hidden>Subtotal <span id="lblSubtotal">$ 0</span></span>
+                <span id="filaEnvio" hidden>Domicilio <span id="lblEnvio">$ 0</span></span></div>
             <div class="d-flex justify-content-between fs-5 fw-bold"><span>Total</span><span class="text-marca text-nowrap" id="lblTotal">$ 0</span></div>
+            @* Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque del pedido. Se sugieren según los productos (los que llevan "Caja de empaque" en la receta) y se ajustan con − / +;
+               al cerrar la caja se cuentan como "cajas gastadas". *@
+            <div class="d-flex align-items-center justify-content-between small my-1" id="filaCajas">
+                <span><i class="bi bi-box-seam"></i> ¿Va con caja? <small class="text-muted" id="lblCajasNota"></small>
+                    <button type="button" class="btn btn-link btn-sm p-0 align-baseline" id="btnCajasAuto" hidden title="Volver a contar las cajas según los productos">restablecer</button></span>
+                <span class="d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="btnCajasMenos" aria-label="Quitar una caja" title="Quitar una caja"><i class="bi bi-dash-lg"></i></button>
+                    <strong id="lblCajas" class="text-center" style="min-width:1.5rem" aria-live="polite" title="Cajas del pedido">0</strong>
+                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" id="btnCajasMas" aria-label="Agregar una caja" title="Agregar una caja"><i class="bi bi-plus-lg"></i></button>
+                </span>
+            </div>
 
             <div class="btn-group btn-group-sm segmentado w-100 my-2" role="group" id="metodoPago" aria-label="Forma de pago">
                 <button type="button" class="btn btn-outline-secondary active" data-valor="EFECTIVO"><i class="bi bi-cash"></i> Efectivo</button>
                 <button type="button" class="btn btn-outline-secondary" data-valor="TARJETA"><i class="bi bi-credit-card"></i> Tarjeta</button>
                 <button type="button" class="btn btn-outline-secondary" data-valor="TRANSFERENCIA"><i class="bi bi-phone"></i> Transf.</button>
+                @* Yesenia Quejada Rojas - Claude — 30/10/2026: el cliente ya pagó en la app de Rappi. *@
+                <button type="button" class="btn btn-outline-secondary" data-valor="RAPPI"><i class="bi bi-bag-heart"></i> Rappi</button>
             </div>
+            @* Yesenia Quejada Rojas - Claude — 13/11/2026: pago mixto. Con "Efectivo" se puede escribir la parte que pagó por transferencia; el efectivo
+               cubre el resto y el cambio se calcula sobre eso. Más espacio entre los campos (antes quedaba muy junto). *@
             <div id="datosEfectivo" class="row g-2 align-items-end mb-2">
-                <div class="col-6"><label for="txtRecibido" class="small text-muted">Dinero recibido</label><input id="txtRecibido" type="number" min="0" step="1000" class="form-control form-control-sm" placeholder="Valor exacto" /></div>
-                <div class="col-6 text-end pb-1">Cambio: <strong id="lblCambio" class="text-nowrap">$ 0</strong></div>
-                <div class="col-12 d-flex gap-1 flex-wrap" id="billetes"></div>
+                <div class="col-6"><label class="form-label small text-muted mb-1" for="txtRecibido">Efectivo recibido</label>
+                    <input data-moneda id="txtRecibido" type="number" min="0" step="1000" class="form-control form-control-sm" placeholder="$ 0" /></div>
+                <div class="col-6"><label class="form-label small text-muted mb-1" for="txtTransferencia">Parte en transferencia</label>
+                    <input data-moneda id="txtTransferencia" type="number" min="0" step="1000" class="form-control form-control-sm" placeholder="$ 0 (opcional)" /></div>
+                <div class="col-12 d-flex justify-content-between small pt-1">
+                    <span id="lblPorEfectivo" class="text-muted"></span>
+                    <span>Cambio: <strong id="lblCambio" class="text-nowrap">$ 0</strong></span>
+                </div>
+                <div class="col-12 d-flex gap-2 flex-wrap" id="billetes"></div>
             </div>
 
             <div class="d-flex gap-2">
@@ -99,8 +139,9 @@
         <div class="modal-body">
             <div id="modificadores"></div>
             <div id="seccionQuitar" class="mb-3" hidden>
-                <div class="fw-semibold mb-2">¿Le quitamos algo? <small class="text-muted fw-normal">Toque lo que el cliente no quiere</small></div>
-                <div class="d-flex flex-wrap gap-2" id="quitar"></div>
+                @* Yesenia Quejada Rojas - Claude — 01/11/2026: título del grupo con la misma letra grande que las demás opciones; cada botón dice "Sin pepino", "Sin cebolla"... *@
+                <div class="grupo-titulo fw-semibold mb-2">¿Le quitamos algo? <small class="text-muted fw-normal">toque lo que el cliente no quiere</small></div>
+                <div id="quitar"></div>
             </div>
             <div class="resumen-opciones small p-2 rounded mb-2" id="resumenOpciones" aria-live="polite" hidden></div>
             <label class="form-label mt-1" for="txtNotas">Notas para cocina <small class="text-muted">(opcional)</small></label>
@@ -127,15 +168,60 @@
             <p class="text-muted small" id="lblListoCambio"></p>
             @* Yesenia Quejada Rojas - Claude — 19/10/2026: se quitó "Ver comprobante"; con imprimir ticket basta. *@
             <div class="d-grid gap-2">
+                @* Yesenia Quejada Rojas - Claude — 30/10/2026: ticket y comanda se imprimen aquí mismo (sin abrir otra pestaña) y el
+                   cuadro sigue abierto para imprimir el otro. *@
                 <a class="btn btn-marca" id="lnkTicket" target="_blank"><i class="bi bi-printer"></i> Imprimir ticket</a>
-                <a class="btn btn-outline-secondary" id="lnkComanda" hidden="@(!cfg.MostrarCocina)" target="_blank"><i class="bi bi-fire"></i> Comanda para cocina</a>
+                @* Yesenia Quejada Rojas - Claude — 30/10/2026: la comanda se imprime al cerrar el pedido aunque no se use la pantalla de cocina. *@
+                <a class="btn btn-outline-marca" id="lnkComanda" target="_blank"><i class="bi bi-fire"></i> Imprimir comanda para cocina</a>
+                <a class="btn btn-outline-secondary" id="lnkPdf" target="_blank"><i class="bi bi-file-earmark-arrow-down"></i> Descargar factura (PDF)</a>
                 <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Nueva venta</button>
+                <a class="small" asp-controller="Venta" asp-action="Historial"><i class="bi bi-receipt"></i> Ver todas las facturas</a>
             </div>
         </div>
     </div></div>
 </div>
 
 <!-- Comandas en proceso -->
+<!-- Pedidos por cobrar -->
+<div class="modal fade" id="modalEspera" tabindex="-1" aria-labelledby="tituloEspera">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="tituloEspera"><i class="bi bi-pause-circle"></i> Pedidos por cobrar</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+            <div id="listaEspera" class="espera-grid"></div>
+        </div>
+    </div></div>
+</div>
+
+<!-- Pedidos de la carta digital -->
+<div class="modal fade" id="modalCarta" tabindex="-1" aria-labelledby="tituloCartaModal">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable"><div class="modal-content">
+        <div class="modal-header">
+            <h5 class="modal-title" id="tituloCartaModal"><i class="bi bi-qr-code"></i> Pedidos de la carta digital</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+        <div class="modal-body">
+            <div id="listaCarta" class="espera-grid"></div>
+        </div>
+    </div></div>
+</div>
+
+<!-- Mesas en este momento -->
+<div class="offcanvas offcanvas-end" tabindex="-1" id="panelMesas" style="width:min(560px, 100vw)" aria-labelledby="tituloMesas">
+    <div class="offcanvas-header border-bottom">
+        <h5 class="offcanvas-title" id="tituloMesas"><i class="bi bi-grid-3x3-gap"></i> Mesas ahora</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+    </div>
+    <div class="offcanvas-body">
+        <p class="small text-muted mb-2">Pedidos por cobrar y de la carta en cada mesa. Toque uno para abrirlo en Vender.</p>
+        <div id="gridMesas" class="mesas-ahora"></div>
+        <h6 class="mt-3 mb-2"><i class="bi bi-list-ol"></i> Cola sin mesa <small class="text-muted fw-normal">(llevar, domicilio y sin mesa; el más antiguo primero)</small></h6>
+        <div id="colaSinMesa" class="d-grid gap-2"></div>
+    </div>
+</div>
+
 <div class="offcanvas offcanvas-end" tabindex="-1" id="panelComandas" style="width:420px">
     <div class="offcanvas-header border-bottom">
         <h5 class="offcanvas-title"><i class="bi bi-fire text-danger"></i> Comandas en proceso</h5>
@@ -148,4 +234,4 @@
     </div>
 </div>
 
-@section Scripts { <script src="~/js/venta.js" asp-append-version="true"></script> }
+@section Scripts { <script src="~/js/iconos-insumo.js" asp-append-version="true"></script><script src="~/js/venta.js" asp-append-version="true"></script> }

@@ -3,3 +3,9 @@ obj/
 .vs/
 *.user
 CapaPresentacion/wwwroot/uploads/
+CapaPresentacion/App_Data/
+# Publishing tools output and the local config with server data (12/11/2026)
+publicado/
+publicado-zip/
+BaseDatos/Resultados/
+herramientas/publicacion.config.json

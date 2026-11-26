@@ -18,13 +18,19 @@
 </div>
 <p class="d-none d-print-block" id="lblPeriodo"></p>
 
+@* Yesenia Quejada Rojas - Claude — 30/10/2026: h-100 en las tarjetas para que todas tengan el mismo alto. *@
 <div class="row g-3 mb-3">
-    <div class="col-6 col-xl-2"><div class="card kpi kpi-principal shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-cash-coin"></i></span><div class="small text-muted">Ventas</div><div class="valor monto" id="kVentas">-</div></div></div></div>
-    <div class="col-6 col-xl-2"><div class="card kpi shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-receipt"></i></span><div class="small text-muted">Pedidos</div><div class="valor" id="kPedidos">-</div></div></div></div>
-    <div class="col-6 col-xl-2"><div class="card kpi shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-person-check"></i></span><div class="small text-muted">Gasto promedio por pedido</div><div class="valor monto" id="kTicket">-</div></div></div></div>
-    <div class="col-6 col-xl-2"><div class="card kpi alerta shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-basket"></i></span><div class="small text-muted">Costo de lo vendido</div><div class="valor monto" id="kCosto">-</div></div></div></div>
-    <div class="col-6 col-xl-2"><div class="card kpi ok shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-graph-up-arrow"></i></span><div class="small text-muted">Ganancia</div><div class="valor monto" id="kGanancia">-</div><div class="small text-muted" id="kMargen"></div></div></div></div>
-    <div class="col-6 col-xl-2"><div class="card kpi alerta shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-trash3"></i></span><div class="small text-muted">Pérdidas por daño</div><div class="valor monto" id="kMermas">-</div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-3"><div class="card h-100 kpi kpi-principal shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-cash-coin"></i></span><div class="small text-muted">Ventas</div><div class="valor monto" id="kVentas">-</div></div></div></div>
+    @* Yesenia Quejada Rojas - Claude — 30/10/2026: cuánto entró en efectivo y cuánto por transferencia en el periodo. *@
+    <div class="col-6 col-md-4 col-xl-3"><div class="card h-100 kpi ok shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-cash"></i></span><div class="small text-muted">Efectivo</div><div class="valor monto" id="kEfectivo">-</div><div class="small text-muted" id="kEfectivoN"></div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-3"><div class="card h-100 kpi shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-phone"></i></span><div class="small text-muted">Transferencias</div><div class="valor monto" id="kTransferencia">-</div><div class="small text-muted" id="kTransferenciaN"></div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-3"><div class="card h-100 kpi shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-receipt"></i></span><div class="small text-muted">Pedidos</div><div class="valor" id="kPedidos">-</div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-3"><div class="card h-100 kpi shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-person-check"></i></span><div class="small text-muted">Gasto promedio por pedido</div><div class="valor monto" id="kTicket">-</div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-3"><div class="card h-100 kpi alerta shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-basket"></i></span><div class="small text-muted">Costo de lo vendido</div><div class="valor monto" id="kCosto">-</div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-3"><div class="card h-100 kpi ok shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-graph-up-arrow"></i></span><div class="small text-muted">Ganancia</div><div class="valor monto" id="kGanancia">-</div><div class="small text-muted" id="kMargen"></div></div></div></div>
+    <div class="col-6 col-md-4 col-xl-3"><div class="card h-100 kpi alerta shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-trash3"></i></span><div class="small text-muted">Pérdidas por daño</div><div class="valor monto" id="kMermas">-</div></div></div></div>
+    @* Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque gastadas en el periodo (cantidad y lo que valen). Es informativo: no resta de la ganancia. *@
+    <div class="col-6 col-md-4 col-xl-3"><div class="card h-100 kpi shadow-sm"><div class="card-body"><span class="kpi-icon"><i class="bi bi-box-seam"></i></span><div class="small text-muted">Cajas gastadas</div><div class="valor" id="kCajas">-</div><div class="small text-muted" id="kCajasValor"></div></div></div></div>
 </div>
 
 <div class="row g-3">
@@ -81,6 +87,13 @@
             $('kGanancia').textContent = moneda(r.ganancia);
             $('kMargen').textContent = r.ventasProductos > 0 ? `Queda el ${Math.round(r.ganancia / r.ventasProductos * 100)} % de lo vendido` : '';
             $('kMermas').textContent = moneda(r.mermas);
+            $('kCajas').textContent = r.cajas;
+            $('kCajasValor').textContent = r.cajas ? `${r.cajas} × ${moneda(r.costoCaja)} = ${moneda(r.totalCajas)}` : '';
+            const porMedio = m => r.porMetodo.find(p => p.etiqueta === m) || { total: 0, cantidad: 0 };
+            $('kEfectivo').textContent = moneda(porMedio('EFECTIVO').total);
+            $('kTransferencia').textContent = moneda(porMedio('TRANSFERENCIA').total);
+            $('kEfectivoN').textContent = r.ventas > 0 ? `${Math.round(porMedio('EFECTIVO').total / r.ventas * 100)} % de las ventas` : '';
+            $('kTransferenciaN').textContent = r.ventas > 0 ? `${Math.round(porMedio('TRANSFERENCIA').total / r.ventas * 100)} % de las ventas` : '';
 
             const mejor = r.porDia.reduce((m, p) => !m || p.total > m.total ? p : m, null);
             $('lblMejorDia').textContent = mejor ? `Mejor día: ${mejor.etiqueta} (${moneda(mejor.total)})` : '';
@@ -93,7 +106,7 @@
             });
             grafica('grMetodos', {
                 type: 'doughnut',
-                data: { labels: r.porMetodo.map(p => etiquetaPago[p.etiqueta] ?? p.etiqueta), datasets: [{ data: r.porMetodo.map(p => p.total), backgroundColor: [PALETA[2], PALETA[3], PALETA[1]], borderWidth: 0 }] },
+                data: { labels: r.porMetodo.map(p => etiquetaPago[p.etiqueta] ?? p.etiqueta), datasets: [{ data: r.porMetodo.map(p => p.total), backgroundColor: [PALETA[2], PALETA[3], PALETA[1], PALETA[4]], borderWidth: 0 }] },
                 options: { cutout: '62%', plugins: { legend: { position: 'bottom' }, tooltip: { callbacks: { label: c => `${c.label}: ${moneda(c.raw)}` } } } }
             });
             grafica('grTop', barrasHorizontales(r.topProductos, PALETA, 'Sin ventas en el periodo'));

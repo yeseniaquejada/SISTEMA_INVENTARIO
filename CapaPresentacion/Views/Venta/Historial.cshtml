@@ -1,24 +1,39 @@
 @{
-    ViewData["Title"] = "Historial de ventas";
+    ViewData["Title"] = "Facturas y ventas";
 }
+@* Yesenia Quejada Rojas - Claude — 30/10/2026: aquí se ven, imprimen y descargan en PDF las facturas (tickets) de cada venta. *@
 <div class="card">
     <div class="card-header bg-white no-imprimir">
-        <div class="row g-2 align-items-end">
-            <div class="col-sm-2"><label class="form-label small mb-0">Desde</label><input type="date" id="txtInicio" class="form-control form-control-sm" /></div>
-            <div class="col-sm-2"><label class="form-label small mb-0">Hasta</label><input type="date" id="txtFin" class="form-control form-control-sm" /></div>
-            <div class="col-sm-2"><label class="form-label small mb-0">Tipo</label>
+        @* Yesenia Quejada Rojas - Claude — 30/10/2026: todos los filtros en una sola línea. "Periodo" reemplaza los botones de atajo
+           ("Todas las ventas" muestra todo lo registrado en la sede) y "Pago" filtra por medio, incluido Rappi sin confirmar. *@
+        <div class="filtros-linea">
+            <div><label class="form-label small mb-0" for="cboPeriodo">Periodo</label>
+                <select id="cboPeriodo" class="form-select form-select-sm">
+                    <option value="hoy">Hoy</option><option value="semana">Últimos 7 días</option><option value="mes">Este mes</option>
+                    <option value="todas">Todas las ventas</option><option value="fechas">Elegir fechas</option>
+                </select></div>
+            <div><label class="form-label small mb-0" for="txtInicio">Desde</label><input type="date" id="txtInicio" class="form-control form-control-sm" /></div>
+            <div><label class="form-label small mb-0" for="txtFin">Hasta</label><input type="date" id="txtFin" class="form-control form-control-sm" /></div>
+            <div><label class="form-label small mb-0" for="cboTipo">Tipo</label>
                 <select id="cboTipo" class="form-select form-select-sm"><option value="">Todos</option><option value="MESA">En mesa</option><option value="LLEVAR">Para llevar</option><option value="DOMICILIO">Domicilio</option></select></div>
-            <div class="col-sm-2"><button class="btn btn-sm btn-marca w-100" id="btnBuscar"><i class="bi bi-search"></i> Buscar</button></div>
-            <div class="col-sm-4 text-sm-end">
-                <button class="btn btn-sm btn-outline-success" id="btnExcel"><i class="bi bi-file-earmark-excel"></i> Excel</button>
-                <button class="btn btn-sm btn-outline-secondary" onclick="window.print()"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
+            <div><label class="form-label small mb-0" for="cboPago">Pago</label>
+                <select id="cboPago" class="form-select form-select-sm">
+                    <option value="">Todos</option><option value="EFECTIVO">Efectivo</option><option value="TARJETA">Tarjeta</option>
+                    <option value="TRANSFERENCIA">Transferencia</option><option value="RAPPI">Rappi</option>
+                    <option value="SIN_CONFIRMAR">Rappi sin confirmar</option>
+                </select></div>
+            <div class="flex-grow-1"><label class="form-label small mb-0" for="txtFiltro">N° o cliente</label><input type="search" id="txtFiltro" class="form-control form-control-sm" placeholder="Ej: 25 o Ana" /></div>
+            <div class="d-flex gap-1">
+                <button class="btn btn-sm btn-marca" id="btnBuscar"><i class="bi bi-search"></i> Buscar</button>
+                <button class="btn btn-sm btn-outline-success" id="btnExcel" title="Descargar en Excel"><i class="bi bi-file-earmark-excel"></i> Excel</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="window.print()" title="Guardar la lista en PDF"><i class="bi bi-file-earmark-pdf"></i> PDF</button>
             </div>
         </div>
     </div>
     <div class="px-3 pt-2 fw-bold" id="lblTotal"></div>
     <div class="card-body p-0 table-responsive">
         <table class="table table-sm table-hover mb-0">
-            <thead class="table-light"><tr><th>N°</th><th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Detalle</th><th>Pago</th><th>Usuario</th><th class="text-end">Total</th><th class="no-imprimir"></th></tr></thead>
+            <thead class="table-light"><tr><th>N°</th><th>Fecha</th><th>Tipo</th><th>Cliente</th><th>Detalle</th><th>Pago</th>@* Yesenia Quejada Rojas - Claude — 31/10/2026: cajas de empaque de cada pedido. *@<th class="text-center" title="Cajas de empaque del pedido">Cajas</th><th>Usuario</th><th class="text-end">Total</th><th class="no-imprimir"></th></tr></thead>
             <tbody id="tablaVentas"></tbody>
         </table>
     </div>
@@ -28,28 +43,73 @@
 <script>
     (function () {
         const inicio = document.getElementById('txtInicio'), fin = document.getElementById('txtFin'), tipo = document.getElementById('cboTipo');
-        inicio.value = fin.value = hoy();
+        const periodo = document.getElementById('cboPeriodo'), pago = document.getElementById('cboPago');
+        inicio.value = inicioDia(); fin.value = hoy();   // Yesenia Quejada Rojas - Claude — 31/10/2026: "hoy" = desde que se abrió la caja que sigue abierta
+        // Yesenia Quejada Rojas - Claude — 30/10/2026: en Rappi, el chulito marca que el pago ya entró a la cuenta.
+        const confirmable = v => !v.anulada && v.metodoPago === 'RAPPI';
+        const celdaPago = v => `${esc(etiquetaPago[v.metodoPago] || v.metodoPago)}${confirmable(v) ? `
+            <div class="form-check form-check-inline m-0 ms-1 no-imprimir" title="${v.pagoConfirmado ? 'Pago confirmado el ' + esc(v.fechaPagoConfirmado) : 'Marque cuando el pago entre a la cuenta'}">
+                <input class="form-check-input" type="checkbox" id="pago${v.idVenta}" data-pago="${v.idVenta}" ${v.pagoConfirmado ? 'checked' : ''} />
+                <label class="form-check-label small ${v.pagoConfirmado ? 'text-success' : 'text-warning'}" for="pago${v.idVenta}">${v.pagoConfirmado ? 'Entró' : 'Por confirmar'}</label>
+            </div>` : ''}`;
         async function buscar() {
-            const lista = (await api.get(`/Venta/Listar?inicio=${inicio.value}&fin=${fin.value}`)).filter(v => !tipo.value || v.tipoPedido === tipo.value);
+            const f = document.getElementById('txtFiltro').value.trim().toLowerCase();
+            const lista = (await api.get(`/Venta/Listar?inicio=${inicio.value}&fin=${fin.value}`)).filter(v => !tipo.value || v.tipoPedido === tipo.value)
+                .filter(v => !pago.value || (pago.value === 'SIN_CONFIRMAR' ? confirmable(v) && !v.pagoConfirmado : v.metodoPago === pago.value))
+                .filter(v => !f || String(v.idVenta) === f.replace(/^n°s*/, '') || (v.clienteNombre || '').toLowerCase().includes(f));
             renderTabla(document.getElementById('tablaVentas'), lista, v => `<tr class="${v.anulada ? 'text-decoration-line-through text-muted' : ''}">
                 <td>${v.idVenta}</td><td class="text-nowrap">${esc(v.fecha)}</td><td>${esc(etiquetaPedido[v.tipoPedido])}</td>
                 <td>${esc(v.clienteNombre)}</td><td>${esc(v.detalle)}${v.anulada ? `<br><span class="badge text-bg-danger">Anulada</span> <small>${esc(v.motivoAnulacion)}</small>` : ''}</td>
-                <td>${esc(etiquetaPago[v.metodoPago])}</td>
+                <td class="text-nowrap">${celdaPago(v)}</td>
+                <td class="text-center">${v.cajas ? v.cajas : '<span class="text-muted">–</span>'}</td>
                 <td>${esc(v.usuario)}</td><td class="text-end text-nowrap">${moneda(v.total)}</td>
                 <td class="no-imprimir text-nowrap">
-                    <a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${v.idVenta}" target="_blank" title="Ticket"><i class="bi bi-printer"></i></a>
+                    <a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${v.idVenta}?vista=1" target="_blank" title="Ver factura N° ${v.idVenta}"><i class="bi bi-eye"></i></a>
+                    <a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${v.idVenta}" target="_blank" title="Imprimir factura N° ${v.idVenta}"><i class="bi bi-printer"></i></a>
+                    ${/* Yesenia Quejada Rojas - Claude — 30/10/2026: reimprimir la comanda de cocina desde las facturas. */ v.anulada ? '' : `<a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${v.idVenta}?comanda=true" target="_blank" title="Imprimir comanda N° ${v.idVenta}" aria-label="Imprimir comanda N° ${v.idVenta}"><i class="bi bi-fire"></i></a>`}
+                    <a class="btn btn-sm btn-outline-secondary" href="/Venta/Ticket/${v.idVenta}?pdf=1" target="_blank" title="Descargar factura N° ${v.idVenta} en PDF"><i class="bi bi-file-earmark-arrow-down"></i></a>
                     ${v.segundosEdicion > 0 ? `<a class="btn btn-sm btn-outline-primary" href="/Venta?editar=${v.idVenta}" title="Editar (quedan ${mmss(v.segundosEdicion)})"><i class="bi bi-pencil"></i></a>` : ''}
                     ${!v.anulada && v.cajaAbierta && (v.segundosEdicion > 0 || APP.esAdmin) ? `<button class="btn btn-sm btn-outline-danger" data-anular="${v.idVenta}" title="Anular"><i class="bi bi-x-circle"></i></button>` : ''}
-                </td></tr>`, 9);
+                </td></tr>`, 10);
             const validas = lista.filter(v => !v.anulada);
+            const pendientes = validas.filter(v => confirmable(v) && !v.pagoConfirmado);
+            // Yesenia Quejada Rojas - Claude — 31/10/2026: conteo de cajas de empaque de las ventas válidas del periodo.
+            const cajas = validas.reduce((s, v) => s + (v.cajas || 0), 0);
             document.getElementById('lblTotal').textContent =
-                `${validas.length} ventas · ${moneda(validas.reduce((s, v) => s + v.total, 0))} (${inicio.value} a ${fin.value})` +
-                (validas.length < lista.length ? ` · ${lista.length - validas.length} anuladas` : '');
+                `${validas.length} ventas · ${moneda(validas.reduce((s, v) => s + v.total, 0))} (${inicio.value === TODAS ? 'todas' : inicio.value + ' a ' + fin.value})` +
+                (cajas ? ` · ${cajas} ${cajas === 1 ? 'caja' : 'cajas'}` : '') +
+                (validas.length < lista.length ? ` · ${lista.length - validas.length} anuladas` : '') +
+                (pendientes.length ? ` · ${pendientes.length} pagos por confirmar (${moneda(pendientes.reduce((s, v) => s + v.total, 0))})` : '');
         }
+        // Desde 2020 cubre todas las ventas del sistema. Al cambiar las fechas a mano el periodo pasa a "Elegir fechas".
+        const TODAS = '2020-01-01', fecha = d => d.toLocaleDateString('en-CA');
+        periodo.addEventListener('change', () => {
+            if (periodo.value === 'fechas') { inicio.focus(); return; }
+            const d = new Date(hoy() + 'T12:00:00');   // Yesenia Quejada Rojas - Claude — 31/10/2026: semana y mes se cuentan desde el "hoy" de la base de datos
+            fin.value = hoy();
+            inicio.value = { hoy: inicioDia(), semana: fecha(new Date(d.getFullYear(), d.getMonth(), d.getDate() - 6)),
+                mes: fecha(new Date(d.getFullYear(), d.getMonth(), 1)), todas: TODAS }[periodo.value];
+            buscar().catch(errorAlerta);
+        });
+        [inicio, fin].forEach(x => x.addEventListener('change', () => { periodo.value = 'fechas'; }));
+        [tipo, pago].forEach(x => x.addEventListener('change', () => buscar().catch(errorAlerta)));
         document.getElementById('btnBuscar').addEventListener('click', () => buscar().catch(errorAlerta));
+        document.getElementById('txtFiltro').addEventListener('keydown', ev => { if (ev.key === 'Enter') buscar().catch(errorAlerta); });
         document.getElementById('tablaVentas').addEventListener('click', async ev => {
             const b = ev.target.closest('[data-anular]');
             if (b && await anularPedido(b.dataset.anular)) buscar().catch(errorAlerta);
+        });
+        document.getElementById('tablaVentas').addEventListener('change', async ev => {
+            const c = ev.target.closest('[data-pago]');
+            if (!c) return;
+            c.disabled = true;
+            try {
+                const r = await api.post(`/Venta/ConfirmarPago?id=${c.dataset.pago}&confirmado=${c.checked}`);
+                if (!r.resultado) { c.checked = !c.checked; alerta(r.mensaje, 'warning'); }
+                else alerta(c.checked ? `Pago de la venta N° ${c.dataset.pago} marcado como recibido` : `Venta N° ${c.dataset.pago}: pago otra vez por confirmar`, 'success');
+                buscar().catch(errorAlerta);
+            } catch (e) { c.checked = !c.checked; errorAlerta(e); }
+            finally { c.disabled = false; }
         });
         document.getElementById('btnExcel').addEventListener('click', () => location.href = `/Venta/Exportar?inicio=${inicio.value}&fin=${fin.value}`);
         buscar().catch(errorAlerta);

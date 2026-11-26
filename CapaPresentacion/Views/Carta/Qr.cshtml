@@ -1,0 +1,89 @@
+@using CapaPresentacion.Infraestructura
+@inject Microsoft.Extensions.Configuration.IConfiguration Config
+@{
+    Layout = null;
+    var cfg = new CapaNegocio.CN_Configuracion().Obtener();
+    // Yesenia Quejada Rojas - Claude — 31/10/2026: QR general de la carta (sin mesa). El mesero lo muestra desde su celular o tablet;
+    // el cliente elige su mesa al enviar el pedido. Igual que los QR de las mesas, sale siempre de Carta:UrlPublica
+    // (si no está, de la dirección actual) para que no dependa de cómo se abrió esta página.
+    var urlPublica = (Config["Carta:UrlPublica"] ?? "").Trim().TrimEnd('/');
+    if (urlPublica == "") urlPublica = $"{Context.Request.Scheme}://{Context.Request.Host}";
+    var urlCarta = urlPublica + "/Carta";
+}
+@* Yesenia Quejada Rojas - Claude — 31/10/2026: página para mostrar el QR general en grande. Es pública como la carta (solo contiene el enlace
+   de la carta, nada del sistema), así que se abre sin iniciar sesión desde cualquier celular. *@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <title>QR de la carta - @cfg.NombreNegocio</title>
+    @if (!string.IsNullOrEmpty(cfg.LogoUrl)) { <link rel="icon" href="@cfg.LogoUrl" /> }
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
+    <style>
+        :root { --marca: @cfg.ColorPrimario; --marca-texto: @Colores.TextoSobre(cfg.ColorPrimario); }
+        body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: #0d0d10; color: #f2f2f5;
+               font-family: 'Segoe UI', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+        .pagina { width: 100%; max-width: 560px; padding: 1.2rem 1rem 1.6rem; text-align: center; }
+        .negocio { display: flex; align-items: center; justify-content: center; gap: .75rem; margin-bottom: 1.1rem; }
+        .negocio img { height: 56px; width: 56px; object-fit: contain; border-radius: 12px; background: #fff; padding: 3px; }
+        .negocio strong { font-size: 1.4rem; font-weight: 800; letter-spacing: -.01em; }
+        .marco { position: relative; display: inline-block; background: #fff; padding: 14px; border-radius: 20px; box-shadow: 0 0 0 4px var(--marca); }
+        .marco canvas, .marco img:not(.centro) { display: block; }
+        .centro { position: absolute; top: 50%; left: 50%; width: 22%; transform: translate(-50%, -50%); background: #fff; padding: 4px; border-radius: 10px; }
+        h1 { font-size: 1.55rem; font-weight: 800; margin: 1.2rem 0 .35rem; }
+        .pasos { color: #c9c9d3; font-size: 1rem; margin: 0 auto; max-width: 30rem; }
+        .url { display: inline-block; margin-top: .8rem; padding: .25rem .9rem; border-radius: 999px; background: var(--marca); color: var(--marca-texto); font-weight: 700; word-break: break-all; }
+        .acciones { display: flex; flex-wrap: wrap; justify-content: center; gap: .6rem; margin-top: 1.4rem; }
+        .btn-marca { background: var(--marca); color: var(--marca-texto); border: 0; }
+        .btn-marca:hover, .btn-marca:focus-visible { background: var(--marca); color: var(--marca-texto); filter: brightness(1.1); }
+        button:focus-visible, a:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+        @@media print {
+            body { background: #fff; color: #000; display: block; }
+            .pagina { max-width: none; }
+            .acciones { display: none; }
+            .pasos { color: #333; }
+            .marco { box-shadow: 0 0 0 3px #000; }
+            .url { background: none; color: #000; border: 2px solid #000; }
+        }
+    </style>
+</head>
+<body>
+    <main class="pagina">
+        <div class="negocio">
+            @if (!string.IsNullOrEmpty(cfg.LogoUrl)) { <img src="@cfg.LogoUrl" alt="Logo de @cfg.NombreNegocio" /> }
+            <strong>@cfg.NombreNegocio</strong>
+        </div>
+        <div class="marco">
+            <div id="qr" role="img" aria-label="Código QR de la carta de @cfg.NombreNegocio"></div>
+            @if (!string.IsNullOrEmpty(cfg.LogoUrl)) { <img class="centro" src="@cfg.LogoUrl" alt="" /> }
+        </div>
+        <h1>Escanea y pide desde tu celular</h1>
+        <p class="pasos">Apunta la cámara al código, elige lo que quieres y, al enviar el pedido, escoge tu mesa.</p>
+        <span class="url">@urlCarta</span>
+        <div class="acciones">
+            <button type="button" class="btn btn-marca" id="btnCopiar"><i class="bi bi-clipboard"></i> Copiar enlace</button>
+            <button type="button" class="btn btn-outline-light" id="btnImprimir"><i class="bi bi-printer"></i> Imprimir</button>
+            <button type="button" class="btn btn-outline-light" id="btnCerrar"><i class="bi bi-x-lg"></i> Cerrar</button>
+        </div>
+    </main>
+    <script src="~/lib/qrcodejs/qrcode.min.js"></script>
+    <script>
+    (function () {
+        const url = @Json.Serialize(urlCarta);
+        // El QR ocupa lo que cabe en la pantalla (más grande = se lee desde más lejos), sin pasar de 420 px.
+        const tam = Math.max(200, Math.min(420, Math.floor(Math.min(window.innerWidth - 80, window.innerHeight * 0.52))));
+        new QRCode(document.getElementById('qr'), { text: url, width: tam, height: tam, correctLevel: QRCode.CorrectLevel.H });
+        document.getElementById('btnCopiar').addEventListener('click', async ev => {
+            const b = ev.currentTarget;
+            try { await navigator.clipboard.writeText(url); b.innerHTML = '<i class="bi bi-check2"></i> Enlace copiado'; setTimeout(() => { b.innerHTML = '<i class="bi bi-clipboard"></i> Copiar enlace'; }, 2000); }
+            catch { prompt('Copie el enlace de la carta:', url); }
+        });
+        document.getElementById('btnImprimir').addEventListener('click', () => window.print());
+        document.getElementById('btnCerrar').addEventListener('click', () => { if (history.length > 1) history.back(); else window.close(); });
+    })();
+    </script>
+</body>
+</html>

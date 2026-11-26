@@ -1,0 +1,47 @@
+@* Yesenia Quejada Rojas - Claude — 31/10/2026: campana de pedidos de la carta digital. Va en el menú de todas las páginas (menos para el domiciliario):
+   el número rojo son los pedidos que llegaron y nadie ha confirmado, y al abrirla se ven en el orden en que llegaron (el primero es el que más
+   lleva esperando), con la mesa, la hora, lo que pidieron y el total. Se actualiza sola cada 15 segundos; el sonido es opcional.
+   La lógica está en wwwroot/js/campana.js y los datos salen de /Venta/PedidosCarta (los mismos de la pantalla Vender). *@
+<div class="d-flex align-items-center gap-2 campana-grupo" id="campanaGrupo">
+    <a class="btn btn-sm btn-outline-light" href="/Carta/Qr" target="_blank" rel="noopener" title="Mostrar al cliente el QR general de la carta" aria-label="Mostrar al cliente el QR general de la carta"><i class="bi bi-qr-code"></i></a>
+    <div class="dropdown" id="campana">
+        <button class="btn btn-sm btn-outline-light position-relative" type="button" id="btnCampana" data-bs-toggle="dropdown" data-bs-display="static" data-bs-auto-close="outside" aria-expanded="false" aria-label="Pedidos de la carta digital" title="Pedidos de la carta digital">
+            <i class="bi bi-bell" id="campanaIcono" aria-hidden="true"></i>
+            <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill text-bg-danger" id="campanaCuenta" hidden>0</span>
+        </button>
+        <div class="dropdown-menu dropdown-menu-end p-0 campana-menu" aria-labelledby="btnCampana">
+            <div class="d-flex align-items-center justify-content-between gap-2 px-3 py-2 border-bottom">
+                <strong><i class="bi bi-qr-code"></i> Pedidos de la carta</strong>
+                <button type="button" class="btn btn-sm btn-link p-0 text-nowrap" id="campanaSonido" aria-pressed="false" title="Activar o quitar el sonido cuando llega un pedido"><i class="bi bi-volume-mute"></i> Sonido</button>
+            </div>
+            @* Yesenia Quejada Rojas - Claude — 13/11/2026: permiso para el aviso del navegador (llega aunque estén en otra pestaña). Solo sale mientras no se haya respondido. *@
+            <button type="button" class="btn btn-sm btn-outline-secondary mx-3 mt-2 w-auto" id="campanaAvisos" hidden><i class="bi bi-app-indicator"></i> Avisarme aunque esté en otra pestaña</button>
+            <div class="px-3 pt-2 small text-muted" id="campanaResumen" aria-live="polite"></div>
+            <div class="campana-lista" id="campanaLista" role="list"></div>
+            <div class="d-flex gap-2 p-2 border-top">
+                <a class="btn btn-sm btn-marca flex-grow-1" id="campanaVer" asp-controller="Venta" asp-action="Index" asp-route-carta="1"><i class="bi bi-cart3"></i> Abrir en Vender</a>
+                <a class="btn btn-sm btn-outline-secondary" href="/Carta/Qr" target="_blank" rel="noopener"><i class="bi bi-qr-code"></i> QR general</a>
+            </div>
+        </div>
+    </div>
+</div>
+<style>
+    /* Menú plegado (menos de 1200 px): la campana queda junto al botón del menú, a la derecha. Menú extendido: al final de la barra. */
+    .campana-grupo { order: 2; }
+    @@media (max-width: 1199.98px) { .campana-grupo { order: 0; margin-left: auto; margin-right: .6rem; } }
+    .campana-menu { width: min(92vw, 380px); color: var(--texto); }
+    /* En el celular el menú ocupa el ancho de la pantalla (si no, se sale por la izquierda porque la campana está cerca del botón del menú). */
+    @@media (max-width: 575.98px) { .campana-menu { position: fixed; top: 3.9rem; left: .5rem; right: .5rem; width: auto; } }
+    .campana-lista { max-height: min(58vh, 420px); overflow-y: auto; }
+    .campana-item { display: flex; gap: .65rem; white-space: normal; padding: .65rem .9rem; border-bottom: 1px solid rgb(128 128 128 / .25); text-decoration: none; color: inherit; }
+    .campana-item:last-child { border-bottom: 0; }
+    .campana-item:hover, .campana-item:focus-visible { background: rgb(128 128 128 / .15); color: inherit; }
+    /* El tema pinta los enlaces de azul en modo claro; aquí el texto va del color normal del tema. */
+    .campana-menu a.campana-item, .campana-menu a.campana-item:hover { color: var(--texto); }
+    .campana-numero { flex: 0 0 auto; align-self: flex-start; min-width: 1.6rem; }
+    .campana-vacio { padding: 1.2rem 1rem; text-align: center; }
+    .campana-sacude { display: inline-block; transform-origin: 50% 0; animation: campana-sacude .9s ease-in-out 3; }
+    @@keyframes campana-sacude { 0%, 100% { transform: rotate(0); } 15% { transform: rotate(14deg); } 30% { transform: rotate(-12deg); } 45% { transform: rotate(9deg); } 60% { transform: rotate(-6deg); } 75% { transform: rotate(3deg); } }
+    @@media (prefers-reduced-motion: reduce) { .campana-sacude { animation: none; } }
+</style>
+<script src="~/js/campana.js" asp-append-version="true" defer></script>

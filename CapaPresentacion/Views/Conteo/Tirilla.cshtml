@@ -1,0 +1,59 @@
+@model CapaEntidad.TirillaConteo
+@{
+    Layout = null;
+    var c = Model.Configuracion;
+    var co = new System.Globalization.CultureInfo("es-CO");
+    string Q(decimal n) => n.ToString("#,##0.###", co);
+    var grupos = Model.Items.GroupBy(i => string.IsNullOrEmpty(i.Categoria) ? "General" : i.Categoria).ToList();
+}
+@* Yesenia Quejada Rojas - Claude — 13/11/2026: hoja de conteo en tirilla, con el mismo ancho, letra y botones de impresión que el ticket
+   y la lista de compras (ancho del papel y área de impresión salen de Datos del negocio). Cada insumo lleva un renglón para escribir lo contado. *@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <title>Hoja de conteo</title>
+    <style>
+        @@page { size: auto; margin: 0; }
+        body { font-family: "Courier New", monospace; font-size: @(c.LetraTicket)px; width: @(c.AreaImpresion)mm; overflow-wrap: anywhere; margin: 0 auto; color: #000; }
+        @@media print { body { margin: 0; padding: 0 0 6mm; } }
+        .c { text-align: center; } .r { text-align: right; } .b { font-weight: bold; }
+        hr { border: 0; border-top: 1px dashed #000; margin: 4px 0; }
+        table { width: 100%; border-collapse: collapse; } td { vertical-align: top; padding: 1px 0; }
+        td.r { white-space: nowrap; padding-left: 4px; } tr { break-inside: avoid; }
+        .linea td { padding-bottom: 5px; }
+        .raya { border-bottom: 1px solid #000; height: 1.3em; }
+        .det { font-size: 0.9em; }
+        .acciones { text-align: center; margin: 12px 0; }
+        .acciones button { padding: 10px 14px; cursor: pointer; margin: 4px; }
+        .guia { font-family: sans-serif; font-size: 12px; line-height: 1.4; }
+        @@media screen { html { background: #eef0f3; } body { background: white; padding: 16px; margin: 24px auto; box-shadow: 0 4px 24px #0002; border-radius: 6px; } }
+        @@media print { .acciones { display: none; } body { margin: 0; } }
+    </style>
+</head>
+<body data-auto="@(c.ImprimirAutomatico ? "true" : "false")">
+    <div class="c b" style="font-size:15px">@c.NombreNegocio</div>
+    <div class="c b">HOJA DE CONTEO</div>
+    <div class="c">@(string.IsNullOrEmpty(Model.Sede) ? "" : "Sede " + Model.Sede + " · ")@Model.Fecha</div>
+    <hr />
+    @foreach (var g in grupos)
+    {
+        <div class="b">@g.Key.ToUpper()</div>
+        <table>
+            @foreach (var i in g)
+            {
+                <tr class="linea"><td>@i.Nombre<div class="det">hay @Q(i.Stock) @i.UnidadMedida</div></td><td class="r" style="width:40%"><div class="raya"></div></td></tr>
+            }
+        </table>
+        <hr />
+    }
+    <div>@Model.Items.Count insumos · Contó: @Model.Usuario</div>
+    <div style="margin-top:14px">Firma: ____________________</div>
+    <div class="acciones">
+        <div class="guia">Papel @(c.AnchoTicket) mm · Imprime @(c.AreaImpresion) mm · Escala 100 % · Márgenes: ninguno · Sin encabezados ni pies</div>
+        <button id="btnImprimir" disabled>Imprimir</button>
+        <button onclick="window.close()">Cerrar</button>
+    </div>
+<script src="~/js/impresion.js" asp-append-version="true"></script>
+</body>
+</html>

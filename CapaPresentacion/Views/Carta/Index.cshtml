@@ -1,0 +1,488 @@
+@using CapaPresentacion.Infraestructura
+@model CapaEntidad.CartaPublica
+@{
+    Layout = null;
+    var cfg = Model.Configuracion;
+    var cultura = System.Globalization.CultureInfo.GetCultureInfo("es-CO");
+    string M(decimal v) => cfg.SimboloMoneda + " " + v.ToString("N0", cultura);
+    var categorias = Model.Productos.GroupBy(p => new { p.IdCategoriaMenu, p.CategoriaMenu, p.Icono }).ToList();
+    // Yesenia Quejada Rojas - Claude — 30/10/2026: el "+" sale siempre (como en las apps de domicilio); sin QR de mesa, la mesa se
+    // elige al enviar el pedido.
+    var mesasCarta = ViewBag.Mesas as List<CapaEntidad.Mesa> ?? new List<CapaEntidad.Mesa>();
+    // Yesenia Quejada Rojas - Claude — 13/11/2026: siempre se puede pedir (también para llevar o a domicilio, sin mesa).
+    var puedePedir = true;
+}
+@* Yesenia Quejada Rojas - Claude — 28/10/2026: carta digital pública (QR de las mesas). Página propia, sin menú del sistema ni sesión;
+   pensada primero para el celular: categorías arriba para saltar, tarjetas con foto y precio, y los agotados marcados. *@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Carta de @cfg.NombreNegocio" />
+    <title>Carta - @cfg.NombreNegocio</title>
+    @if (!string.IsNullOrEmpty(cfg.LogoUrl)) { <link rel="icon" href="@cfg.LogoUrl" /> }
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/lib/bootstrap-icons/font/bootstrap-icons.min.css" />
+    <style>
+        :root {
+            --marca: @cfg.ColorPrimario;
+            --marca-texto: @Colores.TextoSobre(cfg.ColorPrimario);
+            --fondo: #0d0d10; --superficie: #17171c; --borde: #2a2a33; --texto: #f2f2f5; --suave: #a6a6b3;
+        }
+        body { background: var(--fondo); color: var(--texto); font-family: 'Segoe UI', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+        .cabecera { padding: 1.4rem 1rem 1rem; text-align: center; background: radial-gradient(ellipse at 50% 0, color-mix(in srgb, var(--marca) 35%, transparent), transparent 70%); }
+        .cabecera img { width: 84px; height: 84px; object-fit: contain; border-radius: 18px; background: #fff1; }
+        .cabecera h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -.02em; margin: .6rem 0 .2rem; }
+        .mesa { display: inline-block; background: var(--marca); color: var(--marca-texto); font-weight: 700; border-radius: 999px; padding: .25rem .9rem; font-size: .9rem; }
+        .chips { position: sticky; top: 0; z-index: 10; display: flex; gap: .5rem; overflow-x: auto; padding: .7rem 1rem; background: color-mix(in srgb, var(--fondo) 92%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid var(--borde); scrollbar-width: none; }
+        .chips::-webkit-scrollbar { display: none; }
+        .chips a { flex: 0 0 auto; text-decoration: none; color: var(--texto); border: 1px solid var(--borde); border-radius: 999px; padding: .4rem .9rem; font-size: .9rem; background: var(--superficie); }
+        .chips a:focus-visible, .producto:focus-visible { outline: 3px solid var(--marca); outline-offset: 2px; }
+        main { max-width: 860px; margin: 0 auto; padding: 0 1rem 2rem; }
+        section { scroll-margin-top: 4rem; }
+        h2 { font-size: 1.2rem; font-weight: 750; margin: 1.6rem 0 .8rem; }
+        .producto { display: flex; gap: .9rem; background: var(--superficie); border: 1px solid var(--borde); border-radius: 16px; padding: .75rem; margin-bottom: .7rem; }
+        .producto .foto { flex: 0 0 96px; height: 96px; border-radius: 12px; object-fit: cover; background: #222; display: grid; place-items: center; font-size: 2rem; }
+        .producto h3 { font-size: 1.02rem; font-weight: 700; margin: 0 0 .2rem; }
+        .producto p { color: var(--suave); font-size: .85rem; margin: 0 0 .4rem; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+        .precio { font-weight: 800; color: var(--texto); font-size: 1.05rem; white-space: nowrap; }
+        .producto.agotado { opacity: .55; }
+        .agotado-etiqueta { background: #ffffff1a; color: var(--suave); border-radius: 6px; font-size: .72rem; padding: .1rem .45rem; margin-left: .4rem; font-weight: 600; }
+        .adiciones li { display: flex; justify-content: space-between; border-bottom: 1px dashed var(--borde); padding: .45rem 0; font-size: .92rem; }
+        /* Yesenia Quejada Rojas - Claude — 30/10/2026. Adiciones que se tocan para agregarlas y botón para cambiarlas en "Mi pedido". */
+        .adiciones li:has(.adicion-boton) { padding: 0; }
+        .adicion-boton { display: flex; justify-content: space-between; width: 100%; background: none; border: 0; color: inherit; padding: .6rem 0; font: inherit; text-align: left; }
+        .adicion-boton .bi { color: var(--marca); }
+        .btn-opciones { background: none; border: 1px solid var(--borde); color: var(--texto); border-radius: 999px; padding: .2rem .7rem; font-size: .82rem; margin-top: .35rem; }
+        .btn-opciones .bi { color: var(--marca); }
+        footer { color: var(--suave); text-align: center; font-size: .85rem; padding: 1.5rem 1rem 2.5rem; border-top: 1px solid var(--borde); }
+        footer a { color: var(--texto); }
+        @@media (min-width: 768px) { .lista { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; } .producto { margin: 0; } }
+        /* Yesenia Quejada Rojas - Claude — 29/10/2026. Carrito: botón "+" en cada producto, barra fija abajo y hoja con el pedido. */
+        .btn-agregar { flex: 0 0 auto; align-self: flex-end; width: 2.4rem; height: 2.4rem; border-radius: 50%; border: 0; background: var(--marca); color: var(--marca-texto); font-size: 1.25rem; display: grid; place-items: center; }
+        .btn-agregar:focus-visible, .carrito-barra:focus-visible, .hoja button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+        .en-carrito { display: block; font-size: .78rem; color: var(--marca); font-weight: 700; white-space: normal; }
+        .en-carrito:empty { display: none; }
+        .producto > .flex-grow-1 { min-width: 0; }
+        body.con-carrito { padding-bottom: 5.5rem; }
+        .carrito-barra { position: fixed; left: 1rem; right: 1rem; bottom: 1rem; z-index: 20; max-width: 560px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 1rem; border: 0; border-radius: 16px; padding: .85rem 1.1rem; background: var(--marca); color: var(--marca-texto); font-weight: 700; box-shadow: 0 10px 30px #0008; }
+        .velo { position: fixed; inset: 0; z-index: 30; background: #000a; }
+        .hoja { position: fixed; left: 0; right: 0; bottom: 0; z-index: 31; max-width: 620px; margin: 0 auto; max-height: 88vh; display: flex; flex-direction: column; background: var(--superficie); border: 1px solid var(--borde); border-radius: 20px 20px 0 0; }
+        .hoja-cab { display: flex; justify-content: space-between; align-items: center; padding: 1rem 1.1rem .6rem; border-bottom: 1px solid var(--borde); }
+        .hoja-cuerpo { overflow-y: auto; padding: .8rem 1.1rem; }
+        .hoja-pie { padding: .8rem 1.1rem 1.1rem; border-top: 1px solid var(--borde); }
+        .hoja .form-control { background: var(--fondo); color: var(--texto); border-color: var(--borde); }
+        .hoja .form-control::placeholder { color: var(--suave); }
+        .linea-carrito { display: flex; align-items: center; gap: .6rem; padding: .55rem 0; border-bottom: 1px dashed var(--borde); }
+        .cantidad { display: flex; align-items: center; gap: .4rem; }
+        .cantidad button { width: 2rem; height: 2rem; border-radius: 50%; border: 1px solid var(--borde); background: var(--fondo); color: var(--texto); }
+        .btn-enviar { background: var(--marca); color: var(--marca-texto); border: 0; font-weight: 700; }
+        .btn-enviar:hover, .btn-enviar:focus { background: var(--marca); color: var(--marca-texto); filter: brightness(1.08); }
+        .estado-pedido { text-align: center; padding: 1.2rem .5rem; }
+        .estado-pedido > i { font-size: 2.6rem; }
+        .estado-pedido .btn i { font-size: 1.1rem; margin-right: .3rem; }
+        .btn-cerrar { background: none; border: 0; color: var(--texto); font-size: 1.4rem; }
+        .pastilla { display: inline-flex; cursor: pointer; margin: 0; }
+        .pastilla input { position: absolute; opacity: 0; pointer-events: none; }
+        .pastilla > span { display: inline-block; padding: .4rem .85rem; border: 1.5px solid var(--borde); border-radius: 999px; background: var(--fondo); font-size: .9rem; }
+        .pastilla small { color: var(--suave); font-weight: 600; }
+        .pastilla input:checked + span { background: var(--marca); border-color: var(--marca); color: var(--marca-texto); font-weight: 600; }
+        .pastilla input:checked + span small { color: inherit; }
+        .pastilla.quitar > span { border-style: dashed; }
+        .pastilla .icono-sin { margin-right: .35rem; }
+        .grupo-quitar + .grupo-quitar { margin-top: .6rem; }
+        .subgrupo-titulo { font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--suave); margin-bottom: .3rem; }
+        .pastilla.quitar input:checked + span { background: #b3261e; border-color: #b3261e; color: #fff; text-decoration: line-through; }
+        .pastilla input:focus-visible + span { outline: 3px solid #fff; outline-offset: 2px; }
+        .cantidad button:disabled { opacity: .4; }
+    </style>
+</head>
+<body>
+    <header class="cabecera">
+        @if (!string.IsNullOrEmpty(cfg.LogoUrl)) { <img src="@cfg.LogoUrl" alt="Logo de @cfg.NombreNegocio" /> }
+        <h1>@cfg.NombreNegocio</h1>
+        @* Yesenia Quejada Rojas - Claude — 13/11/2026: ya no se muestra la mesa del QR; el cliente la elige (o llevar / domicilio) al enviar. *@
+    </header>
+
+    @if (categorias.Count > 1)
+    {
+        <nav class="chips" aria-label="Categorías de la carta">
+            @foreach (var c in categorias) { <a href="#cat-@c.Key.IdCategoriaMenu">@c.Key.Icono @c.Key.CategoriaMenu</a> }
+        </nav>
+    }
+
+    <main>
+        @if (categorias.Count == 0) { <p class="text-center mt-5" style="color:var(--suave)">La carta se está actualizando. Pregunte al personal.</p> }
+        @foreach (var c in categorias)
+        {
+            <section id="cat-@c.Key.IdCategoriaMenu" aria-labelledby="titulo-@c.Key.IdCategoriaMenu">
+                <h2 id="titulo-@c.Key.IdCategoriaMenu">@c.Key.Icono @c.Key.CategoriaMenu</h2>
+                <div class="lista">
+                    @foreach (var p in c.OrderBy(x => x.Agotado))
+                    {
+                        <article class="producto @(p.Agotado ? "agotado" : "")">
+                            @if (!string.IsNullOrEmpty(p.ImagenUrl)) { <img class="foto" src="@p.ImagenUrl" alt="@p.Nombre" loading="lazy" width="96" height="96" /> }
+                            else { <div class="foto" aria-hidden="true">@p.Icono</div> }
+                            <div class="flex-grow-1 d-flex flex-column">
+                                <h3>@p.Nombre @if (p.Agotado) { <span class="agotado-etiqueta">Agotado</span> }</h3>
+                                @if (!string.IsNullOrEmpty(p.Descripcion)) { <p>@p.Descripcion</p> }
+                                <div class="mt-auto precio">@(p.Precio == 0 ? "Elija las adiciones" : M(p.Precio))<span class="en-carrito" data-en-carrito="@p.IdProducto"></span></div>
+                            </div>
+                            @if (puedePedir && !p.Agotado)
+                            {
+                                <button type="button" class="btn-agregar" data-agregar="@p.IdProducto" data-nombre="@p.Nombre" data-precio="@p.Precio.ToString(System.Globalization.CultureInfo.InvariantCulture)" aria-label="Agregar @p.Nombre al carrito"><i class="bi bi-plus-lg"></i></button>
+                            }
+                        </article>
+                    }
+                </div>
+            </section>
+        }
+
+        @if (Model.Adiciones.Count > 0)
+        {
+            <section aria-labelledby="titulo-adiciones">
+                <h2 id="titulo-adiciones"><i class="bi bi-plus-circle"></i> Adiciones y salsas</h2>
+                @* Yesenia Quejada Rojas - Claude — 30/10/2026: con carrito, cada adición se puede tocar para agregarla a un producto del pedido. *@
+                @if (puedePedir)
+                {
+                    <p class="small mb-2" style="color:var(--suave)">Tóquela para agregarla a su pedido, o use "Adiciones y salsas" en cada producto de "Mi pedido".</p>
+                    <p class="small text-warning mb-2" id="avisoAdiciones" role="status" hidden>Primero toque + en el producto al que se la quiere agregar.</p>
+                }
+                <ul class="list-unstyled adiciones">
+                    @foreach (var a in Model.Adiciones)
+                    {
+                        @if (puedePedir)
+                        {
+                            <li><button type="button" class="adicion-boton" data-adicion="@a.Nombre"><span><i class="bi bi-plus-circle"></i> @a.Nombre</span><span class="precio">@(a.Precio > 0 ? "+" + M(a.Precio) : "Gratis")</span></button></li>
+                        }
+                        else
+                        {
+                            <li><span>@a.Nombre</span><span class="precio">@(a.Precio > 0 ? "+" + M(a.Precio) : "Gratis")</span></li>
+                        }
+                    }
+                </ul>
+            </section>
+        }
+    </main>
+
+    <footer>
+        <div>@Model.Sede@(string.IsNullOrEmpty(Model.Direccion) ? "" : " · " + Model.Direccion)</div>
+        @{ var telefono = string.IsNullOrEmpty(Model.Telefono) ? cfg.Telefono : Model.Telefono; }
+        @if (!string.IsNullOrEmpty(telefono)) { <div class="mt-1"><i class="bi bi-telephone"></i> <a href="tel:@telefono.Replace(" ", "")">@telefono</a></div> }
+        <div class="mt-2 small">Toque + para armar su pedido y envíelo: para la mesa, para llevar@(cfg.MostrarDomicilios ? " o a domicilio" : ""). El personal lo confirma.</div>
+    </footer>
+
+    @if (puedePedir)
+    {
+        @* Yesenia Quejada Rojas - Claude — 29/10/2026: carrito. Solo con el QR de una mesa (sin mesa no se sabe a dónde llevarlo).
+           El pedido llega a Vender en espera; aquí se muestra si el personal ya lo confirmó. *@
+        @Html.AntiForgeryToken()
+        <button type="button" class="carrito-barra" id="barraCarrito" hidden><span><i class="bi bi-bag"></i> Ver mi pedido (<span id="lblCantidad">0</span>)</span><span id="lblTotalBarra"></span></button>
+        <div class="velo" id="velo" hidden></div>
+        <section class="hoja" id="hoja" role="dialog" aria-modal="true" aria-labelledby="tituloHoja" hidden>
+            <div class="hoja-cab"><h2 class="m-0" id="tituloHoja" style="font-size:1.15rem">Mi pedido</h2><button type="button" class="btn-cerrar" id="btnCerrarHoja" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></div>
+            <div class="hoja-cuerpo" id="cuerpoCarrito">
+                <div id="lineasCarrito"></div>
+                @* Yesenia Quejada Rojas - Claude — 13/11/2026: Mesa / Para llevar / Domicilio y las mesas como botones (igual que en Vender),
+                   en lugar del desplegable. Nada viene marcado: ni con el QR de una mesa. *@
+                <fieldset class="mt-3">
+                    <legend class="form-label small mb-1" style="color:var(--suave);font-size:.875rem">¿Cómo lo quiere?</legend>
+                    <div class="d-flex flex-wrap gap-2" id="tipoPedido">
+                        @if (mesasCarta.Count > 0) { <label class="pastilla"><input type="radio" name="tipoPedido" value="MESA" /><span><i class="bi bi-cup-hot"></i> En la mesa</span></label> }
+                        <label class="pastilla"><input type="radio" name="tipoPedido" value="LLEVAR" /><span><i class="bi bi-bag-check"></i> Para llevar</span></label>
+                        @if (cfg.MostrarDomicilios) { <label class="pastilla"><input type="radio" name="tipoPedido" value="DOMICILIO" /><span><i class="bi bi-bicycle"></i> Domicilio</span></label> }
+                    </div>
+                </fieldset>
+                <fieldset class="mt-3" id="grupoMesas" hidden>
+                    <legend class="form-label small mb-1" style="color:var(--suave);font-size:.875rem">¿En qué mesa está?</legend>
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var m in mesasCarta) { <label class="pastilla"><input type="radio" name="mesaPedido" value="@m.IdMesa" /><span>Mesa @m.Nombre</span></label> }
+                    </div>
+                </fieldset>
+                <label class="form-label small mt-3 mb-1" for="txtNombre" style="color:var(--suave)">Su nombre <span id="lblNombreOpcional">(opcional)</span></label>
+                <input id="txtNombre" class="form-control" maxlength="60" autocomplete="name" placeholder="Para llamarlo cuando esté listo" />
+                <div id="grupoDomicilio" hidden>
+                    <label class="form-label small mt-2 mb-1" for="txtTelefono" style="color:var(--suave)">Teléfono</label>
+                    <input id="txtTelefono" class="form-control" maxlength="20" inputmode="tel" autocomplete="tel" placeholder="Para confirmar el domicilio" />
+                    <label class="form-label small mt-2 mb-1" for="txtDireccion" style="color:var(--suave)">Dirección y barrio</label>
+                    <input id="txtDireccion" class="form-control" maxlength="200" autocomplete="street-address" placeholder="Ej: Cra 10 # 20-30, barrio Centro" />
+                    @if (cfg.CostoDomicilio > 0) { <div class="small mt-1" style="color:var(--suave)">El domicilio cuesta @M(cfg.CostoDomicilio) y se suma al confirmar.</div> }
+                </div>
+                <label class="form-label small mt-2 mb-1" for="txtNota" style="color:var(--suave)">Nota para el pedido (opcional)</label>
+                <input id="txtNota" class="form-control" maxlength="150" placeholder="Ej: traer todo junto" />
+            </div>
+            <div class="hoja-cuerpo estado-pedido" id="estadoPedido" hidden aria-live="polite"></div>
+            <div class="hoja-pie" id="pieCarrito">
+                <div class="d-flex justify-content-between fw-bold fs-5 mb-2"><span>Total</span><span id="lblTotal"></span></div>
+                <p class="small mb-2" style="color:var(--suave)">El personal revisa y confirma su pedido. Se paga en la caja, con el mesero o al recibir el domicilio.</p>
+                <p class="small text-warning mb-2" id="lblError" hidden></p>
+                <button type="button" class="btn btn-enviar btn-lg w-100" id="btnEnviar"><i class="bi bi-send"></i> Enviar pedido</button>
+            </div>
+        </section>
+        @* Yesenia Quejada Rojas - Claude — 29/10/2026: salsas, adiciones y "Sin ..." del producto, como en Vender, para que en caja
+           solo se confirme y se cobre. *@
+        <section class="hoja" id="hojaOpciones" role="dialog" aria-modal="true" aria-labelledby="tituloOpciones" hidden>
+            <div class="hoja-cab"><h2 class="m-0" id="tituloOpciones" style="font-size:1.15rem"></h2><button type="button" class="btn-cerrar" id="btnCerrarOpciones" aria-label="Cerrar"><i class="bi bi-x-lg"></i></button></div>
+            <div class="hoja-cuerpo" id="cuerpoOpciones"></div>
+            <div class="hoja-pie">
+                <div class="d-flex align-items-center gap-3">
+                    <div class="cantidad"><button type="button" id="opMenos" aria-label="Uno menos"><i class="bi bi-dash"></i></button><strong id="opCantidad">1</strong><button type="button" id="opMas" aria-label="Uno más"><i class="bi bi-plus"></i></button></div>
+                    <button type="button" class="btn btn-enviar btn-lg flex-grow-1" id="btnAgregarOpciones">Agregar</button>
+                </div>
+            </div>
+        </section>
+        <script src="~/js/iconos-insumo.js" asp-append-version="true"></script>
+        <script>
+            (function () {
+                const $ = id => document.getElementById(id);
+                // Yesenia Quejada Rojas - Claude — 13/11/2026: el pedido guardado en el celular va por sede (antes por mesa del QR).
+                const SEDE = @Model.IdSede, MONEDA = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(cfg.SimboloMoneda));
+                const OPCIONES = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Opciones, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)));
+                const INGREDIENTES = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Ingredientes, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web)));
+                // Yesenia Quejada Rojas - Claude — 30/10/2026: las adiciones van de primeras.
+                const ORDEN_GRUPOS = ['Adiciones', 'Salsas', 'Preferencias', 'Vasos'];
+                // "Queso mozzarella (porción)" se muestra como "queso mozzarella" en "Sin ..."
+                const nombreCorto = n => n.replace(/\s*\(.*\)\s*$/, '').toLowerCase();
+                const CLAVE = 'carta-pedido-s' + SEDE;
+                const moneda = n => MONEDA + ' ' + Number(n || 0).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+                const esc = t => String(t ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+                const leer = () => { try { return JSON.parse(localStorage.getItem(CLAVE) || 'null'); } catch { return null; } };
+                const guardar = v => { try { v ? localStorage.setItem(CLAVE, JSON.stringify(v)) : localStorage.removeItem(CLAVE); } catch { } };
+                let carrito = [];      // { clave, id, nombre, precio, cantidad, mods:[{idModificador,nombre,precio}], sin:[{idInsumo,nombre}], notas }
+                let enviado = leer();  // { id, codigo } del último pedido enviado desde este celular
+                let reloj = null, enviando = false;
+                let actual = null, cantidadOp = 1;
+
+                const precioLinea = l => (l.precio + l.mods.reduce((s, m) => s + m.precio, 0)) * l.cantidad;
+                const total = () => carrito.reduce((s, l) => s + precioLinea(l), 0);
+                const detalleLinea = l => [l.mods.length ? 'Con: ' + l.mods.map(m => m.nombre).join(', ') : '',
+                    l.sin.length ? 'Sin: ' + l.sin.map(i => nombreCorto(i.nombre)).join(', ') : '', l.notas ? '“' + l.notas + '”' : ''].filter(Boolean).join(' · ');
+                function pintar() {
+                    const n = carrito.reduce((s, l) => s + l.cantidad, 0);
+                    $('barraCarrito').hidden = n === 0 && !enviado;
+                    document.body.classList.toggle('con-carrito', !$('barraCarrito').hidden);
+                    $('lblCantidad').textContent = n;
+                    $('lblTotalBarra').textContent = n ? moneda(total()) : 'Ver estado';
+                    $('lblTotal').textContent = moneda(total());
+                    document.querySelectorAll('[data-en-carrito]').forEach(s => {
+                        const n = carrito.filter(x => x.id === Number(s.dataset.enCarrito)).reduce((t, x) => t + x.cantidad, 0);
+                        s.textContent = n ? `· ${n} en su pedido` : '';
+                    });
+                    $('lineasCarrito').innerHTML = carrito.length ? carrito.map((l, i) => `
+                        <div class="linea-carrito">
+                            <div class="flex-grow-1"><div class="fw-semibold">${esc(l.nombre)}</div>
+                                ${detalleLinea(l) ? `<div class="small" style="color:var(--suave)">${esc(detalleLinea(l))}</div>` : ''}
+                                <div class="small" style="color:var(--suave)">${moneda(precioLinea(l))}</div>
+                                ${OPCIONES.some(o => o.idProducto === l.id) ? `<button type="button" class="btn-opciones" data-editar="${i}"><i class="bi bi-plus-circle"></i> Adiciones y salsas</button>` : ''}</div>
+                            <div class="cantidad">
+                                <button type="button" data-menos="${i}" aria-label="Quitar uno de ${esc(l.nombre)}"><i class="bi bi-dash"></i></button>
+                                <strong>${l.cantidad}</strong>
+                                <button type="button" data-mas="${i}" aria-label="Agregar otro ${esc(l.nombre)}"><i class="bi bi-plus"></i></button>
+                            </div>
+                        </div>`).join('') : '<p class="text-center my-3" style="color:var(--suave)">Su pedido está vacío. Toque + en los productos.</p>';
+                    $('btnEnviar').disabled = !carrito.length || enviando;
+                }
+                // Mismo producto con las mismas opciones suma cantidad; con opciones distintas va en otra línea.
+                function agregarLinea(p, cant, mods, sin, notas) {
+                    const clave = JSON.stringify([p.id, mods.map(m => m.idModificador).sort(), sin.map(i => i.idInsumo).sort(), notas]);
+                    const l = carrito.find(x => x.clave === clave);
+                    if (l) l.cantidad = Math.min(20, l.cantidad + cant);
+                    else carrito.push({ clave, id: p.id, nombre: p.nombre, precio: p.precio, cantidad: Math.min(20, cant), mods, sin, notas });
+                    pintar();
+                }
+                function cambiar(i, delta) {
+                    const l = carrito[i];
+                    if (!l) return;
+                    l.cantidad = Math.min(20, l.cantidad + delta);
+                    if (l.cantidad <= 0) carrito.splice(i, 1);
+                    pintar();
+                }
+
+                /* ---------- Opciones del producto ---------- */
+                // Yesenia Quejada Rojas - Claude — 30/10/2026: también se abre desde el carrito (linea) para agregarle o cambiarle
+                // adiciones y salsas a un producto ya pedido; "marcar" deja elegida la adición que tocaron en la lista de abajo.
+                let editando = null;   // índice de la línea del carrito que se está cambiando
+                function abrirOpciones(p, linea = null, marcar = null) {
+                    const mods = OPCIONES.filter(o => o.idProducto === p.id), sin = INGREDIENTES.filter(i => i.idProducto === p.id);
+                    const gruposSin = IconosInsumo.agrupar(sin);
+                    if (!mods.length && !sin.length) { agregarLinea(p, 1, [], [], ''); return; }
+                    actual = p; cantidadOp = linea !== null ? carrito[linea].cantidad : 1; editando = linea;
+                    $('tituloOpciones').textContent = p.precio ? `${p.nombre} · ${moneda(p.precio)}` : p.nombre;
+                    const grupos = [...new Set(mods.map(m => m.grupo))]
+                        .sort((a, b) => (ORDEN_GRUPOS.indexOf(a) + 1 || 99) - (ORDEN_GRUPOS.indexOf(b) + 1 || 99) || a.localeCompare(b));
+                    $('cuerpoOpciones').innerHTML = grupos.map(g => `
+                        <div class="mb-3"${g === 'Vasos' ? ' data-unico' : ''}><div class="fw-semibold mb-2">${esc(g)}</div><div class="d-flex flex-wrap gap-2">
+                            ${mods.filter(m => m.grupo === g).map(m => `<label class="pastilla"><input type="checkbox" data-mod="${m.idModificador}" />
+                                <span>${esc(m.nombre)}${m.precio ? ` <small>+${moneda(m.precio)}</small>` : ''}</span></label>`).join('')}
+                        </div></div>`).join('') +
+                        // Yesenia Quejada Rojas - Claude — 24/11/2026: "Sin ..." con ícono y agrupado (Pan y base, Carnes, Verduras y frutas...), igual que en Vender.
+                        (sin.length ? `<div class="mb-3"><div class="fw-semibold mb-2">¿Le quitamos algo?</div>
+                            ${gruposSin.map(g => `<div class="grupo-quitar">${gruposSin.length > 1 ? `<div class="subgrupo-titulo">${g.icono} ${esc(g.grupo)}</div>` : ''}<div class="d-flex flex-wrap gap-2">
+                                ${g.items.map(i => `<label class="pastilla quitar"><input type="checkbox" data-sin="${i.idInsumo}" /><span><span class="icono-sin" aria-hidden="true">${IconosInsumo.de(i.nombre).icono}</span>Sin ${esc(nombreCorto(i.nombre))}</span></label>`).join('')}
+                            </div></div>`).join('')}
+                        </div>` : '') +
+                        `<label class="form-label small mb-1" for="txtNotaLinea" style="color:var(--suave)">Nota (opcional)</label>
+                         <input id="txtNotaLinea" class="form-control" maxlength="150" placeholder="Ej: bien asada, salsas aparte" />`;
+                    const l = linea !== null ? carrito[linea] : null;
+                    if (l) {
+                        l.mods.forEach(m => { const x = $('cuerpoOpciones').querySelector(`[data-mod="${m.idModificador}"]`); if (x) x.checked = true; });
+                        l.sin.forEach(s => { const x = $('cuerpoOpciones').querySelector(`[data-sin="${s.idInsumo}"]`); if (x) x.checked = true; });
+                        $('txtNotaLinea').value = l.notas || '';
+                    }
+                    if (marcar) { const x = $('cuerpoOpciones').querySelector(`[data-mod="${marcar}"]`); if (x) x.checked = true; }
+                    pintarOpciones();
+                    $('velo').hidden = false; $('hojaOpciones').hidden = false;
+                    $('btnCerrarOpciones').focus();
+                }
+                function elegidas() {
+                    const ids = [...$('cuerpoOpciones').querySelectorAll('[data-mod]:checked')].map(x => Number(x.dataset.mod));
+                    const sinIds = [...$('cuerpoOpciones').querySelectorAll('[data-sin]:checked')].map(x => Number(x.dataset.sin));
+                    return {
+                        mods: OPCIONES.filter(o => o.idProducto === actual.id && ids.includes(o.idModificador)),
+                        sin: INGREDIENTES.filter(i => i.idProducto === actual.id && sinIds.includes(i.idInsumo))
+                    };
+                }
+                function pintarOpciones() {
+                    const e = elegidas();
+                    $('opCantidad').textContent = cantidadOp;
+                    $('opMenos').disabled = cantidadOp <= 1;
+                    $('btnAgregarOpciones').textContent = `${editando !== null ? 'Guardar' : 'Agregar'} ${cantidadOp} · ${moneda((actual.precio + e.mods.reduce((s, m) => s + m.precio, 0)) * cantidadOp)}`;
+                }
+                function cerrarOpciones() { $('hojaOpciones').hidden = true; if ($('hoja').hidden) $('velo').hidden = true; actual = null; editando = null; }
+                // Yesenia Quejada Rojas - Claude — 30/10/2026: en "Vasos" solo se marca una opción.
+                $('cuerpoOpciones').addEventListener('change', ev => {
+                    const grupo = ev.target.closest('[data-unico]');
+                    if (grupo && ev.target.checked) grupo.querySelectorAll('input').forEach(i => { if (i !== ev.target) i.checked = false; });
+                    pintarOpciones();
+                });
+                $('opMenos').addEventListener('click', () => { cantidadOp = Math.max(1, cantidadOp - 1); pintarOpciones(); });
+                $('opMas').addEventListener('click', () => { cantidadOp = Math.min(20, cantidadOp + 1); pintarOpciones(); });
+                $('btnCerrarOpciones').addEventListener('click', cerrarOpciones);
+                $('btnAgregarOpciones').addEventListener('click', () => {
+                    const e = elegidas();
+                    // Yesenia Quejada Rojas - Claude — 30/10/2026: "Adiciones sueltas" vale 0; sin elegir ninguna no se agrega.
+                    if (actual.precio === 0 && !e.mods.length) { $('btnAgregarOpciones').textContent = 'Elija al menos una adición'; return; }
+                    if (editando !== null) carrito.splice(editando, 1);   // se reemplaza la línea por la nueva versión
+                    agregarLinea(actual, cantidadOp, e.mods.map(m => ({ idModificador: m.idModificador, nombre: m.nombre, precio: m.precio })),
+                        e.sin.map(i => ({ idInsumo: i.idInsumo, nombre: i.nombre })), $('txtNotaLinea').value.trim());
+                    cerrarOpciones();
+                });
+                function abrir(verEstado) {
+                    const conEstado = verEstado && enviado;
+                    $('cuerpoCarrito').hidden = conEstado; $('pieCarrito').hidden = conEstado; $('estadoPedido').hidden = !conEstado;
+                    $('velo').hidden = false; $('hoja').hidden = false;
+                    if (conEstado) consultar(); else $('btnCerrarHoja').focus();
+                }
+                function cerrar() { $('velo').hidden = true; $('hoja').hidden = true; }
+
+                const ESTADOS = {
+                    PENDIENTE: ['bi-hourglass-split', 'Pedido enviado', 'Esperando que el personal lo confirme. Puede dejar esta página abierta.'],
+                    CONFIRMADO: ['bi-check-circle-fill text-success', '¡Pedido confirmado!', 'Ya lo estamos preparando.'],
+                    CERRADO: ['bi-bag-check-fill text-success', 'Pedido registrado', '¡Gracias por su compra!'],
+                    RECHAZADO: ['bi-x-circle-fill text-danger', 'Pedido no aceptado', 'Por favor pregunte al personal.']
+                };
+                async function consultar() {
+                    if (!enviado) return;
+                    clearTimeout(reloj);
+                    let estado = enviado.estado || 'PENDIENTE';
+                    try {
+                        const r = await fetch('/Carta/Estado?codigo=' + encodeURIComponent(enviado.codigo), { headers: { Accept: 'application/json' } }).then(x => x.json());
+                        if (r && r.estado) estado = r.estado;
+                    } catch { /* sin conexión: se muestra el último estado conocido */ }
+                    enviado.estado = estado; guardar(enviado);
+                    const e = ESTADOS[estado] || ESTADOS.PENDIENTE;
+                    $('estadoPedido').innerHTML = `<i class="bi ${e[0]}"></i><h3 class="mt-2" style="font-size:1.2rem">${e[1]}</h3>
+                        <p style="color:var(--suave)">Pedido N° ${enviado.id}. ${e[2]}</p>
+                        <button type="button" class="btn btn-enviar btn-lg w-100 mt-2" id="btnNuevo"><i class="bi ${estado === 'PENDIENTE' ? 'bi-book' : 'bi-plus-circle'}"></i> ${estado === 'PENDIENTE' ? 'Seguir viendo la carta' : 'Hacer otro pedido'}</button>
+                        ${estado === 'PENDIENTE' ? '<div class="small mt-2" style="color:var(--suave)">Puede agregar más productos y enviar otro pedido.</div>' : ''}`;
+                    $('btnNuevo').onclick = () => { if (estado !== 'PENDIENTE') { enviado = null; guardar(null); } cerrar(); pintar(); };
+                    if (estado === 'PENDIENTE' || estado === 'CONFIRMADO') reloj = setTimeout(consultar, 10000);
+                }
+
+                /* Yesenia Quejada Rojas - Claude — 13/11/2026. Mesa / Para llevar / Domicilio: con Mesa salen los botones de las mesas;
+                   con Domicilio, teléfono y dirección (y el nombre deja de ser opcional). */
+                const elegido = n => document.querySelector(`input[name="${n}"]:checked`)?.value || '';
+                function alCambiarTipo() {
+                    const t = elegido('tipoPedido');
+                    $('grupoMesas').hidden = t !== 'MESA';
+                    $('grupoDomicilio').hidden = t !== 'DOMICILIO';
+                    $('lblNombreOpcional').hidden = t === 'DOMICILIO';
+                    $('lblError').hidden = true;
+                }
+                $('tipoPedido').addEventListener('change', alCambiarTipo);
+                const error = (texto, foco) => { $('lblError').textContent = texto; $('lblError').hidden = false; foco?.focus(); };
+
+                async function enviar() {
+                    if (!carrito.length || enviando) return;
+                    const tipo = elegido('tipoPedido'), mesa = Number(elegido('mesaPedido') || 0);
+                    const nombre = $('txtNombre').value.trim(), telefono = $('txtTelefono').value.trim(), direccion = $('txtDireccion').value.trim();
+                    if (!tipo) return error('Elija si es para la mesa, para llevar o a domicilio.', $('tipoPedido').querySelector('input'));
+                    if (tipo === 'MESA' && !mesa) return error('Elija su mesa para enviar el pedido.', $('grupoMesas').querySelector('input'));
+                    if (tipo === 'DOMICILIO') {
+                        if (!nombre) return error('Escriba su nombre para el domicilio.', $('txtNombre'));
+                        if (telefono.replace(/\D/g, '').length < 7) return error('Escriba un teléfono válido.', $('txtTelefono'));
+                        if (direccion.length < 5) return error('Escriba la dirección y el barrio.', $('txtDireccion'));
+                    }
+                    enviando = true; $('lblError').hidden = true; pintar();
+                    try {
+                        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
+                        const r = await fetch('/Carta/Pedir', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'RequestVerificationToken': token },
+                            body: JSON.stringify({ tipoPedido: tipo, idMesa: tipo === 'MESA' ? mesa : 0, idSede: SEDE,
+                                telefono: tipo === 'DOMICILIO' ? telefono : '', direccion: tipo === 'DOMICILIO' ? direccion : '',
+                                clienteNombre: nombre, nota: $('txtNota').value.trim(),
+                                lineas: carrito.map(l => ({ idProducto: l.id, cantidad: l.cantidad, notas: l.notas,
+                                    modificadores: l.mods.map(m => m.idModificador), quitados: l.sin.map(i => i.idInsumo) })) })
+                        }).then(x => { if (!x.ok) throw new Error(); return x.json(); });
+                        if (!r.resultado) { $('lblError').textContent = r.mensaje; $('lblError').hidden = false; return; }
+                        enviado = { id: r.id, codigo: r.codigo, estado: 'PENDIENTE' }; guardar(enviado);
+                        carrito = []; $('txtNota').value = '';
+                        abrir(true);
+                    } catch {
+                        $('lblError').textContent = 'No se pudo enviar el pedido. Revise su conexión e intente de nuevo.'; $('lblError').hidden = false;
+                    } finally { enviando = false; pintar(); }
+                }
+
+                document.addEventListener('click', ev => {
+                    const a = ev.target.closest('[data-agregar]'), mas = ev.target.closest('[data-mas]'), menos = ev.target.closest('[data-menos]');
+                    if (a) abrirOpciones({ id: Number(a.dataset.agregar), nombre: a.dataset.nombre, precio: Number(a.dataset.precio) });
+                    if (mas) cambiar(Number(mas.dataset.mas), 1);
+                    if (menos) cambiar(Number(menos.dataset.menos), -1);
+                    const editar = ev.target.closest('[data-editar]');
+                    if (editar) { const l = carrito[Number(editar.dataset.editar)]; if (l) abrirOpciones({ id: l.id, nombre: l.nombre, precio: l.precio }, Number(editar.dataset.editar)); }
+                    const adicion = ev.target.closest('[data-adicion]');
+                    if (adicion) elegirAdicion(adicion.dataset.adicion);
+                });
+                // Yesenia Quejada Rojas - Claude — 30/10/2026: tocar una adición de la lista de abajo la agrega al último producto del
+                // pedido que la acepta; si aún no hay ninguno, se le explica que primero elija el producto.
+                function elegirAdicion(nombre) {
+                    for (let i = carrito.length - 1; i >= 0; i--) {
+                        const m = OPCIONES.find(o => o.idProducto === carrito[i].id && o.nombre === nombre);
+                        if (m) { abrirOpciones({ id: carrito[i].id, nombre: carrito[i].nombre, precio: carrito[i].precio }, i, m.idModificador); return; }
+                    }
+                    // Sin producto que la acepte: se abre "Adiciones sueltas" (producto de precio 0) con esa adición marcada.
+                    const suelta = [...document.querySelectorAll('[data-agregar]')].find(b => Number(b.dataset.precio) === 0 && OPCIONES.some(o => o.idProducto === Number(b.dataset.agregar) && o.nombre === nombre));
+                    if (suelta) {
+                        const id = Number(suelta.dataset.agregar);
+                        abrirOpciones({ id, nombre: suelta.dataset.nombre, precio: 0 }, null, OPCIONES.find(o => o.idProducto === id && o.nombre === nombre).idModificador);
+                        return;
+                    }
+                    $('avisoAdiciones').hidden = false;
+                    $('avisoAdiciones').scrollIntoView({ block: 'center', behavior: 'smooth' });
+                }
+                $('barraCarrito').addEventListener('click', () => abrir(carrito.length === 0));
+                $('btnCerrarHoja').addEventListener('click', cerrar);
+                $('velo').addEventListener('click', () => { if (!$('hojaOpciones').hidden) cerrarOpciones(); else cerrar(); });
+                document.addEventListener('keydown', ev => {
+                    if (ev.key !== 'Escape') return;
+                    if (!$('hojaOpciones').hidden) cerrarOpciones(); else if (!$('hoja').hidden) cerrar();
+                });
+                $('btnEnviar').addEventListener('click', enviar);
+                pintar();
+            })();
+        </script>
+    }
+</body>
+</html>

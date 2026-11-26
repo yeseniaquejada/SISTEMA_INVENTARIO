@@ -11,10 +11,10 @@
 </div>
 
 <div class="row g-3 mb-3">
-    <div class="col-6 col-lg-3"><div class="card kpi shadow-sm"><div class="card-body py-2"><div class="text-muted small">Por despachar</div><div class="valor" id="kpiPendientes">0</div></div></div></div>
-    <div class="col-6 col-lg-3"><div class="card kpi shadow-sm"><div class="card-body py-2"><div class="text-muted small">En camino</div><div class="valor" id="kpiCamino">0</div></div></div></div>
-    <div class="col-6 col-lg-3"><div class="card kpi ok shadow-sm"><div class="card-body py-2"><div class="text-muted small">Entregados hoy · tiempo promedio</div><div class="valor" id="kpiEntregados">0</div></div></div></div>
-    <div class="col-6 col-lg-3"><div class="card kpi alerta shadow-sm"><div class="card-body py-2"><div class="text-muted small">Efectivo por recoger</div><div class="valor" id="kpiEfectivo">$ 0</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card kpi shadow-sm h-100"><div class="card-body py-2"><div class="text-muted small">Por despachar</div><div class="valor" id="kpiPendientes">0</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card kpi shadow-sm h-100"><div class="card-body py-2"><div class="text-muted small">En camino</div><div class="valor" id="kpiCamino">0</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card kpi ok shadow-sm h-100"><div class="card-body py-2"><div class="text-muted small">Entregados hoy</div><div class="valor" id="kpiEntregados">0</div></div></div></div>
+    <div class="col-6 col-lg-3"><div class="card kpi alerta shadow-sm h-100"><div class="card-body py-2"><div class="text-muted small">Efectivo por recoger</div><div class="valor" id="kpiEfectivo">$ 0</div></div></div></div>
 </div>
 
 <div class="tablero">
@@ -22,7 +22,8 @@
     <div class="tablero-col"><h6>En camino <span class="badge text-bg-primary" id="nEN_CAMINO">0</span></h6><div id="colEN_CAMINO"></div></div>
     <div class="tablero-col"><h6>Entregados hoy <span class="badge text-bg-success" id="nENTREGADO">0</span></h6><div id="colENTREGADO"></div></div>
 </div>
-<p class="small text-muted mt-2"><i class="bi bi-arrow-repeat"></i> Se actualiza cada 20 segundos. En rojo: más de <span id="lblAlerta"></span> minutos desde que se pidió.</p>
+@* Yesenia Quejada Rojas - Claude — 13/11/2026: sin tiempos en los domicilios (minutos, promedio y alerta en rojo), a pedido del negocio. *@
+<p class="small text-muted mt-2"><i class="bi bi-arrow-repeat"></i> Se actualiza cada 20 segundos.</p>
 
 <!-- Despachar -->
 <div class="modal fade" id="modalDespacho" tabindex="-1">
@@ -48,7 +49,7 @@
     const $ = id => document.getElementById(id);
     const modal = new bootstrap.Modal($('modalDespacho'));
     let datos = [], despacho = null;
-    $('lblAlerta').textContent = APP.minutosAlertaDomicilio;
+
 
     const telefonoWa = t => { const d = String(t || '').replace(/\D/g, ''); return d.length === 10 ? '57' + d : d; };
     const whatsapp = (d, texto) => `https://wa.me/${telefonoWa(d.clienteTelefono)}?text=${encodeURIComponent(texto)}`;
@@ -81,7 +82,7 @@
     }
 
     function tarjeta(d) {
-        const tarde = d.estadoPedido !== 'ENTREGADO' && d.minutos >= APP.minutosAlertaDomicilio;
+        const tarde = false;   // Yesenia Quejada Rojas - Claude — 13/11/2026: ya no se marca en rojo por tiempo.
         const cobro = d.estadoPedido === 'ENTREGADO'
             ? `<span class="badge text-bg-light border">Pagado · ${esc(etiquetaPago[d.metodoPago])} ${moneda(d.total)}</span>`
             : d.metodoPago === 'EFECTIVO'
@@ -99,18 +100,18 @@
                 ? '<button class="btn btn-sm btn-outline-secondary" disabled title="Espere a que cocina lo marque como listo"><i class="bi bi-hourglass-split"></i> Esperando cocina</button>'
                 : `<button class="btn btn-sm btn-marca" data-despachar="${d.idVenta}"><i class="bi bi-bicycle"></i> Despachar</button>`;
         } else if (d.estadoPedido === 'EN_CAMINO') {
-            estado = `<span class="badge text-bg-primary"><i class="bi bi-person"></i> ${esc(d.repartidor)} · salió ${esc(d.horaDespacho)} (${d.minutosEnCamino} min)</span>`;
+            estado = `<span class="badge text-bg-primary"><i class="bi bi-person"></i> ${esc(d.repartidor)} · salió ${esc(d.horaDespacho)}</span>`;
             acciones = `<button class="btn btn-sm btn-outline-secondary" data-id="${d.idVenta}" data-estado="PENDIENTE" title="Devolver a por despachar"><i class="bi bi-arrow-left"></i></button>
                 <button class="btn btn-sm btn-success" data-id="${d.idVenta}" data-estado="ENTREGADO"><i class="bi bi-check2"></i> Entregado</button>`;
         } else {
             estado = d.horaEntrega
-                ? `<span class="small text-success"><i class="bi bi-check2-circle"></i> ${esc(d.repartidor)} lo entregó a las ${esc(d.horaEntrega)} · ${d.minutos} min en total</span>`
+                ? `<span class="small text-success"><i class="bi bi-check2-circle"></i> ${esc(d.repartidor)} lo entregó a las ${esc(d.horaEntrega)}</span>`
                 : '<span class="small text-success"><i class="bi bi-check2-circle"></i> Entregado</span>';
         }
         return `<div class="card shadow-sm domicilio ${d.estadoPedido} ${tarde ? 'tarde' : ''}"><div class="card-body p-3">
             <div class="d-flex justify-content-between">
                 <strong>N° ${d.idVenta}</strong>
-                <span class="small ${tarde ? 'text-danger fw-bold' : 'text-muted'}"><i class="bi bi-clock"></i> ${esc(d.fecha.substr(11))}${d.estadoPedido !== 'ENTREGADO' ? ` · hace ${d.minutos} min` : ''}</span>
+                <span class="small ${tarde ? 'text-danger fw-bold' : 'text-muted'}"><i class="bi bi-clock"></i> ${esc(d.fecha.substr(11))}</span>
             </div>
             <div class="mt-1"><i class="bi bi-person"></i> ${esc(d.clienteNombre)}</div>
             <div><i class="bi bi-geo-alt"></i> <a href="${mapa(d)}" target="_blank" rel="noopener">${esc(d.direccion)}</a></div>
@@ -135,11 +136,9 @@
             $('n' + est).textContent = lista.length;
             $('col' + est).innerHTML = lista.length ? lista.map(tarjeta).join('') : '<p class="text-muted small text-center mt-4">Sin pedidos</p>';
         }
-        const entregados = datos.filter(d => d.estadoPedido === 'ENTREGADO' && d.horaEntrega);
         $('kpiPendientes').textContent = datos.filter(d => d.estadoPedido === 'PENDIENTE').length;
         $('kpiCamino').textContent = datos.filter(d => d.estadoPedido === 'EN_CAMINO').length;
-        $('kpiEntregados').textContent = datos.filter(d => d.estadoPedido === 'ENTREGADO').length +
-            (entregados.length ? ` · ${Math.round(entregados.reduce((s, d) => s + d.minutos, 0) / entregados.length)} min` : '');
+        $('kpiEntregados').textContent = datos.filter(d => d.estadoPedido === 'ENTREGADO').length;
         $('kpiEfectivo').textContent = moneda(datos.filter(d => d.estadoPedido !== 'ENTREGADO' && d.metodoPago === 'EFECTIVO').reduce((s, d) => s + d.total, 0));
     }
 

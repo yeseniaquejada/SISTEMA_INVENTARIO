@@ -8,7 +8,8 @@
     const nombres = { ENTRADA: 'Compra', SALIDA: 'Uso', MERMA: 'Daño', VENTA: 'Venta', DEVOLUCION: 'Devuelto', 'AJUSTE+': 'Conteo (+)', 'AJUSTE-': 'Conteo (−)' };
     let insumos = [];
 
-    document.getElementById('txtInicio').value = hoy();
+    // Yesenia Quejada Rojas - Claude — 31/10/2026: los movimientos de "hoy" van desde que se abrió la caja que sigue abierta.
+    document.getElementById('txtInicio').value = inicioDia();
     document.getElementById('txtFin').value = hoy();
 
     async function cargarInsumos() {
