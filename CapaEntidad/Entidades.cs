@@ -218,6 +218,9 @@ namespace CapaEntidad
         public List<ProductoModificador> Modificadores { get; set; } = new();
         // Yesenia Quejada Rojas - Claude — 19/10/2026: ingredientes de la receta para ofrecer "Sin ..." al vender.
         public List<IngredienteReceta> Ingredientes { get; set; } = new();
+        // Yesenia Quejada Rojas - Claude — 28/11/2026: productos cuya receta lleva "Caja de empaque", para sugerir las cajas del pedido.
+        // Va aparte porque Ingredientes ya no trae los empaques (script 016) y sin esto las ventas quedaban con 0 cajas gastadas.
+        public List<int> ProductosConCaja { get; set; } = new();
     }
 
     public class IngredienteReceta

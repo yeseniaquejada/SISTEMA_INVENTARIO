@@ -103,7 +103,8 @@
             productos.sort((a, b) => (a.precio === 0 ? 0 : 1) - (b.precio === 0 ? 0 : 1));
             modificadores = cat.modificadores;
             ingredientes = cat.ingredientes || [];
-            productosConCaja = new Set(ingredientes.filter(i => i.nombre === NOMBRE_CAJA).map(i => i.idProducto));
+            // Yesenia Quejada Rojas - Claude — 28/11/2026: los ingredientes ya no traen empaques (solo los "Sin ..."); los productos con caja llegan aparte.
+            productosConCaja = new Set(cat.productosConCaja ?? ingredientes.filter(i => i.nombre === NOMBRE_CAJA).map(i => i.idProducto));
             top = new Map(productos.filter(p => p.vendidos > 0 && p.precio > 0).slice(0, 5).map((p, i) => [p.idProducto, i + 1]));
             cajaAbierta = !!caja;
             $('avisoCaja').hidden = cajaAbierta;
