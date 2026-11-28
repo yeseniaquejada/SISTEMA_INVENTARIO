@@ -335,6 +335,11 @@ namespace CapaDatos
                         Nombre = dr.Texto("Nombre")
                     });
             }, P("@IdSede", idSede));
+            // Yesenia Quejada Rojas - Claude — 28/11/2026: las cajas se sugieren con la receta completa, antes de cambiarla por los quitables
+            // (que no traen empaques). Desde el 24/11 la sugerencia quedaba vacía y cada venta se guardaba con 0 cajas.
+            c.ProductosConCaja = c.Ingredientes
+                .Where(i => string.Equals(i.Nombre?.Trim(), "Caja de empaque", StringComparison.OrdinalIgnoreCase))
+                .Select(i => i.IdProducto).Distinct().ToList();
             if (Quitables() is { } quitables) c.Ingredientes = quitables;
             return c;
         }
